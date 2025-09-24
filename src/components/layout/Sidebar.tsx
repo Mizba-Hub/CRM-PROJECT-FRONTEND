@@ -18,7 +18,7 @@ const nav = [
     label: "Companies",
     Icon: BuildingOffice2Icon,
   },
-  { href: "/dashboard/deals", label: "Deals", Icon: BriefcaseIcon },
+  { href: "/deals", label: "Deals", Icon: BriefcaseIcon },
   { href: "/dashboard/tickets", label: "Tickets", Icon: TicketIcon },
 ];
 
