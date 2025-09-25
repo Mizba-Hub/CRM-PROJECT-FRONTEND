@@ -52,7 +52,7 @@ export function Inputs({
           placeholder={placeholder}
           id={props.name}
           className={`
-      border border-gray-300 rounded px-3 py-2 text-sm 
+      border border-gray-300 rounded px-2 py-1 text-sm 
       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
       placeholder-gray-400
       ${
@@ -84,7 +84,7 @@ export function Inputs({
           {...(props as React.SelectHTMLAttributes<HTMLSelectElement>)}
           id={props.name}
           className={`
-            border border-gray-300 rounded px-3 py-2 text-sm 
+            border border-gray-300 rounded px-2 py-1 text-sm 
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
             ${className ?? ""}
           `}
