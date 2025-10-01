@@ -46,7 +46,7 @@ export default function RegisterPage() {
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    // Basic validations
+    
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
       setError("First name, last name, and email are required");
       return;
@@ -68,7 +68,7 @@ export default function RegisterPage() {
       return;
     }
 
-    // Save user to localStorage
+   
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     users.push({
       firstName: form.firstName,

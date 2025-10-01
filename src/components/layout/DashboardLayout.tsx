@@ -14,7 +14,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       <div className="flex flex-1 mt-14 min-h-0 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 p-4 overflow-auto">{children}</main>
+
+        <main className="flex-1 p-4 grid gap-4 overflow-auto">{children}</main>
       </div>
     </div>
   );

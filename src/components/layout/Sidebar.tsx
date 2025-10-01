@@ -12,14 +12,14 @@ import {
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", Icon: Squares2X2Icon },
-  { href: "/dashboard/leads", label: "Leads", Icon: UserGroupIcon },
+  { href: "/leads", label: "Leads", Icon: UserGroupIcon },
   {
-    href: "/dashboard/companies",
+    href: "/dashboard/modules/companies",
     label: "Companies",
     Icon: BuildingOffice2Icon,
   },
-  { href: "/deals", label: "Deals", Icon: BriefcaseIcon },
-  { href: "/dashboard/tickets", label: "Tickets", Icon: TicketIcon },
+  { href: "/dashboard/modules/deals", label: "Deals", Icon: BriefcaseIcon },
+  { href: "/dashboard/modules/tickets", label: "Tickets", Icon: TicketIcon },
 ];
 
 export default function Sidebar() {
