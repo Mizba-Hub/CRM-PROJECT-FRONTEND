@@ -4,7 +4,6 @@ import React from "react";
 import { Search } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Inputs } from "@/components/ui/Inputs";
-import Heading from "@/components/ui/Heading";
 
 interface Filter {
   label: string;
@@ -42,10 +41,9 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   }
 
   return (
-    <div className="bg-white shadow p-4 mb-2 rounded-lg">
+    <div className="bg-white shadow p-4 mb-4 rounded-lg">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-md font-bold text-black">{title}</h3>
-
         <div className="flex gap-2">
           <Button
             label="Import"
@@ -60,19 +58,19 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-        <div className="flex items-center gap-2 sm:w-auto border border-gray-300 rounded-lg px-3 py-1">
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 w-64 h-10">
           <Search size={16} className="text-gray-400" />
           <Inputs
             variant="input"
             name="header-search"
-            placeholder="Search phone, name, city"
-            className="bg-transparent border-none text-sm text-gray-600 focus:ring-0 focus:border-none"
+            placeholder="Search phone, name, email"
+            className="bg-transparent border-none text-sm text-gray-600 focus:ring-0 focus:border-none flex-1 h-full"
             onChange={(e) => onSearch((e.target as HTMLInputElement).value)}
           />
         </div>
 
-        <div className="flex items-center gap-1 text-xs flex-wrap">
+        <div className="flex items-center gap-1 text-xs">
           <span
             className={`cursor-pointer text-gray-600 hover:text-gray-800 ${
               currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""
@@ -115,36 +113,38 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
       </div>
 
-      {/* Filters inline */}
-      <div className="flex items-center gap-1 h-8 w-42">
+      <div className="flex flex-wrap items-center gap-3 mb-2">
         {filters.map((filter, idx) => (
-          <Inputs
-            key={idx}
-            variant="select"
-            name={`filter-${filter.label}`}
-            placeholder={filter.label}
-            options={filter.options.map((opt) => ({
-              label: opt,
-              value: opt,
-            }))}
-            onChange={(e) =>
-              onFilterChange(
-                filter.label,
-                (e.target as HTMLSelectElement).value
-              )
-            }
-            className="order-gray-300 rounded-lg px-2 py-1 text-sm text-gray-700 bg-white w-40 h-8"
-          />
+          <div key={idx} className="w-40">
+            <Inputs
+              variant="select"
+              name={`filter-${filter.label}`}
+              placeholder={filter.label}
+              options={filter.options.map((opt) => ({
+                label: opt,
+                value: opt,
+              }))}
+              className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10"
+              onChange={(e) =>
+                onFilterChange(
+                  filter.label,
+                  (e.target as HTMLSelectElement).value
+                )
+              }
+            />
+          </div>
         ))}
 
-        <Inputs
-          variant="input"
-          name="filter-date"
-          placeholder="Select date"
-          type="date"
-          className="border-gray-300 rounded-lg px-2 py-1 text-sm text-gray-700 bg-white w-40"
-          onChange={(e) => onDateChange((e.target as HTMLInputElement).value)}
-        />
+        <div className="w-44">
+          <Inputs
+            variant="input"
+            type="date"
+            name="filter-date"
+            placeholder="Created Date"
+            className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10"
+            onChange={(e) => onDateChange((e.target as HTMLInputElement).value)}
+          />
+        </div>
       </div>
     </div>
   );
