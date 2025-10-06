@@ -19,6 +19,8 @@ interface HeaderBarProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+ 
+  onCreate?: () => void;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -30,6 +32,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   currentPage,
   totalPages,
   onPageChange,
+  onCreate,
 }) => {
   const pages: (number | string)[] = [];
   for (let i = 1; i <= totalPages; i++) {
@@ -42,22 +45,16 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
 
   return (
     <div className="bg-white shadow p-4 mb-4 rounded-lg">
+     
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-md font-bold text-black">{title}</h3>
         <div className="flex gap-2">
-          <Button
-            label="Import"
-            variant="secondary"
-            onClick={() => console.log("Import clicked")}
-          />
-          <Button
-            label="Create"
-            variant="primary"
-            onClick={() => console.log("Create clicked")}
-          />
+          <Button label="Import" variant="secondary" />
+          <Button label="Create" variant="primary" onClick={onCreate} />
         </div>
       </div>
 
+      
       <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 w-64 h-10">
           <Search size={16} className="text-gray-400" />
@@ -70,6 +67,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           />
         </div>
 
+        
         <div className="flex items-center gap-1 text-xs">
           <span
             className={`cursor-pointer text-gray-600 hover:text-gray-800 ${
@@ -113,6 +111,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
       </div>
 
+      
       <div className="flex flex-wrap items-center gap-3 mb-2">
         {filters.map((filter, idx) => (
           <div key={idx} className="w-40">
@@ -151,3 +150,4 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
 };
 
 export default HeaderBar;
+
