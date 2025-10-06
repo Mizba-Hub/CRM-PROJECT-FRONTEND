@@ -12,7 +12,7 @@ import {
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", Icon: Squares2X2Icon },
-  { href: "/leads", label: "Leads", Icon: UserGroupIcon },
+  { href: "/dashboard/modules/leads", label: "Leads", Icon: UserGroupIcon },
   {
     href: "/dashboard/modules/companies",
     label: "Companies",
