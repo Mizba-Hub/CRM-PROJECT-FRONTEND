@@ -33,7 +33,7 @@ const Notification: React.FC<NotificationProps> = ({
 
   return (
     <div
-      className={`fixed top-4 right-4 px-4 py-2 rounded-lg text-white shadow-lg ${bgColor} animate-slide-in`}
+      className={`fixed top-4 right-4 px-4 py-2 rounded-lg text-white shadow-lg ${bgColor} animate-slide-in z-[9999]`}
     >
       {message}
     </div>

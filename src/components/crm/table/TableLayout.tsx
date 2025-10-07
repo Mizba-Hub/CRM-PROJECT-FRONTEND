@@ -18,7 +18,7 @@ export const TableRow: React.FC<
   return (
     <tr
       {...props}
-      className={`border-b hover:bg-gray-50 transition-colors ${className}`}
+      className={`border-b border-gray-300 hover:bg-gray-50 transition-colors ${className}`}
     >
       {children}
     </tr>
@@ -31,7 +31,7 @@ export const TableCell: React.FC<
   return (
     <td
       {...props}
-      className={`px-4 py-3 text-sm ${
+      className={`px-4 text-sm ${
         isCheckbox ? "w-8" : "text-left"
       } ${className}`}
     >
@@ -60,7 +60,7 @@ const TableLayout: React.FC<TableLayoutProps> = ({ columns, children }) => {
   };
 
   return (
-    <div className="overflow-x-auto shadow bg-white rounded-lg">
+    <div className="overflow-x-auto shadow bg-white rounded-lg border border-gray-300">
       <table className="w-full table-auto border-collapse">
         <thead>
           <tr className="bg-indigo-700 text-white text-sm">
