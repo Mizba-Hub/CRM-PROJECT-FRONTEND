@@ -48,7 +48,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ heading, activities }) => {
     return (
       <div
         key={idx}
-        className="flex justify-between items-start p-3 border rounded-lg hover:bg-gray-50"
+        className="flex justify-between items-start p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
       >
         <div className="flex-1">
           <p className="text-black flex items-center gap-2 flex-nowrap">

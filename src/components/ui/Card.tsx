@@ -24,28 +24,28 @@ const InfoCard: React.FC<InfoCardProps> = ({
   const actions = [
     {
       label: "Note",
-      icon: <PencilSquareIcon className="h-5 w-5 text-violet-600" />,
+      icon: <PencilSquareIcon className="h-5 w-5 text-indigo-700" />,
     },
     {
       label: "Email",
-      icon: <EnvelopeIcon className="h-5 w-5 text-violet-600" />,
+      icon: <EnvelopeIcon className="h-5 w-5 text-indigo-700" />,
     },
     {
       label: "Call",
-      icon: <PhoneIcon className="h-5 w-5 text-violet-600" />,
+      icon: <PhoneIcon className="h-5 w-5 text-indigo-700" />,
     },
     {
       label: "Task",
-      icon: <ClipboardDocumentListIcon className="h-5 w-5 text-violet-600" />,
+      icon: <ClipboardDocumentListIcon className="h-5 w-5 text-indigo-700" />,
     },
     {
       label: "Meeting",
-      icon: <CalendarDaysIcon className="h-5 w-5 text-violet-600" />,
+      icon: <CalendarDaysIcon className="h-5 w-5 text-indigo-700" />,
     },
   ];
 
   return (
-    <div className="w-80 bg-white border border-gray-200 rounded-md shadow-sm p-4">
+    <div className="w-80 bg-white p-4">
       <div className="flex items-center gap-3 mb-4">
         {logoUrl ? (
           <img
@@ -55,7 +55,7 @@ const InfoCard: React.FC<InfoCardProps> = ({
           />
         ) : (
           <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
-            {/* placeholder */}
+           
           </div>
         )}
         <div className="flex flex-col overflow-hidden">
@@ -64,7 +64,7 @@ const InfoCard: React.FC<InfoCardProps> = ({
           </h3>
           <span className="text-sm text-gray-500 truncate">{entityType}</span>
           {website && (
-            <span className="text-sm text-violet-600 truncate">
+            <span className="text-sm text-black-600 truncate">
               {website.startsWith("http") ? website : `https://${website}`}
             </span>
           )}

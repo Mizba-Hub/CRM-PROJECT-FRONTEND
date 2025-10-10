@@ -41,7 +41,7 @@ export default function Sidebar() {
                 className={[
                   "h-10 w-10 grid place-items-center rounded-xl transition",
                   active
-                    ? "bg-violet-600 text-white ring-2 ring-violet-300"
+                    ? "bg-indigo-700 text-white ring-2 ring-indigo-600"
                     : "text-gray-600 hover:bg-slate-100",
                 ].join(" ")}
               >
@@ -50,7 +50,7 @@ export default function Sidebar() {
               <span
                 className={[
                   "mt-1 text-[11px] leading-4 text-center",
-                  active ? "text-violet-700 font-medium" : "text-gray-600",
+                  active ? "text-indigo-700 font-medium" : "text-gray-600",
                 ].join(" ")}
               >
                 {label}
