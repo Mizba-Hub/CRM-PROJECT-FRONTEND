@@ -238,7 +238,7 @@ export default function RegisterPage() {
         <div className="mt-5">
           <button
             type="submit"
-            className="w-full rounded-md bg-violet-600 py-2.5 text-white hover:bg-violet-500"
+            className="w-full rounded-md bg-indigo-700 py-2.5 text-white hover:bg-indigo-600"
           >
             Register
           </button>

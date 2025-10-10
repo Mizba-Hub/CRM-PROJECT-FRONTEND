@@ -17,7 +17,7 @@ const EntityInfoCard: React.FC<Props> = ({ title, fields, onEdit }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="bg-white rounded-lg shadow border">
+    <div className="bg-white">
      
       <div
         className="flex justify-between items-center p-3 cursor-pointer hover:bg-gray-50"
@@ -25,9 +25,9 @@ const EntityInfoCard: React.FC<Props> = ({ title, fields, onEdit }) => {
       >
         <div className="flex items-center gap-2">
           {isOpen ? (
-            <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
+            <ChevronDownIcon className="w-4 h-4 text-indigo-700" />
           ) : (
-            <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
+            <ChevronRightIcon className="w-4 h-4 text-indigo-700" />
           )}
           <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
         </div>
@@ -40,7 +40,7 @@ const EntityInfoCard: React.FC<Props> = ({ title, fields, onEdit }) => {
             }}
             className="hover:opacity-80"
           >
-            <PencilSquareIcon className="w-4 h-4 text-indigo-600" />
+            <PencilSquareIcon className="w-4 h-4 text-indigo-700" />
           </button>
         )}
       </div>

@@ -26,7 +26,7 @@ export default function Header() {
             <input
               type="search"
               placeholder="Search"
-              className="w-full rounded-md border border-slate-300 pl-8 pr-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full rounded-md border border-slate-300 pl-8 pr-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-700"
             />
           </label>
           <button
@@ -38,7 +38,7 @@ export default function Header() {
           </button>
 
           <div
-            className="h-8 w-8 rounded-full bg-violet-600 text-white grid place-items-center text-sm font-semibold"
+            className="h-8 w-8 rounded-full bg-indigo-700 text-white grid place-items-center text-sm font-semibold"
             aria-label="Account"
           >
             {initial}
