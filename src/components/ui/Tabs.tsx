@@ -4,6 +4,7 @@ import clsx from "clsx";
 
 type TabsContextType = { value: string; setValue: (v: string) => void; idBase: string };
 const TabsCtx = createContext<TabsContextType | null>(null);
+
 function useTabsCtx() {
   const ctx = useContext(TabsCtx);
   if (!ctx) throw new Error("Tabs descendants must be inside <Tabs>");
@@ -51,7 +52,7 @@ export function TabList({
       role="tablist"
       aria-labelledby={`${idBase}-label`}
       aria-orientation={orientation}
-      className={clsx("flex gap-6 border-b", className)}
+      className={clsx("flex gap-4 border-b border-gray-200", className)}
     >
       {children}
     </div>
@@ -59,6 +60,7 @@ export function TabList({
 }
 
 export type TabProps = { value: string; children: React.ReactNode; className?: string };
+
 export function Tab({ value, children, className }: TabProps) {
   const { value: active, setValue, idBase } = useTabsCtx();
   const selected = active === value;
@@ -108,14 +110,24 @@ export function Tab({ value, children, className }: TabProps) {
       onClick={() => setValue(value)}
       onKeyDown={onKeyDown}
       className={clsx(
-        "relative py-3 text-sm font-medium text-gray-600 outline-none",
+        "relative py-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200",
         "focus-visible:ring-2 focus-visible:ring-indigo-500 rounded",
         selected ? "text-black" : "hover:text-gray-900",
         className
       )}
     >
       {children}
-      <span className={clsx("absolute left-0 right-0 -bottom-px h-0.5", selected ? "bg-indigo-600" : "bg-transparent")} />
+
+      
+      <span
+  className={clsx(
+    "absolute left-1/2 -translate-x-1/2 -bottom-[4px] h-[5px] w-[150%] rounded-full transition-all duration-300 ease-in-out",
+    selected ? "bg-indigo-700" : "bg-transparent"
+  )}
+/>
+
+
+
     </button>
   );
 }
@@ -129,6 +141,7 @@ export function TabPanel({ when, children }: { when: string; children: React.Rea
   const selected = value === when;
   const panelId = `${idBase}-panel-${when}`;
   const tabId = `${idBase}-tab-${when}`;
+
   return (
     <div role="tabpanel" id={panelId} aria-labelledby={tabId} hidden={!selected}>
       {selected ? children : null}

@@ -1,15 +1,10 @@
 "use client";
 import React, { useState } from "react";
-import {
-  ClockIcon,
-} from "@heroicons/react/24/outline";
-import {
-  CalendarIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-} from "@heroicons/react/24/solid";
+import { ClockIcon } from "@heroicons/react/24/outline";
+import { CalendarIcon } from "@heroicons/react/24/solid";
+import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { Inputs } from "@/components/ui/Inputs"; 
+import { Inputs } from "@/components/ui/Inputs";
 
 type ActivityType = "note" | "call" | "task" | "email" | "meeting";
 
@@ -48,7 +43,6 @@ const ActivityDetailView: React.FC<Props> = ({
 }) => {
   const [openId, setOpenId] = useState<number | null>(null);
 
- 
   const activitiesByMonth: Record<string, Activity[]> = {};
   activities.forEach((a) => {
     if (a.date) {
@@ -76,7 +70,6 @@ const ActivityDetailView: React.FC<Props> = ({
 
     return (
       <div key={a.id} className="flex flex-col border rounded-lg">
-       
         {a.type === "task" ? (
           <>
             <div
@@ -121,7 +114,9 @@ const ActivityDetailView: React.FC<Props> = ({
                     <p className="text-black font-medium">{a.date}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500">Priority</p>
+                    <p className="text-xs font-medium text-gray-500">
+                      Priority
+                    </p>
                     <p className="text-black font-medium">
                       {a.extra?.priority || "-"}
                     </p>
@@ -141,7 +136,6 @@ const ActivityDetailView: React.FC<Props> = ({
           </>
         ) : a.type === "note" ? (
           <>
-            
             <div
               className="flex justify-between items-start p-3 cursor-pointer hover:bg-gray-50"
               onClick={() => setOpenId(isOpen ? null : a.id)}
@@ -179,7 +173,6 @@ const ActivityDetailView: React.FC<Props> = ({
           </>
         ) : (
           <>
-           
             <div
               className="flex justify-between items-start p-3 cursor-pointer hover:bg-gray-50"
               onClick={() => setOpenId(isOpen ? null : a.id)}
@@ -308,7 +301,6 @@ const ActivityDetailView: React.FC<Props> = ({
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-black">{sectionTitle}</h2>
 
-        
         <Button label={buttonLabel} variant="primary" onClick={onCreate} />
       </div>
       {Object.keys(activitiesByMonth).map((month) => (
@@ -322,19 +314,3 @@ const ActivityDetailView: React.FC<Props> = ({
 };
 
 export default ActivityDetailView;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

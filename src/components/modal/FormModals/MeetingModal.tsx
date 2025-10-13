@@ -12,7 +12,6 @@ import {
   PhotoIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
-
 import { ListOrdered as ListOrderedIcon } from "lucide-react";
 
 export type Meeting = {
@@ -114,6 +113,7 @@ export default function MeetingModal({
     updateFormatState();
   };
 
+  
   const validate = () => {
     const noteContent = editorRef.current?.innerHTML || "";
     const plainNote = editorRef.current?.innerText.trim() || "";
@@ -129,8 +129,10 @@ export default function MeetingModal({
     if (!plainNote) newErrors.note = "Note is required";
 
     setErrors(newErrors);
+
+    
     if (Object.keys(newErrors).length > 0) {
-     
+      notify("⚠️ Please fill all required fields", "error");
       return false;
     }
 
@@ -147,15 +149,11 @@ export default function MeetingModal({
     };
 
     const isValid = onSave(newMeeting);
-    if (!isValid) {
-      notify("⚠️ Failed to save meeting", "error");
-      return false;
-    }
-
-    notify("Meeting saved successfully", "success");
-    return true;
+    if (!isValid) return false; 
+    return true; 
   };
 
+  
   useEffect(() => {
     if (isOpen && editorRef.current) {
       setTitle("");
@@ -200,7 +198,7 @@ export default function MeetingModal({
         {errors.title && <p className="text-red-500 text-xs">{errors.title}</p>}
       </div>
 
-     
+      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Start Date <span className="text-red-500">*</span>
@@ -216,7 +214,7 @@ export default function MeetingModal({
         {errors.startDate && <p className="text-red-500 text-xs">{errors.startDate}</p>}
       </div>
 
-      
+     
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -249,52 +247,50 @@ export default function MeetingModal({
       </div>
 
       
-<div className="mb-3 relative" ref={attendeesRef}>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Attendees <span className="text-red-500">*</span>
-  </label>
-  <button
-    type="button"
-    onClick={() => setShowAttendees((prev) => !prev)}
-    className={`w-full border rounded px-3 py-2 text-left flex justify-between items-center ${
-      errors.attendees ? "border-red-500" : "border-gray-300"
-    }`}
-  >
-    <span className={attendees.length ? "text-black" : "text-gray-400"}>
-      {attendees.length ? attendees.join(", ") : "Choose"}
-    </span>
-    <ChevronDownIcon className="w-3 h-3 text-gray-400" strokeWidth={3.5} />
-  </button>
-
-  {showAttendees && (
-    <div className="absolute mt-1 w-full border border-gray-300 rounded bg-white shadow-md z-10 max-h-40 overflow-y-auto">
-      {availableAttendees.map((person) => (
-        <label
-          key={person}
-          className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
-        >
-          <input
-            type="checkbox"
-            value={person}
-            checked={attendees.includes(person)}
-            onChange={() =>
-              setAttendees((prev) =>
-                prev.includes(person)
-                  ? prev.filter((p) => p !== person)
-                  : [...prev, person]
-              )
-            }
-            className="h-4 w-4 text-purple-600 border-gray-300 rounded"
-          />
-          <span className="text-sm text-gray-700">{person}</span>
+      <div className="mb-3 relative" ref={attendeesRef}>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Attendees <span className="text-red-500">*</span>
         </label>
-      ))}
-    </div>
-  )}
+        <button
+          type="button"
+          onClick={() => setShowAttendees((prev) => !prev)}
+          className={`w-full border rounded px-3 py-2 text-left flex justify-between items-center ${
+            errors.attendees ? "border-red-500" : "border-gray-300"
+          }`}
+        >
+          <span className={attendees.length ? "text-black" : "text-gray-400"}>
+            {attendees.length ? attendees.join(", ") : "Choose"}
+          </span>
+          <ChevronDownIcon className="w-3 h-3 text-gray-400" strokeWidth={3.5} />
+        </button>
 
-  {errors.attendees && <p className="text-red-500 text-xs">{errors.attendees}</p>}
-</div>
-
+        {showAttendees && (
+          <div className="absolute mt-1 w-full border border-gray-300 rounded bg-white shadow-md z-10 max-h-40 overflow-y-auto">
+            {availableAttendees.map((person) => (
+              <label
+                key={person}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  value={person}
+                  checked={attendees.includes(person)}
+                  onChange={() =>
+                    setAttendees((prev) =>
+                      prev.includes(person)
+                        ? prev.filter((p) => p !== person)
+                        : [...prev, person]
+                    )
+                  }
+                  className="h-4 w-4 text-purple-600 border-gray-300 rounded"
+                />
+                <span className="text-sm text-gray-700">{person}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {errors.attendees && <p className="text-red-500 text-xs">{errors.attendees}</p>}
+      </div>
 
       
       <div className="mb-3">
@@ -313,7 +309,7 @@ export default function MeetingModal({
         {errors.location && <p className="text-red-500 text-xs">{errors.location}</p>}
       </div>
 
-      
+     
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Reminder <span className="text-red-500">*</span>
@@ -330,7 +326,7 @@ export default function MeetingModal({
         {errors.reminder && <p className="text-red-500 text-xs">{errors.reminder}</p>}
       </div>
 
-      
+      {/* Note */}
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Note <span className="text-red-500">*</span>
@@ -342,7 +338,7 @@ export default function MeetingModal({
               : "border-gray-300 focus-within:ring-2 focus-within:ring-indigo-600"
           }`}
         >
-          
+          {/* Toolbar */}
           <div className="flex items-center gap-0 border-b border-gray-300 px-2 py-1 bg-white rounded-t">
             <div className="relative">
               <select
@@ -387,7 +383,7 @@ export default function MeetingModal({
             </button>
           </div>
 
-       
+          
           <div className="relative">
             {isEmpty && !isFocused && (
               <span className="absolute left-3 top-2 text-gray-400 pointer-events-none text-sm">
