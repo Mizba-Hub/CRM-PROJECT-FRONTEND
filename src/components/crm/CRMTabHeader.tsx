@@ -2,97 +2,54 @@
 import React from "react";
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@/components/ui/Tabs";
 
+export type ActivityType = "activity" | "note" | "email" | "call" | "task" | "meeting";
 
-export type ActivityType = "note" | "call" | "task" | "email" | "meeting";
-export type CRMTabKey =
-  | "activity"
-  | "notes"
-  | "emails"
-  | "calls"
-  | "tasks"
-  | "meetings";
-
-export type CRMTabHeaderProps = {
-  value?: ActivityType | "activity";
-  defaultValue?: CRMTabKey;
-  onChange?: (k: ActivityType | "activity") => void;
-  renderPanel: (k: ActivityType | "activity") => React.ReactNode;
+interface CRMTabHeaderProps {
+  value?: ActivityType;
+  defaultValue?: ActivityType;
+  onChange?: (tab: ActivityType) => void;
+  renderPanel: (tab: ActivityType, label: string) => React.ReactNode;
   className?: string;
-};
+}
 
+const TABS: { key: ActivityType; label: string }[] = [
+  { key: "activity", label: "Activity" },
+  { key: "note", label: "Notes" },
+  { key: "email", label: "Emails" },
+  { key: "call", label: "Calls" },
+  { key: "task", label: "Tasks" },
+  { key: "meeting", label: "Meetings" },
+];
 
-const LABELS: Record<CRMTabKey, string> = {
-  activity: "Activity",
-  notes: "Notes",
-  emails: "Emails",
-  calls: "Calls",
-  tasks: "Tasks",
-  meetings: "Meetings",
-};
-
-
-const TAB_TO_ACTIVITY: Record<CRMTabKey, ActivityType | "activity"> = {
-  activity: "activity",
-  notes: "note",
-  emails: "email",
-  calls: "call",
-  tasks: "task",
-  meetings: "meeting",
-};
-
-const ACTIVITY_TO_TAB: Record<ActivityType | "activity", CRMTabKey> = {
-  activity: "activity",
-  note: "notes",
-  email: "emails",
-  call: "calls",
-  task: "tasks",
-  meeting: "meetings",
-};
-
-export default function CRMTabHeader({
+const CRMTabHeader: React.FC<CRMTabHeaderProps> = ({
   value,
   defaultValue = "activity",
   onChange,
   renderPanel,
   className,
-}: CRMTabHeaderProps) {
-  const keys: CRMTabKey[] = [
-    "activity",
-    "notes",
-    "emails",
-    "calls",
-    "tasks",
-    "meetings",
-  ];
-
-  
-  const currentTabKey: CRMTabKey = value ? ACTIVITY_TO_TAB[value] : defaultValue;
+}) => {
+  const currentValue = value || defaultValue;
 
   return (
     <Tabs
-      value={currentTabKey}
+      value={currentValue}
       defaultValue={defaultValue}
-      onValueChange={(v) => {
-        const mappedValue = TAB_TO_ACTIVITY[v as CRMTabKey];
-        onChange?.(mappedValue);
-      }}
+      onValueChange={(v) => onChange?.(v as ActivityType)}
       className={className}
     >
      
       <TabList className="flex gap-3 border-b-2 border-gray-200">
-        {keys.map((k) => {
-          const isActive = currentTabKey === k;
+        {TABS.map(({ key, label }) => {
+          const active = currentValue === key;
           return (
             <Tab
-              key={k}
-              value={k}
-              className={`relative pb-3 text-sm font-medium transition-colors duration-200 ${
-                isActive
-                  ? "text-black font-semibold"
-                  : "text-gray-500 hover:text-gray-900"
+              key={key}
+              value={key}
+              className={`pb-3 text-sm font-medium transition ${
+                active ? "text-black font-semibold" : "text-gray-500 hover:text-gray-900"
               }`}
             >
-              {LABELS[k]}
+              {label}
             </Tab>
           );
         })}
@@ -100,12 +57,14 @@ export default function CRMTabHeader({
 
       
       <TabPanels className="mt-4">
-        {keys.map((k) => (
-          <TabPanel key={k} when={k}>
-            {renderPanel(TAB_TO_ACTIVITY[k])}
+        {TABS.map(({ key, label }) => (
+          <TabPanel key={key} when={key}>
+            {renderPanel(key, label)}
           </TabPanel>
         ))}
       </TabPanels>
     </Tabs>
   );
-}
+};
+
+export default CRMTabHeader;

@@ -1,119 +1,61 @@
 "use client";
 
 import React from "react";
-import { CalendarIcon } from "@heroicons/react/24/solid";
-import { ChevronDownIcon } from "lucide-react";
+import ActivityDetailView from "@/components/crm/ActivityDetailView";
+
+export type ActivityType = "note" | "call" | "task" | "email" | "meeting";
 
 export type ActivityItem = {
-  type: "task" | "call" | "meeting" | "email" | "note";
+  id: number;
+  type: ActivityType;
   title: string;
-  description?: string;
-  assignedTo?: string;
+  author: string;
+  date: string;
   dueDate?: string;
-  date?: string;
+  description?: string;
+  content?: string;
   overdue?: boolean;
+  extra?: Record<string, any>;
 };
 
-export type ActivityCardProps = {
+export type ActivitySummaryViewProps = {
   heading: string;
   activities: ActivityItem[];
 };
 
-const ActivitySummaryView: React.FC<ActivityCardProps> = ({
+const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({
   heading,
   activities,
 }) => {
-  const tasks = activities.filter((a) => a.type === "task");
-  const others = activities.filter((a) => a.type !== "task");
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  const activitiesByMonth: Record<string, ActivityItem[]> = {};
-  others.forEach((activity) => {
-    const dateValue = activity.dueDate || activity.date;
-    let monthYear = "No Date";
-
-    if (dateValue) {
-      const date = new Date(dateValue);
-      if (!isNaN(date.getTime())) {
-        monthYear = date.toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        });
-      } else {
-        const parts = dateValue.match(/\b([A-Za-z]+)\b.*(\d{4})/);
-        if (parts) monthYear = `${parts[1]} ${parts[2]}`;
+  const updated = activities.map((a) => {
+    const isTaskOrMeeting = a.type === "task" || a.type === "meeting";
+    const dateValue = a.dueDate || a.date;
+    if (isTaskOrMeeting && dateValue) {
+      const parsed = new Date(dateValue);
+      if (!isNaN(parsed.getTime()) && parsed < today) {
+        return { ...a, overdue: true };
       }
     }
-
-    if (!activitiesByMonth[monthYear]) activitiesByMonth[monthYear] = [];
-    activitiesByMonth[monthYear].push(activity);
+    return a;
   });
 
-  const renderActivity = (activity: ActivityItem, idx: number) => {
-    const [firstWord, ...restWords] = activity.title.split(" ");
-    const restTitle = restWords.join(" ");
-
-    return (
-      <div
-        key={idx}
-        className="flex justify-between items-start p-3 rounded-md border hover:bg-gray-50 transition"
-      >
-        <div className="flex-1">
-          <p className="text-black flex items-center gap-2">
-            <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
-            <span className="font-bold">{firstWord}</span>
-            <span className="truncate">{restTitle}</span>
-          </p>
-
-          {activity.type === "task" ? (
-            <div className="flex items-center gap-2 mt-2 ml-[1.6rem]">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded-full border-2 border-gray-400 accent-indigo-600 appearance-none checked:bg-indigo-600 checked:border-indigo-600 cursor-pointer"
-              />
-              <p className="text-sm text-gray-600">{activity.description}</p>
-            </div>
-          ) : (
-            activity.description && (
-              <p className="text-sm text-gray-500 mt-1 ml-[1.1rem]">
-                {activity.description}
-              </p>
-            )
-          )}
-        </div>
-
-        <div className="text-right text-sm text-gray-400">
-          {(activity.dueDate || activity.date) && (
-            <p className="flex items-center justify-end gap-1">
-              {activity.overdue && (
-                <span className="flex items-center text-red-500 gap-1">
-                  <CalendarIcon className="w-4 h-4" /> Overdue:
-                </span>
-              )}
-              <span>{activity.dueDate || activity.date}</span>
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  };
+  
+  const sorted = [...updated].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   return (
     <div className="w-full">
-      <h2 className="text-base font-semibold text-gray-700 mb-3">{heading}</h2>
-      <div className="space-y-3 mb-6">{tasks.map(renderActivity)}</div>
+      <ActivityDetailView
+        sectionTitle={heading} 
+        activities={sorted}
+      />
 
-      {Object.keys(activitiesByMonth).map((month) => (
-        <div key={month} className="mt-5 space-y-3">
-          <p className="text-sm font-semibold text-gray-500">{month}</p>
-          {activitiesByMonth[month].map(renderActivity)}
-        </div>
-      ))}
-
-      {tasks.length === 0 && Object.keys(activitiesByMonth).length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-4">
-          No activities to show.
-        </p>
-      )}
+     
     </div>
   );
 };

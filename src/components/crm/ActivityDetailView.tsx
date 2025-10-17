@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState } from "react";
 import { ClockIcon } from "@heroicons/react/24/outline";
 import { CalendarIcon } from "@heroicons/react/24/solid";
@@ -29,8 +30,8 @@ interface Activity {
 }
 
 interface Props {
-  sectionTitle: string;
-  buttonLabel: string;
+  sectionTitle?: string;
+  buttonLabel?: string;
   activities: Activity[];
   onCreate?: () => void;
 }
@@ -43,6 +44,7 @@ const ActivityDetailView: React.FC<Props> = ({
 }) => {
   const [openId, setOpenId] = useState<number | null>(null);
 
+  
   const activitiesByMonth: Record<string, Activity[]> = {};
   activities.forEach((a) => {
     if (a.date) {
@@ -63,50 +65,93 @@ const ActivityDetailView: React.FC<Props> = ({
     }
   });
 
+  
   const renderActivity = (a: Activity) => {
     const isOpen = openId === a.id;
     const [firstWord, ...restWords] = a.title.split(" ");
     const restTitle = restWords.join(" ");
 
     return (
-      <div key={a.id} className="flex flex-col border rounded-lg">
-        {a.type === "task" ? (
-          <>
-            <div
-              className="flex flex-col p-3 cursor-pointer hover:bg-gray-50"
-              onClick={() => setOpenId(isOpen ? null : a.id)}
-            >
-              <div className="flex justify-between items-start">
-                <p className="text-black flex items-center gap-2">
-                  {isOpen ? (
-                    <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
-                  ) : (
-                    <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
-                  )}
-                  <span className="font-bold">{firstWord}</span>
-                  <span className="truncate">{restTitle}</span>
-                </p>
-                <div className="text-right text-sm flex items-center gap-1">
-                  {a.overdue && (
-                    <span className="flex items-center text-red-500 gap-1">
-                      <CalendarIcon className="w-4 h-4" /> Overdue:
+      <div
+        key={a.id}
+        className="flex flex-col border border-gray-200 rounded-md hover:bg-gray-50 transition"
+      >
+        
+        <div
+          className="flex justify-between items-start p-3 cursor-pointer"
+          onClick={() => setOpenId(isOpen ? null : a.id)}
+        >
+          <div className="flex-1">
+            {/* Title */}
+            <p className="text-black flex items-center gap-2">
+              {isOpen ? (
+                <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
+              ) : (
+                <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
+              )}
+              <span className="font-bold">{firstWord}</span>
+              <span className="truncate">{restTitle}</span>
+            </p>
+
+            
+            {!isOpen && (
+              <>
+               
+                {a.type === "email" && a.preview && (
+                  <p className="text-sm text-gray-500 mt-1 ml-[1.1rem] truncate">
+                    {a.preview}
+                  </p>
+                )}
+
+                
+                {a.type === "task" ? (
+                  <div className="flex items-center gap-2 mt-1 ml-[1.1rem]">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded-full border-2 border-gray-700 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-600 truncate">
+                      {a.content}
                     </span>
-                  )}
-                  <span className="text-gray-400">{a.date}</span>
+                  </div>
+                ) : (
+                  a.content &&
+                  a.type !== "email" && (
+                    <p className="text-sm text-gray-500 mt-1 ml-[1.1rem] truncate">
+                      {a.content}
+                    </p>
+                  )
+                )}
+              </>
+            )}
+          </div>
+
+          
+          <div className="text-right text-sm text-gray-400 flex items-center gap-1">
+            {a.overdue && (
+              <span className="flex items-center text-red-500 gap-1">
+                <CalendarIcon className="w-4 h-4" /> Overdue:
+              </span>
+            )}
+            <span>{a.date}</span>
+          </div>
+        </div>
+
+        
+        {isOpen && (
+          <div className="px-4 pb-4 text-sm text-gray-700 space-y-3">
+            {a.type === "task" && (
+              <>
+                <div className="flex items-center gap-2 mt-1 ml-[1.1rem]">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded-full border-2 text-gray-700 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-700">{a.content}</span>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 mt-1 ml-[1.5rem]">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded-full border-2 border-black accent-indigo-600 appearance-none checked:bg-indigo-600 checked:border-indigo-600 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span className="text-sm text-gray-700">{a.content}</span>
-              </div>
-            </div>
-            {isOpen && (
-              <div className="px-4 pb-4 text-sm text-gray-700">
-                <div className="grid grid-cols-3 gap-4 bg-gray-50 p-3 rounded mb-3">
+
+               
+                <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4 bg-gray-50 p-3 rounded mt-3">
                   <div>
                     <p className="text-xs font-medium text-gray-500">
                       Due Date & Time
@@ -128,92 +173,23 @@ const ActivityDetailView: React.FC<Props> = ({
                     </p>
                   </div>
                 </div>
+
                 {a.extra?.details && (
-                  <p className="text-gray-700">{a.extra.details}</p>
+                  <p className="text-gray-700 mt-2">{a.extra.details}</p>
                 )}
-              </div>
+              </>
             )}
-          </>
-        ) : a.type === "note" ? (
-          <>
-            <div
-              className="flex justify-between items-start p-3 cursor-pointer hover:bg-gray-50"
-              onClick={() => setOpenId(isOpen ? null : a.id)}
-            >
-              <div className="flex-1">
-                <p className="text-black flex items-center gap-2">
-                  {isOpen ? (
-                    <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
-                  ) : (
-                    <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
-                  )}
-                  <span className="font-bold">{firstWord}</span>
-                  <span className="truncate">{restTitle}</span>
-                </p>
-                {!isOpen && a.content && (
-                  <p className="text-sm text-gray-500 mt-1 ml-[1.01rem] truncate">
-                    {a.content}
-                  </p>
-                )}
-              </div>
-              <div className="text-right text-sm flex items-center gap-1">
-                {a.overdue && (
-                  <span className="flex items-center text-red-500 gap-1">
-                    <CalendarIcon className="w-4 h-4" /> Overdue:
-                  </span>
-                )}
-                <span className="text-gray-400">{a.date}</span>
-              </div>
-            </div>
-            {isOpen && a.content && (
-              <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-line">
-                {a.content}
-              </div>
+
+            {a.type === "note" && a.content && (
+              <p className="whitespace-pre-line">{a.content}</p>
             )}
-          </>
-        ) : (
-          <>
-            <div
-              className="flex justify-between items-start p-3 cursor-pointer hover:bg-gray-50"
-              onClick={() => setOpenId(isOpen ? null : a.id)}
-            >
-              <div className="flex-1">
-                <p className="text-black flex items-center gap-2">
-                  {isOpen ? (
-                    <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
-                  ) : (
-                    <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
-                  )}
-                  <span className="font-bold">{firstWord}</span>
-                  <span className="truncate">{restTitle}</span>
-                </p>
-                {a.preview && a.type === "email" && !isOpen && (
-                  <p className="text-sm text-gray-500 mt-1 ml-[1.01rem]">
-                    {a.preview}
-                  </p>
-                )}
-                {a.content && a.type !== "email" && !isOpen && (
-                  <p className="text-sm text-gray-500 mt-1 ml-[1.01rem]">
-                    {a.content}
-                  </p>
-                )}
-              </div>
-              <div className="text-right text-sm flex items-center gap-1">
-                {a.overdue && (
-                  <span className="flex items-center text-red-500 gap-1">
-                    <CalendarIcon className="w-4 h-4" /> Overdue:
-                  </span>
-                )}
-                <span className="text-gray-400">{a.date}</span>
-              </div>
-            </div>
-            {isOpen && a.type === "email" && a.content && (
-              <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-line">
-                {a.content}
-              </div>
+
+            {a.type === "email" && a.content && (
+              <p className="text-gray-700 whitespace-pre-line">{a.content}</p>
             )}
-            {isOpen && a.type === "call" && (
-              <div className="px-4 pb-4 text-sm text-gray-700">
+
+            {a.type === "call" && (
+              <div>
                 {a.content && (
                   <p className="mb-3 whitespace-pre-line">{a.content}</p>
                 )}
@@ -251,19 +227,20 @@ const ActivityDetailView: React.FC<Props> = ({
                         { label: "30 mins", value: "30" },
                         { label: "1 hr", value: "60" },
                       ]}
-                      className="pr-8 appearance-none "
+                      className="pr-8 appearance-none"
                     />
                     <ClockIcon className="w-4 h-4 text-gray-500 absolute right-2 bottom-2 pointer-events-none" />
                   </div>
                 </div>
               </div>
             )}
-            {isOpen && a.type === "meeting" && (
-              <div className="px-4 pb-4 text-sm text-gray-700">
+
+            {a.type === "meeting" && (
+              <div>
                 <p className="text-xs text-gray-500 mb-2">
-                  Organized by {a.author}
+                  Organized by {a.extra?.organizer || a.author}
                 </p>
-                <div className="grid grid-cols-3 gap-4 bg-gray-50 p-3 rounded mb-3">
+                <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4 bg-gray-50 p-3 rounded mb-3">
                   <div>
                     <p className="text-xs font-medium text-gray-500">
                       Date & Time
@@ -290,25 +267,42 @@ const ActivityDetailView: React.FC<Props> = ({
                 {a.content && <p className="text-gray-700">{a.content}</p>}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     );
   };
 
   return (
-    <div className="p-6 bg-white shadow rounded-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-black">{sectionTitle}</h2>
+    <div className="w-full">
+      
+      {(sectionTitle || buttonLabel) && (
+        <div className="flex justify-between items-center mb-3">
+          {sectionTitle && (
+            <h2 className="text-base font-semibold text-gray-600">
+              {sectionTitle}
+            </h2>
+          )}
+          {buttonLabel && (
+            <Button label={buttonLabel} variant="primary" onClick={onCreate} />
+          )}
+        </div>
+      )}
 
-        <Button label={buttonLabel} variant="primary" onClick={onCreate} />
-      </div>
-      {Object.keys(activitiesByMonth).map((month) => (
-        <div key={month} className="mt-4 space-y-3">
-          <p className="text-sm font-semibold text-gray-500">{month}</p>
+      
+      {Object.keys(activitiesByMonth).map((month, idx) => (
+        <div key={month} className={`${idx === 0 ? "" : "mt-4"} space-y-3`}>
+          <p className="text-sm font-semibold text-gray-600">{month}</p>
           {activitiesByMonth[month].map(renderActivity)}
         </div>
       ))}
+
+      
+      {activities.length === 0 && (
+        <p className="text-sm text-gray-400 text-center py-4">
+          No activities to show.
+        </p>
+      )}
     </div>
   );
 };

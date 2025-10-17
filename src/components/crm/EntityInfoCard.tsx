@@ -22,13 +22,13 @@ interface Props {
 }
 
 const EntityInfoCard: React.FC<Props> = ({ title, fields, onEdit, onSave, onCancel, isEditing = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <div className="bg-white">
+    <div className="bg-white px-2">
      
       <div
-        className="flex justify-between items-center p-3 cursor-pointer hover:bg-gray-50"
+        className="flex justify-between items-center px-1 m-2 cursor-pointer "
         onClick={() => !isEditing && setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2">
