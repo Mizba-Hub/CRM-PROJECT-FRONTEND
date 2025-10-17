@@ -18,6 +18,7 @@ interface CallModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (call: Call) => boolean;
+  connectedPerson?: string; 
 }
 
 export type Call = {
@@ -29,13 +30,17 @@ export type Call = {
   note: string;
 };
 
-export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
-  const [connected] = useState("Jane Cooper"); 
+export default function CallModal({
+  isOpen,
+  onClose,
+  onSave,
+  connectedPerson, 
+}: CallModalProps) {
+  const [connected, setConnected] = useState(connectedPerson || "");
   const [outcome, setOutcome] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
 
- 
   const editorRef = useRef<HTMLDivElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
@@ -130,19 +135,18 @@ export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
     return true;
   };
 
-  
+ 
   useEffect(() => {
-    if (isOpen && editorRef.current) {
+    if (isOpen) {
+      setConnected(connectedPerson || "");
       setOutcome("");
       setDate("");
       setTime("");
-      editorRef.current.innerHTML = "";
+      if (editorRef.current) editorRef.current.innerHTML = "";
       setIsEmpty(true);
       setErrors({});
-      setActiveFormats({ bold: false, italic: false, underline: false, ul: false, ol: false });
-      setBlockType("p");
     }
-  }, [isOpen]);
+  }, [isOpen, connectedPerson]);
 
   return (
     <ModalWrapper
@@ -167,7 +171,9 @@ export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
           disabled
           className="bg-gray-100 text-gray-700"
         />
-        {errors.connected && <p className="text-red-500 text-sm mt-1">{errors.connected}</p>}
+        {errors.connected && (
+          <p className="text-red-500 text-sm mt-1">{errors.connected}</p>
+        )}
       </div>
 
       
@@ -189,7 +195,9 @@ export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
           ]}
           className={errors.outcome ? "border-red-500" : ""}
         />
-        {errors.outcome && <p className="text-red-500 text-sm mt-1">{errors.outcome}</p>}
+        {errors.outcome && (
+          <p className="text-red-500 text-sm mt-1">{errors.outcome}</p>
+        )}
       </div>
 
       
@@ -206,7 +214,9 @@ export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
             onChange={(e) => setDate(e.target.value)}
             className={errors.date ? "border-red-500" : ""}
           />
-          {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date}</p>}
+          {errors.date && (
+            <p className="text-red-500 text-sm mt-1">{errors.date}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -220,15 +230,17 @@ export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
             onChange={(e) => setTime(e.target.value)}
             className={errors.time ? "border-red-500" : ""}
           />
-          {errors.time && <p className="text-red-500 text-sm mt-1">{errors.time}</p>}
+          {errors.time && (
+            <p className="text-red-500 text-sm mt-1">{errors.time}</p>
+          )}
         </div>
       </div>
 
-      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Note <span className="text-red-500">*</span>
         </label>
+
         <div
           className={`w-full border rounded ${
             errors.note
@@ -261,38 +273,49 @@ export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
               <ChevronDownIcon className="w-3 h-3 absolute right-2.5 top-1.5 pointer-events-none text-gray-700" />
             </div>
 
+            
             <button
               onClick={() => format("bold")}
               type="button"
-              className={`p-2 rounded ${activeFormats.bold ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.bold ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <BoldIcon className="w-4 h-4 text-gray-600" />
             </button>
             <button
               onClick={() => format("italic")}
               type="button"
-              className={`p-2 rounded ${activeFormats.italic ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.italic ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <ItalicIcon className="w-4 h-4 text-gray-600" />
             </button>
             <button
               onClick={() => format("underline")}
               type="button"
-              className={`p-2 rounded ${activeFormats.underline ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.underline ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <UnderlineIcon className="w-4 h-4 text-gray-600" />
             </button>
             <button
               onClick={() => format("insertUnorderedList")}
               type="button"
-              className={`p-2 rounded ${activeFormats.ul ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.ul ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <ListBulletIcon className="w-4 h-4 text-gray-600" />
             </button>
             <button
               onClick={() => format("insertOrderedList")}
               type="button"
-              className={`p-2 rounded ${activeFormats.ol ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.ol ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <ListOrderedIcon className="w-4 h-4 text-gray-600" />
             </button>
@@ -334,7 +357,10 @@ export default function CallModal({ isOpen, onClose, onSave }: CallModalProps) {
             />
           </div>
         </div>
-        {errors.note && <p className="text-red-500 text-sm mt-1">{errors.note}</p>}
+
+        {errors.note && (
+          <p className="text-red-500 text-sm mt-1">{errors.note}</p>
+        )}
       </div>
     </ModalWrapper>
   );

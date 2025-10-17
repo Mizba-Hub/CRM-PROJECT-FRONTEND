@@ -35,3 +35,16 @@ export const { handlers, auth } = NextAuth({
   ],
   session: { strategy: "jwt" },
 });
+export const getCurrentUserName = (): string => {
+  try {
+    const authToken = localStorage.getItem("auth_token");
+    if (!authToken) return "User";
+    
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const user = users.find((u: any) => u.email === authToken);
+    return user ? user.firstName : "User";
+  } catch {
+    return "User";
+  }
+};
+

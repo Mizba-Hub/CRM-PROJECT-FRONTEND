@@ -30,7 +30,7 @@ export default function Button({
 
         label.length <= 6
           ? "text-sm"
-          : label.length <= 12
+          : label.length <= 15
           ? "text-sm"
           : "text-xs",
 
