@@ -19,7 +19,7 @@ interface HeaderBarProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
- 
+  activeFilters: Record<string, string>;
   onCreate?: () => void;
 }
 
@@ -32,117 +32,152 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   currentPage,
   totalPages,
   onPageChange,
+  activeFilters,
   onCreate,
 }) => {
   const pages: (number | string)[] = [];
-  for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) {
-      pages.push(i);
-    } else if (pages[pages.length - 1] !== "...") {
-      pages.push("...");
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (currentPage > 4) pages.push("...");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) {
+      if (i !== 1 && i !== totalPages) pages.push(i);
     }
+    if (currentPage < totalPages - 3) pages.push("...");
+    pages.push(totalPages);
   }
 
   return (
-    <div className="bg-white shadow p-4 mb-4 rounded-lg">
-     
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-md font-bold text-black">{title}</h3>
-        <div className="flex gap-2">
-          <Button label="Import" variant="secondary" />
-          <Button label="Create" variant="primary" onClick={onCreate} />
+    <div className="bg-white shadow rounded-lg pb-2">
+      <div className="w-full">
+        <div className="flex justify-between items-center px-4 pt-4">
+          <h3 className="text-md font-bold text-black">{title}</h3>
+          <div className="flex gap-2">
+            <Button label="Import" variant="secondary" />
+            <Button label="Create" variant="primary" onClick={onCreate} />
+          </div>
         </div>
+        <div className="border-b border-gray-100 w-full mt-2"></div>
       </div>
 
-      
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 w-64 h-10">
-          <Search size={16} className="text-gray-400" />
-          <Inputs
-            variant="input"
-            name="header-search"
-            placeholder="Search phone, name, email"
-            className="bg-transparent border-none text-sm text-gray-600 focus:ring-0 focus:border-none flex-1 h-full"
-            onChange={(e) => onSearch((e.target as HTMLInputElement).value)}
-          />
-        </div>
-
-        
-        <div className="flex items-center gap-1 text-xs">
-          <span
-            className={`cursor-pointer text-gray-600 hover:text-gray-800 ${
-              currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            onClick={() => currentPage > 1 && onPageChange(currentPage - 1)}
-          >
-            ← Previous
-          </span>
-
-          {pages.map((page, idx) =>
-            typeof page === "number" ? (
-              <span
-                key={idx}
-                className={`cursor-pointer px-2 py-1 rounded ${
-                  page === currentPage
-                    ? "bg-indigo-700 text-white"
-                    : "text-gray-700 hover:bg-gray-200"
-                }`}
-                onClick={() => onPageChange(page)}
-              >
-                {page}
-              </span>
-            ) : (
-              <span key={idx} className="px-1 text-gray-400">
-                …
-              </span>
-            )
-          )}
-
-          <span
-            className={`cursor-pointer text-gray-600 hover:text-gray-800 ${
-              currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            onClick={() =>
-              currentPage < totalPages && onPageChange(currentPage + 1)
-            }
-          >
-            Next →
-          </span>
-        </div>
-      </div>
-
-      
-      <div className="flex flex-wrap items-center gap-3 mb-2">
-        {filters.map((filter, idx) => (
-          <div key={idx} className="w-40">
+      <div className="w-full">
+        <div className="flex justify-between items-center flex-wrap gap-3 px-4 py-2">
+          <div className="flex items-center w-64 h-9 rounded-lg bg-gray-100 border border-gray-300 px-2">
+            <Search size={16} className="text-gray-400" />
             <Inputs
-              variant="select"
-              name={`filter-${filter.label}`}
-              placeholder={filter.label}
-              options={filter.options.map((opt) => ({
-                label: opt,
-                value: opt,
-              }))}
-              className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10"
-              onChange={(e) =>
-                onFilterChange(
-                  filter.label,
-                  (e.target as HTMLSelectElement).value
-                )
-              }
+              variant="input"
+              name="header-search"
+              placeholder="Search phone, name, email"
+              className="flex-1 h-full bg-transparent border-none text-xs text-gray-600 focus:ring-0 focus:border-none px-1"
+              onChange={(e) => onSearch((e.target as HTMLInputElement).value)}
             />
           </div>
-        ))}
 
-        <div className="w-44">
+          <div className="flex items-center justify-center space-x-1 text-[9px] select-none py-2">
+            <button
+              onClick={() => currentPage > 1 && onPageChange(currentPage - 1)}
+              className={`px-3 py-2 text-xs rounded transition-all duration-150 ${
+                currentPage === 1
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-indigo-700 hover:text-indigo-900"
+              }`}
+            >
+              ← Previous
+            </button>
+
+            {pages.map((page, idx) =>
+              typeof page === "number" ? (
+                <button
+                  key={idx}
+                  onClick={() => onPageChange(page)}
+                  className={`w-6 h-6 flex items-center justify-center rounded-md transition-all duration-150 ${
+                    page === currentPage
+                      ? "bg-indigo-600 text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {page}
+                </button>
+              ) : (
+                <span key={idx} className="px-1 text-gray-400">
+                  {page}
+                </span>
+              )
+            )}
+
+            <button
+              onClick={() =>
+                currentPage < totalPages && onPageChange(currentPage + 1)
+              }
+              className={` px-3 py-2  text-xs flex items-center justify-center text-md rounded-md transition-all duration-150 ${
+                currentPage === totalPages
+                  ? " text-gray-400 cursor-not-allowed"
+                  : " text-indigo-700  "
+              }`}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+        <div className="border-b border-gray-300 w-full"></div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-2 px-4 mt-3">
+        {filters.map((filter, idx) => {
+          const selected = activeFilters[filter.label] || "";
+          return (
+            <div key={idx} className="w-40">
+              {selected ? (
+                <div className="flex items-center justify-between border border-gray-200 rounded-lg px-3 text-sm text-gray-600 bg-white h-10">
+                  <span>{selected}</span>
+                  <span
+                    className="ml-2 cursor-pointer text-lg"
+                    onClick={() => onFilterChange(filter.label, "")}
+                  >
+                    ×
+                  </span>
+                </div>
+              ) : (
+                <select
+                  name={`filter-${filter.label}`}
+                  value=""
+                  onChange={(e) => onFilterChange(filter.label, e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 pr-10 text-sm text-gray-600 bg-white w-full h-10 focus:outline-none focus:ring-0"
+                >
+                  <option value="">{filter.label}</option>
+                  {filter.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          );
+        })}
+
+        <div className="w-44 relative">
           <Inputs
             variant="input"
             type="date"
             name="filter-date"
             placeholder="Created Date"
-            className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10"
+            className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
+            value={activeFilters["Date"] || ""}
             onChange={(e) => onDateChange((e.target as HTMLInputElement).value)}
           />
+          {activeFilters["Date"] && (
+            <span
+              onClick={() => onFilterChange("Date", "")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-700"
+            >
+              ×
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -150,4 +185,3 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
 };
 
 export default HeaderBar;
-
