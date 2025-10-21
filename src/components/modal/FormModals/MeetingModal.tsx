@@ -13,6 +13,7 @@ import {
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { ListOrdered as ListOrderedIcon } from "lucide-react";
+import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
 
 export type Meeting = {
   id: number;
@@ -24,6 +25,8 @@ export type Meeting = {
   location: string;
   reminder: string;
   note: string;
+  duration?: string;
+  attendeeCount?: number;
 };
 
 interface MeetingModalProps {
@@ -32,11 +35,7 @@ interface MeetingModalProps {
   onSave: (meeting: Meeting) => boolean;
 }
 
-export default function MeetingModal({
-  isOpen,
-  onClose,
-  onSave,
-}: MeetingModalProps) {
+export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalProps) {
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -62,19 +61,14 @@ export default function MeetingModal({
   ];
 
   const attendeesRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (attendeesRef.current && !attendeesRef.current.contains(e.target as Node)) {
         setShowAttendees(false);
       }
     };
-    if (showAttendees) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    if (showAttendees) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showAttendees]);
 
   
@@ -129,8 +123,6 @@ export default function MeetingModal({
     if (!plainNote) newErrors.note = "Note is required";
 
     setErrors(newErrors);
-
-    
     if (Object.keys(newErrors).length > 0) {
       notify("⚠️ Please fill all required fields", "error");
       return false;
@@ -146,11 +138,13 @@ export default function MeetingModal({
       location,
       reminder,
       note: noteContent,
+      duration: calculateDuration(startTime, endTime),
+      attendeeCount: getAttendeeCount(attendees),
     };
 
     const isValid = onSave(newMeeting);
-    if (!isValid) return false; 
-    return true; 
+    if (!isValid) return false;
+    return true;
   };
 
   
@@ -214,7 +208,7 @@ export default function MeetingModal({
         {errors.startDate && <p className="text-red-500 text-xs">{errors.startDate}</p>}
       </div>
 
-     
+      
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -223,7 +217,6 @@ export default function MeetingModal({
           <Inputs
             variant="input"
             type="time"
-            name="startTime"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
             className={errors.startTime ? "border-red-500" : ""}
@@ -237,7 +230,6 @@ export default function MeetingModal({
           <Inputs
             variant="input"
             type="time"
-            name="endTime"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
             className={errors.endTime ? "border-red-500" : ""}
@@ -253,8 +245,8 @@ export default function MeetingModal({
         </label>
         <button
           type="button"
-          onClick={() => setShowAttendees((prev) => !prev)}
-          className={`w-full border rounded px-3 py-2 text-left flex justify-between items-center ${
+          onClick={() => setShowAttendees((p) => !p)}
+          className={`w-full border rounded px-3 py-2 flex justify-between items-center ${
             errors.attendees ? "border-red-500" : "border-gray-300"
           }`}
         >
@@ -263,7 +255,6 @@ export default function MeetingModal({
           </span>
           <ChevronDownIcon className="w-3 h-3 text-gray-400" strokeWidth={3.5} />
         </button>
-
         {showAttendees && (
           <div className="absolute mt-1 w-full border border-gray-300 rounded bg-white shadow-md z-10 max-h-40 overflow-y-auto">
             {availableAttendees.map((person) => (
@@ -273,7 +264,6 @@ export default function MeetingModal({
               >
                 <input
                   type="checkbox"
-                  value={person}
                   checked={attendees.includes(person)}
                   onChange={() =>
                     setAttendees((prev) =>
@@ -282,7 +272,7 @@ export default function MeetingModal({
                         : [...prev, person]
                     )
                   }
-                  className="h-4 w-4 text-purple-600 border-gray-300 rounded"
+                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
                 />
                 <span className="text-sm text-gray-700">{person}</span>
               </label>
@@ -309,7 +299,7 @@ export default function MeetingModal({
         {errors.location && <p className="text-red-500 text-xs">{errors.location}</p>}
       </div>
 
-     
+      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Reminder <span className="text-red-500">*</span>
@@ -326,11 +316,12 @@ export default function MeetingModal({
         {errors.reminder && <p className="text-red-500 text-xs">{errors.reminder}</p>}
       </div>
 
-      {/* Note */}
+      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Note <span className="text-red-500">*</span>
         </label>
+
         <div
           className={`w-full border rounded ${
             errors.note
@@ -338,7 +329,7 @@ export default function MeetingModal({
               : "border-gray-300 focus-within:ring-2 focus-within:ring-indigo-600"
           }`}
         >
-          {/* Toolbar */}
+          
           <div className="flex items-center gap-0 border-b border-gray-300 px-2 py-1 bg-white rounded-t">
             <div className="relative">
               <select
@@ -356,19 +347,20 @@ export default function MeetingModal({
               </select>
               <ChevronDownIcon className="w-3 h-3 absolute right-2.5 top-1.5 pointer-events-none text-gray-700" />
             </div>
-            <button onClick={() => format("bold")} type="button" className={`p-2 rounded ${activeFormats.bold ? "bg-purple-200" : "hover:bg-gray-200"}`}>
+
+            <button onClick={() => format("bold")} type="button" className={`p-2 rounded ${activeFormats.bold ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
               <BoldIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("italic")} type="button" className={`p-2 rounded ${activeFormats.italic ? "bg-purple-200" : "hover:bg-gray-200"}`}>
+            <button onClick={() => format("italic")} type="button" className={`p-2 rounded ${activeFormats.italic ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
               <ItalicIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("underline")} type="button" className={`p-2 rounded ${activeFormats.underline ? "bg-purple-200" : "hover:bg-gray-200"}`}>
+            <button onClick={() => format("underline")} type="button" className={`p-2 rounded ${activeFormats.underline ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
               <UnderlineIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("insertUnorderedList")} type="button" className={`p-2 rounded ${activeFormats.ul ? "bg-purple-200" : "hover:bg-gray-200"}`}>
+            <button onClick={() => format("insertUnorderedList")} type="button" className={`p-2 rounded ${activeFormats.ul ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
               <ListBulletIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("insertOrderedList")} type="button" className={`p-2 rounded ${activeFormats.ol ? "bg-purple-200" : "hover:bg-gray-200"}`}>
+            <button onClick={() => format("insertOrderedList")} type="button" className={`p-2 rounded ${activeFormats.ol ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
               <ListOrderedIcon className="w-4 h-4 text-gray-600" />
             </button>
             <button
@@ -383,7 +375,7 @@ export default function MeetingModal({
             </button>
           </div>
 
-          
+         
           <div className="relative">
             {isEmpty && !isFocused && (
               <span className="absolute left-3 top-2 text-gray-400 pointer-events-none text-sm">

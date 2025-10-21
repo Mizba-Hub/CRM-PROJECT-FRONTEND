@@ -35,24 +35,36 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   activeFilters,
   onCreate,
 }) => {
+  
+
   const pages: (number | string)[] = [];
 
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) pages.push(i);
   } else {
-    pages.push(1);
-    if (currentPage > 4) pages.push("...");
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) {
-      if (i !== 1 && i !== totalPages) pages.push(i);
+    if (currentPage <= 3) {
+      
+      pages.push(1, 2, 3, "...", totalPages - 1, totalPages);
+    } else if (currentPage >= totalPages - 2) {
+      
+      pages.push(1, 2, "...", totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      
+      pages.push(
+        1,
+        "...",
+        currentPage - 1,
+        currentPage,
+        currentPage + 1,
+        "...",
+        totalPages
+      );
     }
-    if (currentPage < totalPages - 3) pages.push("...");
-    pages.push(totalPages);
   }
+  
 
   return (
-    <div className="bg-white shadow rounded-lg pb-2">
+    <div className="bg-white  pb-2">
       <div className="w-full">
         <div className="flex justify-between items-center px-4 pt-4">
           <h3 className="text-md font-bold text-black">{title}</h3>
@@ -61,7 +73,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             <Button label="Create" variant="primary" onClick={onCreate} />
           </div>
         </div>
-        <div className="border-b border-gray-100 w-full mt-2"></div>
+        <div className="w-full border-b-2 border-gray-100  mt-2"></div>
       </div>
 
       <div className="w-full">
@@ -77,10 +89,10 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-center space-x-1 text-[9px] select-none py-2">
+          <div className="flex items-center justify-center space-x-1 text-[13px] select-none py-2">
             <button
               onClick={() => currentPage > 1 && onPageChange(currentPage - 1)}
-              className={`px-3 py-2 text-xs rounded transition-all duration-150 ${
+              className={`px-3 py-2 text-s rounded transition-all duration-150 ${
                 currentPage === 1
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-indigo-700 hover:text-indigo-900"
@@ -113,7 +125,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               onClick={() =>
                 currentPage < totalPages && onPageChange(currentPage + 1)
               }
-              className={` px-3 py-2  text-xs flex items-center justify-center text-md rounded-md transition-all duration-150 ${
+              className={` px-3 py-2  text-s flex items-center justify-center text-md rounded-md transition-all duration-150 ${
                 currentPage === totalPages
                   ? " text-gray-400 cursor-not-allowed"
                   : " text-indigo-700  "
@@ -123,7 +135,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             </button>
           </div>
         </div>
-        <div className="border-b border-gray-300 w-full"></div>
+        <div className="w-full border-b-3 border-gray-100"></div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-2 px-4 mt-3">

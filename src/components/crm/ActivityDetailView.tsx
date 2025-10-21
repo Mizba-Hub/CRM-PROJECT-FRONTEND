@@ -68,8 +68,27 @@ const ActivityDetailView: React.FC<Props> = ({
   
   const renderActivity = (a: Activity) => {
     const isOpen = openId === a.id;
-    const [firstWord, ...restWords] = a.title.split(" ");
-    const restTitle = restWords.join(" ");
+    const isEmail = a.type === "email";
+
+    
+    let boldPart = "";
+    let subjectPart = "";
+    let restPart = "";
+
+    if (isEmail) {
+      
+      const parts = a.title.split("–");
+      boldPart = parts[0]?.trim() || "";
+      if (parts[1]) {
+        const afterDash = parts[1].split("by");
+        subjectPart = afterDash[0]?.trim() || "";
+        restPart = `by ${afterDash[1]?.trim() || ""}`;
+      }
+    } else {
+      const words = a.title.split(" ");
+      boldPart = words[0];
+      restPart = words.slice(1).join(" ");
+    }
 
     return (
       <div
@@ -82,33 +101,44 @@ const ActivityDetailView: React.FC<Props> = ({
           onClick={() => setOpenId(isOpen ? null : a.id)}
         >
           <div className="flex-1">
-            {/* Title */}
+            
             <p className="text-black flex items-center gap-2">
               {isOpen ? (
                 <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
               ) : (
                 <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
               )}
-              <span className="font-bold">{firstWord}</span>
-              <span className="truncate">{restTitle}</span>
+              
+              <span className="font-bold">{boldPart}</span>
+              
+              {isEmail && subjectPart ? (
+                <>
+                  <span className="font-bold text-gray-800 truncate">
+                    {" "}
+                    – {subjectPart}
+                  </span>
+                  {restPart && (
+                    <span className="truncate text-gray-600">{` ${restPart}`}</span>
+                  )}
+                </>
+              ) : (
+                restPart && <span className="truncate">{` ${restPart}`}</span>
+              )}
             </p>
 
             
             {!isOpen && (
               <>
-               
-                {a.type === "email" && a.preview && (
-                  <p className="text-sm text-gray-500 mt-1 ml-[1.1rem] truncate">
+                {isEmail && a.preview && (
+                  <p className="text-sm text-gray-800 mt-1 ml-[1.1rem] truncate font-bold">
                     {a.preview}
                   </p>
                 )}
-
-                
                 {a.type === "task" ? (
                   <div className="flex items-center gap-2 mt-1 ml-[1.1rem]">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded-full border-2 border-gray-700 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                      className="h-4 w-4 rounded-full border-2 border-gray-400 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
                     />
                     <span className="text-sm text-gray-600 truncate">
                       {a.content}
@@ -145,12 +175,10 @@ const ActivityDetailView: React.FC<Props> = ({
                 <div className="flex items-center gap-2 mt-1 ml-[1.1rem]">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded-full border-2 text-gray-700 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                    className="h-4 w-4 rounded-full border-2 border-gray-400 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
                   />
                   <span className="text-sm text-gray-700">{a.content}</span>
                 </div>
-
-               
                 <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4 bg-gray-50 p-3 rounded mt-3">
                   <div>
                     <p className="text-xs font-medium text-gray-500">
@@ -159,9 +187,7 @@ const ActivityDetailView: React.FC<Props> = ({
                     <p className="text-black font-medium">{a.date}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500">
-                      Priority
-                    </p>
+                    <p className="text-xs font-medium text-gray-500">Priority</p>
                     <p className="text-black font-medium">
                       {a.extra?.priority || "-"}
                     </p>
@@ -173,7 +199,6 @@ const ActivityDetailView: React.FC<Props> = ({
                     </p>
                   </div>
                 </div>
-
                 {a.extra?.details && (
                   <p className="text-gray-700 mt-2">{a.extra.details}</p>
                 )}
@@ -184,8 +209,19 @@ const ActivityDetailView: React.FC<Props> = ({
               <p className="whitespace-pre-line">{a.content}</p>
             )}
 
-            {a.type === "email" && a.content && (
-              <p className="text-gray-700 whitespace-pre-line">{a.content}</p>
+            {isEmail && (
+              <>
+                {a.preview && (
+                  <p className="text-base font-bold text-gray-800">
+                    {a.preview}
+                  </p>
+                )}
+                {a.content && (
+                  <p className="text-gray-700 whitespace-pre-line">
+                    {a.content}
+                  </p>
+                )}
+              </>
             )}
 
             {a.type === "call" && (
@@ -275,7 +311,6 @@ const ActivityDetailView: React.FC<Props> = ({
 
   return (
     <div className="w-full">
-      
       {(sectionTitle || buttonLabel) && (
         <div className="flex justify-between items-center mb-3">
           {sectionTitle && (
@@ -289,7 +324,6 @@ const ActivityDetailView: React.FC<Props> = ({
         </div>
       )}
 
-      
       {Object.keys(activitiesByMonth).map((month, idx) => (
         <div key={month} className={`${idx === 0 ? "" : "mt-4"} space-y-3`}>
           <p className="text-sm font-semibold text-gray-600">{month}</p>
@@ -297,7 +331,6 @@ const ActivityDetailView: React.FC<Props> = ({
         </div>
       ))}
 
-      
       {activities.length === 0 && (
         <p className="text-sm text-gray-400 text-center py-4">
           No activities to show.
