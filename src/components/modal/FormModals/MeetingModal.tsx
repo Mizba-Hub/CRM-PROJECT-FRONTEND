@@ -24,6 +24,8 @@ export type Meeting = {
   location: string;
   reminder: string;
   note: string;
+  duration?: string;
+  attendeeCount?: number;
 };
 
 interface MeetingModalProps {
@@ -91,6 +93,23 @@ export default function MeetingModal({
   const [blockType, setBlockType] = useState("p");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  
+  const calculateDuration = (start: string, end: string): string => {
+    if (!start || !end) return "-";
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    const diff = eh * 60 + em - (sh * 60 + sm);
+    if (diff <= 0) return "-";
+    const hrs = Math.floor(diff / 60);
+    const mins = diff % 60;
+    return hrs > 0
+      ? `${hrs} hr${hrs > 1 ? "s" : ""}${mins > 0 ? ` ${mins} mins` : ""}`
+      : `${mins} mins`;
+  };
+
+  
+  const getAttendeeCount = (arr: string[]) => arr?.length || 0;
+
   const format = (command: string, value?: string) => {
     if (editorRef.current) editorRef.current.focus();
     document.execCommand(command, false, value);
@@ -113,7 +132,7 @@ export default function MeetingModal({
     updateFormatState();
   };
 
-  
+ 
   const validate = () => {
     const noteContent = editorRef.current?.innerHTML || "";
     const plainNote = editorRef.current?.innerText.trim() || "";
@@ -129,13 +148,12 @@ export default function MeetingModal({
     if (!plainNote) newErrors.note = "Note is required";
 
     setErrors(newErrors);
-
-    
     if (Object.keys(newErrors).length > 0) {
       notify("⚠️ Please fill all required fields", "error");
       return false;
     }
 
+    
     const newMeeting: Meeting = {
       id: Date.now(),
       title,
@@ -146,14 +164,15 @@ export default function MeetingModal({
       location,
       reminder,
       note: noteContent,
+      duration: calculateDuration(startTime, endTime),
+      attendeeCount: getAttendeeCount(attendees),
     };
 
     const isValid = onSave(newMeeting);
-    if (!isValid) return false; 
-    return true; 
+    if (!isValid) return false;
+    return true;
   };
 
-  
   useEffect(() => {
     if (isOpen && editorRef.current) {
       setTitle("");
@@ -198,7 +217,7 @@ export default function MeetingModal({
         {errors.title && <p className="text-red-500 text-xs">{errors.title}</p>}
       </div>
 
-      
+     
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Start Date <span className="text-red-500">*</span>
@@ -214,7 +233,7 @@ export default function MeetingModal({
         {errors.startDate && <p className="text-red-500 text-xs">{errors.startDate}</p>}
       </div>
 
-     
+      
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -309,7 +328,7 @@ export default function MeetingModal({
         {errors.location && <p className="text-red-500 text-xs">{errors.location}</p>}
       </div>
 
-     
+      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Reminder <span className="text-red-500">*</span>
@@ -326,7 +345,7 @@ export default function MeetingModal({
         {errors.reminder && <p className="text-red-500 text-xs">{errors.reminder}</p>}
       </div>
 
-      {/* Note */}
+      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Note <span className="text-red-500">*</span>
@@ -338,7 +357,7 @@ export default function MeetingModal({
               : "border-gray-300 focus-within:ring-2 focus-within:ring-indigo-600"
           }`}
         >
-          {/* Toolbar */}
+          
           <div className="flex items-center gap-0 border-b border-gray-300 px-2 py-1 bg-white rounded-t">
             <div className="relative">
               <select
