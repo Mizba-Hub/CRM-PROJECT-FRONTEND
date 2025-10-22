@@ -1,7 +1,10 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { registerFailure, registerSuccess } from "@/store/slices/authSlice";
 
 type Form = {
   firstName: string;
@@ -29,8 +32,10 @@ const initial: Form = {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { error } = useAppSelector((state) => state.auth);
+
   const [form, setForm] = useState<Form>(initial);
-  const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -39,38 +44,43 @@ export default function RegisterPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-    setError(null);
     setOk(false);
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-      setError("First name, last name, and email are required");
+      dispatch(
+        registerFailure("First name, last name, and email are required")
+      );
       return;
     }
 
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
     if (!emailOk) {
-      setError("Enter a valid email");
+      dispatch(registerFailure("Enter a valid email"));
       return;
     }
 
     if (!form.password.trim() || !form.confirm.trim()) {
-      setError("Password and confirm password are required");
+      dispatch(registerFailure("Password and confirm password are required"));
       return;
     }
 
     if (form.password !== form.confirm) {
-      setError("Passwords do not match");
+      dispatch(registerFailure("Passwords do not match"));
       return;
     }
 
-   
     const users = JSON.parse(localStorage.getItem("users") || "[]");
-    users.push({
+    const existing = users.find((u: any) => u.email === form.email);
+    if (existing) {
+      dispatch(registerFailure("Email already registered"));
+      return;
+    }
+
+    const newUser = {
       firstName: form.firstName,
       lastName: form.lastName,
       email: form.email,
@@ -79,10 +89,20 @@ export default function RegisterPage() {
       industry: form.industry,
       country: form.country,
       password: form.password,
-    });
+    };
+    users.push(newUser);
     localStorage.setItem("users", JSON.stringify(users));
 
+    dispatch(
+      registerSuccess({
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+      })
+    );
+
     setOk(true);
+
     setTimeout(() => router.push("/auth/login"), 600);
   }
 
@@ -106,6 +126,7 @@ export default function RegisterPage() {
               onChange={onChange}
               placeholder="Enter your first name"
               className="ui-input"
+              required
             />
           </Field>
 
@@ -117,6 +138,7 @@ export default function RegisterPage() {
               onChange={onChange}
               placeholder="Enter your last name"
               className="ui-input"
+              required
             />
           </Field>
 
@@ -128,6 +150,7 @@ export default function RegisterPage() {
               onChange={onChange}
               placeholder="Enter your email"
               className="ui-input"
+              required
             />
           </Field>
 
@@ -188,6 +211,7 @@ export default function RegisterPage() {
                 onChange={onChange}
                 placeholder="Create a password"
                 className="ui-input pr-10"
+                required
               />
               <button
                 type="button"
@@ -212,6 +236,7 @@ export default function RegisterPage() {
                 onChange={onChange}
                 placeholder="Re-enter your password"
                 className="ui-input pr-10"
+                required
               />
               <button
                 type="button"
@@ -231,7 +256,7 @@ export default function RegisterPage() {
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
         {ok && (
           <p className="mt-3 text-sm text-emerald-700">
-            Registration successful. Please Wait...
+            Registration successful. Redirecting to login...
           </p>
         )}
 
@@ -243,6 +268,13 @@ export default function RegisterPage() {
             Register
           </button>
         </div>
+
+        <p className="text-center text-sm text-gray-600 mt-3">
+          Already have an account?{" "}
+          <a href="/auth/login" className="text-violet-600 hover:underline">
+            Log in
+          </a>
+        </p>
       </form>
     </main>
   );
