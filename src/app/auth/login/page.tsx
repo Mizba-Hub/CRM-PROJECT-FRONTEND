@@ -2,22 +2,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { loginSuccess, loginFailure } from "@/store/slices/authSlice";
 
 export default function LoginPage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { error } = useAppSelector((state) => state.auth);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
 
     if (!email || !password) {
-      setError("Email and password are required");
+      dispatch(loginFailure("Email and password are required"));
       return;
     }
 
@@ -27,16 +29,17 @@ export default function LoginPage() {
     );
 
     if (!user) {
-      setError("Invalid email or password");
+      dispatch(loginFailure("Invalid email or password"));
       return;
     }
 
-    localStorage.setItem("auth_token", email);
+    dispatch(loginSuccess({ email: user.email }));
+    localStorage.setItem("auth_token", user.email);
     setSuccess("Logged in successfully");
 
     setTimeout(() => {
       router.replace("/dashboard");
-    }, 600);
+    }, 800);
   }
 
   return (
