@@ -44,7 +44,6 @@ const ActivityDetailView: React.FC<Props> = ({
 }) => {
   const [openId, setOpenId] = useState<number | null>(null);
 
-  
   const activitiesByMonth: Record<string, Activity[]> = {};
   activities.forEach((a) => {
     if (a.date) {
@@ -65,18 +64,15 @@ const ActivityDetailView: React.FC<Props> = ({
     }
   });
 
-  
   const renderActivity = (a: Activity) => {
     const isOpen = openId === a.id;
     const isEmail = a.type === "email";
 
-    
     let boldPart = "";
     let subjectPart = "";
     let restPart = "";
 
     if (isEmail) {
-      
       const parts = a.title.split("–");
       boldPart = parts[0]?.trim() || "";
       if (parts[1]) {
@@ -95,22 +91,20 @@ const ActivityDetailView: React.FC<Props> = ({
         key={a.id}
         className="flex flex-col border border-gray-200 rounded-md hover:bg-gray-50 transition"
       >
-        
         <div
           className="flex justify-between items-start p-3 cursor-pointer"
           onClick={() => setOpenId(isOpen ? null : a.id)}
         >
           <div className="flex-1">
-            
             <p className="text-black flex items-center gap-2">
               {isOpen ? (
                 <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
               ) : (
                 <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
               )}
-              
+
               <span className="font-bold">{boldPart}</span>
-              
+
               {isEmail && subjectPart ? (
                 <>
                   <span className="font-bold text-gray-800 truncate">
@@ -126,7 +120,6 @@ const ActivityDetailView: React.FC<Props> = ({
               )}
             </p>
 
-            
             {!isOpen && (
               <>
                 {isEmail && a.preview && (
@@ -156,7 +149,6 @@ const ActivityDetailView: React.FC<Props> = ({
             )}
           </div>
 
-          
           <div className="text-right text-sm text-gray-400 flex items-center gap-1">
             {a.overdue && (
               <span className="flex items-center text-red-500 gap-1">
@@ -167,7 +159,6 @@ const ActivityDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        
         {isOpen && (
           <div className="px-4 pb-4 text-sm text-gray-700 space-y-3">
             {a.type === "task" && (
@@ -187,7 +178,9 @@ const ActivityDetailView: React.FC<Props> = ({
                     <p className="text-black font-medium">{a.date}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500">Priority</p>
+                    <p className="text-xs font-medium text-gray-500">
+                      Priority
+                    </p>
                     <p className="text-black font-medium">
                       {a.extra?.priority || "-"}
                     </p>
@@ -241,9 +234,8 @@ const ActivityDetailView: React.FC<Props> = ({
                       }
                       placeholder="Choose"
                       options={[
-                        { label: "Completed", value: "completed" },
-                        { label: "Missed", value: "missed" },
-                        { label: "Rescheduled", value: "rescheduled" },
+                        { label: "Successful", value: "successful" },
+                        { label: "Unsuccesful", value: "unsuccessful" },
                       ]}
                     />
                   </div>

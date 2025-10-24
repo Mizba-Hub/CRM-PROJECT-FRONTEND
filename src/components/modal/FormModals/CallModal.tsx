@@ -18,7 +18,7 @@ interface CallModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (call: Call) => boolean;
-  connectedPerson?: string; 
+  connectedPerson?: string;
 }
 
 export type Call = {
@@ -34,7 +34,7 @@ export default function CallModal({
   isOpen,
   onClose,
   onSave,
-  connectedPerson, 
+  connectedPerson,
 }: CallModalProps) {
   const [connected, setConnected] = useState(connectedPerson || "");
   const [outcome, setOutcome] = useState("");
@@ -54,7 +54,6 @@ export default function CallModal({
   });
   const [blockType, setBlockType] = useState("p");
 
-  
   const format = (command: string, value?: string) => {
     if (editorRef.current) editorRef.current.focus();
     document.execCommand(command, false, value);
@@ -100,7 +99,6 @@ export default function CallModal({
     updateFormatState();
   };
 
-  
   const validate = () => {
     const noteContent = editorRef.current?.innerHTML || "";
     const plainNote = editorRef.current?.innerText.trim() || "";
@@ -135,7 +133,6 @@ export default function CallModal({
     return true;
   };
 
- 
   useEffect(() => {
     if (isOpen) {
       setConnected(connectedPerson || "");
@@ -158,7 +155,6 @@ export default function CallModal({
       title="Log Call"
       onSave={validate}
     >
-      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Connected <span className="text-red-500">*</span>
@@ -176,7 +172,6 @@ export default function CallModal({
         )}
       </div>
 
-      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Call Outcome <span className="text-red-500">*</span>
@@ -188,10 +183,8 @@ export default function CallModal({
           value={outcome}
           onChange={(e) => setOutcome(e.target.value)}
           options={[
-            { label: "Interested", value: "Interested" },
-            { label: "Not Interested", value: "Not Interested" },
-            { label: "Follow Up", value: "Follow Up" },
-            { label: "No Answer", value: "No Answer" },
+            { label: "Successful", value: "successful" },
+            { label: "Unsuccesful", value: "unsuccessful" },
           ]}
           className={errors.outcome ? "border-red-500" : ""}
         />
@@ -200,7 +193,6 @@ export default function CallModal({
         )}
       </div>
 
-      
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -248,7 +240,6 @@ export default function CallModal({
               : "border-gray-300 focus-within:ring-2 focus-within:ring-indigo-600"
           }`}
         >
-          
           <div className="flex items-center gap-0 border-b border-gray-300 px-2 py-1 bg-white rounded-t">
             <div className="relative">
               <select
@@ -273,7 +264,6 @@ export default function CallModal({
               <ChevronDownIcon className="w-3 h-3 absolute right-2.5 top-1.5 pointer-events-none text-gray-700" />
             </div>
 
-            
             <button
               onClick={() => format("bold")}
               type="button"
@@ -331,7 +321,6 @@ export default function CallModal({
             </button>
           </div>
 
-          
           <div className="relative">
             {isEmpty && !isFocused && (
               <span className="absolute left-3 top-2 text-gray-400 pointer-events-none text-sm">
