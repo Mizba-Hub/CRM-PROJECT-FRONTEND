@@ -35,21 +35,16 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   activeFilters,
   onCreate,
 }) => {
-  
-
   const pages: (number | string)[] = [];
 
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) pages.push(i);
   } else {
     if (currentPage <= 3) {
-      
       pages.push(1, 2, 3, "...", totalPages - 1, totalPages);
     } else if (currentPage >= totalPages - 2) {
-      
       pages.push(1, 2, "...", totalPages - 2, totalPages - 1, totalPages);
     } else {
-      
       pages.push(
         1,
         "...",
@@ -61,7 +56,6 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
       );
     }
   }
-  
 
   return (
     <div className="bg-white  pb-2">
@@ -154,19 +148,18 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
                   </span>
                 </div>
               ) : (
-                <select
+                <Inputs
+                  variant="select"
+                  label={undefined}
+                  placeholder={filter.label}
                   name={`filter-${filter.label}`}
-                  value=""
+                  options={filter.options.map((opt) => ({
+                    label: opt,
+                    value: opt,
+                  }))}
                   onChange={(e) => onFilterChange(filter.label, e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 pr-10 text-sm text-gray-600 bg-white w-full h-10 focus:outline-none focus:ring-0"
-                >
-                  <option value="">{filter.label}</option>
-                  {filter.options.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  className="rounded-lg h-10 px-3 text-sm bg-white border-gray-300 pr-10 focus:outline-none focus:ring-0"
+                />
               )}
             </div>
           );

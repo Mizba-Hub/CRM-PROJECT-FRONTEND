@@ -35,7 +35,11 @@ interface MeetingModalProps {
   onSave: (meeting: Meeting) => boolean;
 }
 
-export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalProps) {
+export default function MeetingModal({
+  isOpen,
+  onClose,
+  onSave,
+}: MeetingModalProps) {
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -43,9 +47,13 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
   const [attendees, setAttendees] = useState<string[]>([]);
   const [location, setLocation] = useState("");
   const [reminder, setReminder] = useState("");
-  const [showAttendees, setShowAttendees] = useState(false);
 
-  const availableAttendees = ["Maria Johnson", "Jane Cooper", "Robert Fox", "Jenny Wilson"];
+  const availableAttendees = [
+    "Maria Johnson",
+    "Jane Cooper",
+    "Robert Fox",
+    "Jenny Wilson",
+  ];
   const locationOptions = [
     { label: "Conference Room A", value: "Conference Room A" },
     { label: "Conference Room B", value: "Conference Room B" },
@@ -60,18 +68,6 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
     { label: "1 day before", value: "1d" },
   ];
 
-  const attendeesRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (attendeesRef.current && !attendeesRef.current.contains(e.target as Node)) {
-        setShowAttendees(false);
-      }
-    };
-    if (showAttendees) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showAttendees]);
-
-  
   const editorRef = useRef<HTMLDivElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
@@ -107,7 +103,6 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
     updateFormatState();
   };
 
-  
   const validate = () => {
     const noteContent = editorRef.current?.innerHTML || "";
     const plainNote = editorRef.current?.innerText.trim() || "";
@@ -117,7 +112,8 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
     if (!startDate) newErrors.startDate = "Start date is required";
     if (!startTime) newErrors.startTime = "Start time is required";
     if (!endTime) newErrors.endTime = "End time is required";
-    if (attendees.length === 0) newErrors.attendees = "Select at least one attendee";
+    if (attendees.length === 0)
+      newErrors.attendees = "Select at least one attendee";
     if (!location) newErrors.location = "Location is required";
     if (!reminder) newErrors.reminder = "Reminder is required";
     if (!plainNote) newErrors.note = "Note is required";
@@ -147,7 +143,6 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
     return true;
   };
 
-  
   useEffect(() => {
     if (isOpen && editorRef.current) {
       setTitle("");
@@ -160,7 +155,6 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
       editorRef.current.innerHTML = "";
       setErrors({});
       setIsEmpty(true);
-      setShowAttendees(false);
     }
   }, [isOpen]);
 
@@ -169,13 +163,12 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
       isOpen={isOpen}
       onClose={() => {
         setErrors({});
-        setShowAttendees(false);
         onClose();
       }}
       title="Schedule Meeting"
       onSave={validate}
     >
-      
+      {/* ✅ Title */}
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Title <span className="text-red-500">*</span>
@@ -192,7 +185,7 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
         {errors.title && <p className="text-red-500 text-xs">{errors.title}</p>}
       </div>
 
-      
+      {/* ✅ Start Date */}
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Start Date <span className="text-red-500">*</span>
@@ -205,10 +198,11 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
           onChange={(e) => setStartDate(e.target.value)}
           className={errors.startDate ? "border-red-500" : ""}
         />
-        {errors.startDate && <p className="text-red-500 text-xs">{errors.startDate}</p>}
+        {errors.startDate && (
+          <p className="text-red-500 text-xs">{errors.startDate}</p>
+        )}
       </div>
 
-      
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -221,7 +215,9 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
             onChange={(e) => setStartTime(e.target.value)}
             className={errors.startTime ? "border-red-500" : ""}
           />
-          {errors.startTime && <p className="text-red-500 text-xs">{errors.startTime}</p>}
+          {errors.startTime && (
+            <p className="text-red-500 text-xs">{errors.startTime}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -234,55 +230,31 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
             onChange={(e) => setEndTime(e.target.value)}
             className={errors.endTime ? "border-red-500" : ""}
           />
-          {errors.endTime && <p className="text-red-500 text-xs">{errors.endTime}</p>}
+          {errors.endTime && (
+            <p className="text-red-500 text-xs">{errors.endTime}</p>
+          )}
         </div>
       </div>
 
-      
-      <div className="mb-3 relative" ref={attendeesRef}>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Attendees <span className="text-red-500">*</span>
-        </label>
-        <button
-          type="button"
-          onClick={() => setShowAttendees((p) => !p)}
-          className={`w-full border rounded px-3 py-2 flex justify-between items-center ${
-            errors.attendees ? "border-red-500" : "border-gray-300"
-          }`}
-        >
-          <span className={attendees.length ? "text-black" : "text-gray-400"}>
-            {attendees.length ? attendees.join(", ") : "Choose"}
-          </span>
-          <ChevronDownIcon className="w-3 h-3 text-gray-400" strokeWidth={3.5} />
-        </button>
-        {showAttendees && (
-          <div className="absolute mt-1 w-full border border-gray-300 rounded bg-white shadow-md z-10 max-h-40 overflow-y-auto">
-            {availableAttendees.map((person) => (
-              <label
-                key={person}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={attendees.includes(person)}
-                  onChange={() =>
-                    setAttendees((prev) =>
-                      prev.includes(person)
-                        ? prev.filter((p) => p !== person)
-                        : [...prev, person]
-                    )
-                  }
-                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                />
-                <span className="text-sm text-gray-700">{person}</span>
-              </label>
-            ))}
-          </div>
+      <div className="mb-3">
+        <Inputs
+          variant="multiselect"
+          label={
+            <>
+              Attendees <span className="text-red-500">*</span>
+            </>
+          }
+          placeholder="Choose"
+          options={availableAttendees.map((a) => ({ label: a, value: a }))}
+          value={attendees}
+          onChange={setAttendees}
+          className={errors.attendees ? "border-red-500" : ""}
+        />
+        {errors.attendees && (
+          <p className="text-red-500 text-xs">{errors.attendees}</p>
         )}
-        {errors.attendees && <p className="text-red-500 text-xs">{errors.attendees}</p>}
       </div>
 
-      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Location <span className="text-red-500">*</span>
@@ -296,10 +268,11 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
           onChange={(e) => setLocation(e.target.value)}
           className={errors.location ? "border-red-500" : ""}
         />
-        {errors.location && <p className="text-red-500 text-xs">{errors.location}</p>}
+        {errors.location && (
+          <p className="text-red-500 text-xs">{errors.location}</p>
+        )}
       </div>
 
-      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Reminder <span className="text-red-500">*</span>
@@ -313,15 +286,15 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
           onChange={(e) => setReminder(e.target.value)}
           className={errors.reminder ? "border-red-500" : ""}
         />
-        {errors.reminder && <p className="text-red-500 text-xs">{errors.reminder}</p>}
+        {errors.reminder && (
+          <p className="text-red-500 text-xs">{errors.reminder}</p>
+        )}
       </div>
 
-      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Note <span className="text-red-500">*</span>
         </label>
-
         <div
           className={`w-full border rounded ${
             errors.note
@@ -329,7 +302,6 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
               : "border-gray-300 focus-within:ring-2 focus-within:ring-indigo-600"
           }`}
         >
-          
           <div className="flex items-center gap-0 border-b border-gray-300 px-2 py-1 bg-white rounded-t">
             <div className="relative">
               <select
@@ -347,20 +319,49 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
               </select>
               <ChevronDownIcon className="w-3 h-3 absolute right-2.5 top-1.5 pointer-events-none text-gray-700" />
             </div>
-
-            <button onClick={() => format("bold")} type="button" className={`p-2 rounded ${activeFormats.bold ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
+            <button
+              onClick={() => format("bold")}
+              type="button"
+              className={`p-2 rounded ${
+                activeFormats.bold ? "bg-indigo-200" : "hover:bg-gray-200"
+              }`}
+            >
               <BoldIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("italic")} type="button" className={`p-2 rounded ${activeFormats.italic ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
+            <button
+              onClick={() => format("italic")}
+              type="button"
+              className={`p-2 rounded ${
+                activeFormats.italic ? "bg-indigo-200" : "hover:bg-gray-200"
+              }`}
+            >
               <ItalicIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("underline")} type="button" className={`p-2 rounded ${activeFormats.underline ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
+            <button
+              onClick={() => format("underline")}
+              type="button"
+              className={`p-2 rounded ${
+                activeFormats.underline ? "bg-indigo-200" : "hover:bg-gray-200"
+              }`}
+            >
               <UnderlineIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("insertUnorderedList")} type="button" className={`p-2 rounded ${activeFormats.ul ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
+            <button
+              onClick={() => format("insertUnorderedList")}
+              type="button"
+              className={`p-2 rounded ${
+                activeFormats.ul ? "bg-indigo-200" : "hover:bg-gray-200"
+              }`}
+            >
               <ListBulletIcon className="w-4 h-4 text-gray-600" />
             </button>
-            <button onClick={() => format("insertOrderedList")} type="button" className={`p-2 rounded ${activeFormats.ol ? "bg-indigo-200" : "hover:bg-gray-200"}`}>
+            <button
+              onClick={() => format("insertOrderedList")}
+              type="button"
+              className={`p-2 rounded ${
+                activeFormats.ol ? "bg-indigo-200" : "hover:bg-gray-200"
+              }`}
+            >
               <ListOrderedIcon className="w-4 h-4 text-gray-600" />
             </button>
             <button
@@ -375,7 +376,6 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
             </button>
           </div>
 
-         
           <div className="relative">
             {isEmpty && !isFocused && (
               <span className="absolute left-3 top-2 text-gray-400 pointer-events-none text-sm">
@@ -401,7 +401,9 @@ export default function MeetingModal({ isOpen, onClose, onSave }: MeetingModalPr
             />
           </div>
         </div>
-        {errors.note && <p className="text-red-500 text-xs mt-1">{errors.note}</p>}
+        {errors.note && (
+          <p className="text-red-500 text-xs mt-1">{errors.note}</p>
+        )}
       </div>
     </ModalWrapper>
   );
