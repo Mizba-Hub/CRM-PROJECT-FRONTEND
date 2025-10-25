@@ -48,12 +48,7 @@ export default function MeetingModal({
   const [location, setLocation] = useState("");
   const [reminder, setReminder] = useState("");
 
-  const availableAttendees = [
-    "Maria Johnson",
-    "Jane Cooper",
-    "Robert Fox",
-    "Jenny Wilson",
-  ];
+  const availableAttendees = ["Jane Cooper", "Robert Fox", "Jenny Wilson"];
   const locationOptions = [
     { label: "Conference Room A", value: "Conference Room A" },
     { label: "Conference Room B", value: "Conference Room B" },
@@ -168,7 +163,6 @@ export default function MeetingModal({
       title="Schedule Meeting"
       onSave={validate}
     >
-      {/* ✅ Title */}
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Title <span className="text-red-500">*</span>
@@ -185,7 +179,6 @@ export default function MeetingModal({
         {errors.title && <p className="text-red-500 text-xs">{errors.title}</p>}
       </div>
 
-      {/* ✅ Start Date */}
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Start Date <span className="text-red-500">*</span>

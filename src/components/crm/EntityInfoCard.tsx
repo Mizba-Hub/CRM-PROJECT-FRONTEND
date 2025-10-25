@@ -6,10 +6,11 @@ import { Inputs } from "@/components/ui/Inputs";
 
 interface InfoField {
   label: string;
-  value: string;
+  value: string | string[];
   isEditable?: boolean;
   options?: string[];
-  onChange?: (value: string) => void;
+  onChange?: (value: string | string[]) => void;
+  variant?: "select" | "multiselect";
 }
 
 interface Props {
@@ -21,12 +22,18 @@ interface Props {
   isEditing?: boolean;
 }
 
-const EntityInfoCard: React.FC<Props> = ({ title, fields, onEdit, onSave, onCancel, isEditing = false }) => {
+const EntityInfoCard: React.FC<Props> = ({
+  title,
+  fields,
+  onEdit,
+  onSave,
+  onCancel,
+  isEditing = false,
+}) => {
   const [isOpen, setIsOpen] = useState(true);
 
   return (
     <div className="bg-white px-2">
-     
       <div
         className="flex justify-between items-center px-1 m-2 cursor-pointer "
         onClick={() => !isEditing && setIsOpen(!isOpen)}
@@ -79,33 +86,58 @@ const EntityInfoCard: React.FC<Props> = ({ title, fields, onEdit, onSave, onCanc
         )}
       </div>
 
-      
       {isOpen && (
         <div className="p-3 space-y-3">
           {fields.map((field, idx) => (
             <div key={idx}>
               {isEditing && field.isEditable !== false ? (
                 field.options ? (
-                  <Inputs
-                    variant="select"
-                    label={field.label}
-                    value={field.value}
-                    onChange={(e) => field.onChange?.(e.target.value)}
-                    options={field.options.map(opt => ({ label: opt, value: opt }))}
-                  />
+                  field.variant === "multiselect" ? (
+                    <Inputs
+                      variant="multiselect"
+                      label={field.label}
+                      value={Array.isArray(field.value) ? field.value : []}
+                      onChange={(values: string[]) => field.onChange?.(values)}
+                      options={field.options.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
+                    />
+                  ) : (
+                    <Inputs
+                      variant="select"
+                      label={field.label}
+                      value={
+                        Array.isArray(field.value)
+                          ? field.value.join(", ")
+                          : field.value
+                      }
+                      onChange={(e: any) => field.onChange?.(e.target.value)}
+                      options={field.options.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
+                    />
+                  )
                 ) : (
                   <Inputs
                     variant="textarea"
                     label={field.label}
                     value={field.value}
                     onChange={(e) => field.onChange?.(e.target.value)}
-                    rows={field.label.toLowerCase().includes("description") ? 3 : 1}
+                    rows={
+                      field.label.toLowerCase().includes("description") ? 3 : 1
+                    }
                   />
                 )
               ) : (
                 <div>
                   <p className="text-xs text-gray-500 mb-1">{field.label}</p>
-                  <p className="text-sm text-black">{field.value}</p>
+                  <p className="text-sm text-black">
+                    {Array.isArray(field.value)
+                      ? field.value.join(", ")
+                      : field.value}
+                  </p>
                 </div>
               )}
             </div>
@@ -117,8 +149,3 @@ const EntityInfoCard: React.FC<Props> = ({ title, fields, onEdit, onSave, onCanc
 };
 
 export default EntityInfoCard;
-
-
-
-
-

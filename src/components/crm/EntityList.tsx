@@ -21,6 +21,8 @@ interface HeaderBarProps {
   onPageChange: (page: number) => void;
   activeFilters: Record<string, string>;
   onCreate?: () => void;
+  isDealPage?: boolean;
+  modulePlaceholder?: string;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -34,6 +36,8 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   onPageChange,
   activeFilters,
   onCreate,
+  isDealPage = false,
+  modulePlaceholder,
 }) => {
   const pages: (number | string)[] = [];
 
@@ -58,7 +62,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   }
 
   return (
-    <div className="bg-white  pb-2">
+    <div className="bg-white pb-2">
       <div className="w-full">
         <div className="flex justify-between items-center px-4 pt-4">
           <h3 className="text-md font-bold text-black">{title}</h3>
@@ -67,7 +71,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             <Button label="Create" variant="primary" onClick={onCreate} />
           </div>
         </div>
-        <div className="w-full border-b-2 border-gray-100  mt-2"></div>
+        <div className="w-full border-b-2 border-gray-100 mt-2"></div>
       </div>
 
       <div className="w-full">
@@ -77,7 +81,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             <Inputs
               variant="input"
               name="header-search"
-              placeholder="Search phone, name, email"
+              placeholder={modulePlaceholder}
               className="flex-1 h-full bg-transparent border-none text-xs text-gray-600 focus:ring-0 focus:border-none px-1"
               onChange={(e) => onSearch((e.target as HTMLInputElement).value)}
             />
@@ -86,7 +90,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="flex items-center justify-center space-x-1 text-[13px] select-none py-2">
             <button
               onClick={() => currentPage > 1 && onPageChange(currentPage - 1)}
-              className={`px-3 py-2 text-s rounded transition-all duration-150 ${
+              className={`px-3 py-2 rounded transition-all duration-150 ${
                 currentPage === 1
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-indigo-700 hover:text-indigo-900"
@@ -119,10 +123,10 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               onClick={() =>
                 currentPage < totalPages && onPageChange(currentPage + 1)
               }
-              className={` px-3 py-2  text-s flex items-center justify-center text-md rounded-md transition-all duration-150 ${
+              className={`px-3 py-2 flex items-center justify-center rounded-md transition-all duration-150 ${
                 currentPage === totalPages
-                  ? " text-gray-400 cursor-not-allowed"
-                  : " text-indigo-700  "
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-indigo-700"
               }`}
             >
               Next →
@@ -150,7 +154,6 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               ) : (
                 <Inputs
                   variant="select"
-                  label={undefined}
                   placeholder={filter.label}
                   name={`filter-${filter.label}`}
                   options={filter.options.map((opt) => ({
@@ -164,6 +167,33 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           );
         })}
+
+        {isDealPage && (
+          <div className="w-44 relative">
+            <Inputs
+              variant="input"
+              type="date"
+              name="close-date"
+              placeholder="Close Date"
+              className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
+              value={activeFilters["Close Date"] || ""}
+              onChange={(e) =>
+                onFilterChange(
+                  "Close Date",
+                  (e.target as HTMLInputElement).value
+                )
+              }
+            />
+            {activeFilters["Close Date"] && (
+              <span
+                onClick={() => onFilterChange("Close Date", "")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-700"
+              >
+                ×
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="w-44 relative">
           <Inputs

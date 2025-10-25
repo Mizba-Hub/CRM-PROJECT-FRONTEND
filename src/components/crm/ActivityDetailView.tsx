@@ -255,6 +255,7 @@ const ActivityDetailView: React.FC<Props> = ({
                         { label: "30 mins", value: "30" },
                         { label: "1 hr", value: "60" },
                       ]}
+                      showChevron={false}
                       className="pr-8 appearance-none"
                     />
                     <ClockIcon className="w-4 h-4 text-gray-500 absolute right-2 bottom-2 pointer-events-none" />
