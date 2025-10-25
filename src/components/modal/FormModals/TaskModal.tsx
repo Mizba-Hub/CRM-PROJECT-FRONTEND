@@ -53,7 +53,6 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
   });
   const [blockType, setBlockType] = useState("p");
 
-  
   const format = (command: string, value?: string) => {
     if (editorRef.current) editorRef.current.focus();
     document.execCommand(command, false, value);
@@ -99,7 +98,6 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
     updateFormatState();
   };
 
- 
   const validate = () => {
     const noteContent = editorRef.current?.innerHTML || "";
     const plainNote = editorRef.current?.innerText.trim() || "";
@@ -115,7 +113,6 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
-     
       return false;
     }
 
@@ -140,7 +137,6 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
     return true;
   };
 
-  
   useEffect(() => {
     if (isOpen && editorRef.current) {
       setTaskName("");
@@ -152,7 +148,13 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
       editorRef.current.innerHTML = "";
       setIsEmpty(true);
       setErrors({});
-      setActiveFormats({ bold: false, italic: false, underline: false, ul: false, ol: false });
+      setActiveFormats({
+        bold: false,
+        italic: false,
+        underline: false,
+        ul: false,
+        ol: false,
+      });
       setBlockType("p");
     }
   }, [isOpen]);
@@ -167,7 +169,6 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
       title="Create Task"
       onSave={validate}
     >
-      
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Task Name <span className="text-red-500">*</span>
@@ -180,12 +181,12 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
           onChange={(e) => setTaskName(e.target.value)}
           className={errors.taskName ? "border-red-500" : ""}
         />
-        {errors.taskName && <p className="text-red-500 text-sm">{errors.taskName}</p>}
+        {errors.taskName && (
+          <p className="text-red-500 text-sm">{errors.taskName}</p>
+        )}
       </div>
 
-      
       <div className="grid grid-cols-2 gap-3 mb-3">
-        
         <div className="relative">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Due Date <span className="text-red-500">*</span>
@@ -197,13 +198,16 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             value={dueDate}
             onFocus={(e) => e.target.classList.add("placeholder-transparent")}
             onBlur={(e) => {
-              if (!e.target.value) e.target.classList.remove("placeholder-transparent");
+              if (!e.target.value)
+                e.target.classList.remove("placeholder-transparent");
             }}
             onChange={(e) => setDueDate(e.target.value)}
             placeholder="Choose"
             className={`pr-10 ${errors.dueDate ? "border-red-500" : ""}`}
           />
-          {errors.dueDate && <p className="text-red-500 text-sm">{errors.dueDate}</p>}
+          {errors.dueDate && (
+            <p className="text-red-500 text-sm">{errors.dueDate}</p>
+          )}
         </div>
 
         {/* Time */}
@@ -218,7 +222,8 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             value={time}
             onFocus={(e) => e.target.classList.add("placeholder-transparent")}
             onBlur={(e) => {
-              if (!e.target.value) e.target.classList.remove("placeholder-transparent");
+              if (!e.target.value)
+                e.target.classList.remove("placeholder-transparent");
             }}
             onChange={(e) => setTime(e.target.value)}
             placeholder="Choose"
@@ -228,7 +233,6 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
         </div>
       </div>
 
-   
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -248,7 +252,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             ]}
             className={errors.taskType ? "border-red-500" : ""}
           />
-          {errors.taskType && <p className="text-red-500 text-sm">{errors.taskType}</p>}
+          {errors.taskType && (
+            <p className="text-red-500 text-sm">{errors.taskType}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -267,7 +273,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             ]}
             className={errors.priority ? "border-red-500" : ""}
           />
-          {errors.priority && <p className="text-red-500 text-sm">{errors.priority}</p>}
+          {errors.priority && (
+            <p className="text-red-500 text-sm">{errors.priority}</p>
+          )}
         </div>
       </div>
 
@@ -283,12 +291,17 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
           placeholder="Choose"
           options={[
             { label: "Maria Johnson", value: "Maria Johnson" },
-            { label: "John Doe", value: "John Doe" },
-            { label: "Jane Smith", value: "Jane Smith" },
+            { label: "Mizba", value: "Mizba" },
+            { label: "Shaimah", value: "Shaimah" },
+            { label: "Sabira", value: "Sabira" },
+            { label: "Greeshma", value: "Greeshma" },
+            { label: "Shifa", value: "Shifa" },
           ]}
           className={errors.assignedTo ? "border-red-500" : ""}
         />
-        {errors.assignedTo && <p className="text-red-500 text-sm">{errors.assignedTo}</p>}
+        {errors.assignedTo && (
+          <p className="text-red-500 text-sm">{errors.assignedTo}</p>
+        )}
       </div>
 
       <div className="mb-3">
@@ -302,9 +315,7 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
               : "border-gray-300 focus-within:ring-2 focus-within:ring-indigo-600"
           }`}
         >
-         
           <div className="flex items-center gap-0 border-b border-gray-300 px-2 py-1 bg-white rounded-t">
-          
             <div className="relative">
               <select
                 value={blockType}
@@ -332,7 +343,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
               onClick={() => format("bold")}
               type="button"
               title="Bold"
-              className={`p-2 rounded ${activeFormats.bold ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.bold ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <BoldIcon className="w-4 h-4 text-gray-600" />
             </button>
@@ -340,7 +353,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
               onClick={() => format("italic")}
               type="button"
               title="Italic"
-              className={`p-2 rounded ${activeFormats.italic ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.italic ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <ItalicIcon className="w-4 h-4 text-gray-600" />
             </button>
@@ -348,7 +363,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
               onClick={() => format("underline")}
               type="button"
               title="Underline"
-              className={`p-2 rounded ${activeFormats.underline ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.underline ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <UnderlineIcon className="w-4 h-4 text-gray-600" />
             </button>
@@ -356,7 +373,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
               onClick={() => format("insertUnorderedList")}
               type="button"
               title="Bullet List"
-              className={`p-2 rounded ${activeFormats.ul ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.ul ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <ListBulletIcon className="w-4 h-4 text-gray-600" />
             </button>
@@ -364,7 +383,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
               onClick={() => format("insertOrderedList")}
               type="button"
               title="Numbered List"
-              className={`p-2 rounded ${activeFormats.ol ? "bg-purple-200" : "hover:bg-gray-200"}`}
+              className={`p-2 rounded ${
+                activeFormats.ol ? "bg-purple-200" : "hover:bg-gray-200"
+              }`}
             >
               <ListOrderedIcon className="w-4 h-4 text-gray-600" />
             </button>
@@ -381,7 +402,6 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             </button>
           </div>
 
-          
           <div className="relative">
             {isEmpty && !isFocused && (
               <span className="absolute left-3 top-2 text-gray-400 pointer-events-none text-sm">
@@ -407,7 +427,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             />
           </div>
         </div>
-        {errors.note && <p className="text-red-500 text-sm mt-1">{errors.note}</p>}
+        {errors.note && (
+          <p className="text-red-500 text-sm mt-1">{errors.note}</p>
+        )}
       </div>
     </ModalWrapper>
   );
