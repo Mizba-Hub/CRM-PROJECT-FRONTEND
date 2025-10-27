@@ -15,6 +15,7 @@ type InputProps =
       placeholder?: string;
       options?: never;
       showChevron?: boolean;
+      showFocusRing?: boolean;
       value?: string | number | readonly string[];
     } & React.InputHTMLAttributes<HTMLInputElement>)
   | ({
@@ -23,6 +24,7 @@ type InputProps =
       placeholder?: string;
       options?: never;
       showChevron?: boolean;
+      showFocusRing?: boolean;
       value?: string | number | readonly string[];
     } & React.TextareaHTMLAttributes<HTMLTextAreaElement>)
   | ({
@@ -31,6 +33,7 @@ type InputProps =
       placeholder?: string;
       options: Option[];
       showChevron?: boolean;
+      showFocusRing?: boolean;
       value?: string | number;
     } & React.SelectHTMLAttributes<HTMLSelectElement>)
   | ({
@@ -40,6 +43,7 @@ type InputProps =
       placeholder?: string;
       options: Option[];
       showChevron?: boolean;
+      showFocusRing?: boolean;
       value: string[];
       onChange: (values: string[]) => void;
     } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">);
@@ -52,6 +56,7 @@ export function Inputs({
   options,
   value,
   showChevron = true,
+  showFocusRing = true,
   ...props
 }: InputProps) {
   const [showMulti, setShowMulti] = useState(false);
@@ -70,6 +75,10 @@ export function Inputs({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const focusStyle = showFocusRing
+    ? "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    : "focus:outline-none focus:ring-0 focus:border-blue-500";
+
   return (
     <div className="flex flex-col gap-1 w-full">
       {label && (
@@ -83,22 +92,16 @@ export function Inputs({
 
       {variant === "input" && (
         <input
-          {...(props as any)}
-          id={(props as any).name}
+          {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
           placeholder={placeholder}
-          value={value ?? (props as any).value ?? ""}
-          disabled={(props as any).disabled}
+          id={(props as any).name}
+          value={value as string | number | readonly string[] | undefined}
           className={`
-      border border-gray-300 rounded px-2 py-1 text-sm 
-      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-      placeholder-gray-400 h-[36px]
-      ${
-        (props as any).disabled
-          ? "bg-gray-100 text-gray-700 cursor-not-allowed"
-          : ""
-      }
-      ${className ?? ""}
-    `}
+            border border-gray-300 rounded px-2 py-1 text-sm 
+            ${focusStyle}
+            placeholder-gray-400 h-[36px]
+            ${className ?? ""}
+          `}
         />
       )}
 
@@ -110,7 +113,7 @@ export function Inputs({
           value={value ?? ""}
           className={`
             border border-gray-300 rounded px-3 py-2 text-sm 
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+            ${focusStyle}
             placeholder-gray-400
             ${className ?? ""}
           `}
@@ -129,7 +132,7 @@ export function Inputs({
             onChange={(props as any).onChange || (() => {})}
             className={`
               border border-gray-300 rounded px-3 py-2 text-sm w-full
-              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+              ${focusStyle}
               appearance-none h-[36px] bg-white
               ${!value || value === "" ? "text-gray-400" : "text-gray-700"}
               ${className ?? ""}
@@ -164,9 +167,12 @@ export function Inputs({
           <button
             type="button"
             onClick={() => setShowMulti((p) => !p)}
-            className={`w-full border rounded px-3 py-2 flex justify-between items-center text-sm ${
-              (value as string[])?.length ? "text-gray-700" : "text-gray-400"
-            } border-gray-300`}
+            className={`w-full border rounded px-3 py-2 flex justify-between items-center text-sm 
+              ${focusStyle} 
+              ${
+                (value as string[])?.length ? "text-gray-700" : "text-gray-400"
+              } 
+              border-gray-300`}
           >
             <span className="truncate text-left">
               {(value as string[])?.length

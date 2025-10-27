@@ -22,7 +22,7 @@ interface HeaderBarProps {
   activeFilters: Record<string, string>;
   onCreate?: () => void;
   isDealPage?: boolean;
-  modulePlaceholder?: string;
+  searchPlaceholder?: string;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -37,7 +37,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   activeFilters,
   onCreate,
   isDealPage = false,
-  modulePlaceholder,
+  searchPlaceholder,
 }) => {
   const pages: (number | string)[] = [];
 
@@ -76,14 +76,15 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
 
       <div className="w-full">
         <div className="flex justify-between items-center flex-wrap gap-3 px-4 py-2">
-          <div className="flex items-center w-64 h-9 rounded-lg bg-gray-100 border border-gray-300 px-2">
+          <div className="flex items-center w-64 h-9 rounded-lg bg-gray-100 border border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 px-2">
             <Search size={16} className="text-gray-400" />
             <Inputs
               variant="input"
               name="header-search"
-              placeholder={modulePlaceholder}
+              placeholder={searchPlaceholder}
               className="flex-1 h-full bg-transparent border-none text-xs text-gray-600 focus:ring-0 focus:border-none px-1"
               onChange={(e) => onSearch((e.target as HTMLInputElement).value)}
+              showFocusRing={false}
             />
           </div>
 
