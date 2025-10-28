@@ -44,6 +44,10 @@ const ActivityDetailView: React.FC<Props> = ({
 }) => {
   const [openId, setOpenId] = useState<number | null>(null);
 
+  // ✅ Added state for Call activity selects
+  const [selectedOutcome, setSelectedOutcome] = useState("");
+  const [selectedDuration, setSelectedDuration] = useState("");
+
   const activitiesByMonth: Record<string, Activity[]> = {};
   activities.forEach((a) => {
     if (a.date) {
@@ -102,7 +106,6 @@ const ActivityDetailView: React.FC<Props> = ({
               ) : (
                 <ChevronRightIcon className="w-4 h-4 text-indigo-600" />
               )}
-
               <span className="font-bold">{boldPart}</span>
 
               {isEmail && subjectPart ? (
@@ -199,7 +202,10 @@ const ActivityDetailView: React.FC<Props> = ({
             )}
 
             {a.type === "note" && a.content && (
-              <p className="whitespace-pre-line">{a.content}</p>
+              <div
+                className="text-gray-700 text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: a.content }}
+              />
             )}
 
             {isEmail && (
@@ -222,6 +228,7 @@ const ActivityDetailView: React.FC<Props> = ({
                 {a.content && (
                   <p className="mb-3 whitespace-pre-line">{a.content}</p>
                 )}
+
                 <div className="flex gap-6">
                   <div className="w-64">
                     <Inputs
@@ -233,13 +240,16 @@ const ActivityDetailView: React.FC<Props> = ({
                         </>
                       }
                       placeholder="Choose"
+                      value={selectedOutcome}
+                      onChange={(e) => setSelectedOutcome(e.target.value)}
                       options={[
                         { label: "Successful", value: "successful" },
-                        { label: "Unsuccesful", value: "unsuccessful" },
+                        { label: "Unsuccessful", value: "Unsuccessful" },
                       ]}
                     />
                   </div>
-                  <div className="w-40 relative">
+
+                  <div className="relative w-40">
                     <Inputs
                       variant="select"
                       name="duration"
@@ -249,6 +259,8 @@ const ActivityDetailView: React.FC<Props> = ({
                         </>
                       }
                       placeholder="Choose"
+                      value={selectedDuration}
+                      onChange={(e) => setSelectedDuration(e.target.value)}
                       options={[
                         { label: "5 mins", value: "5" },
                         { label: "15 mins", value: "15" },
@@ -256,9 +268,9 @@ const ActivityDetailView: React.FC<Props> = ({
                         { label: "1 hr", value: "60" },
                       ]}
                       showChevron={false}
-                      className="pr-8 appearance-none"
+                      className="appearance-none pr-9 pl-3 text-sm text-gray-700 border border-gray-300 rounded h-[36px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                    <ClockIcon className="w-4 h-4 text-gray-500 absolute right-2 bottom-2 pointer-events-none" />
+                    <ClockIcon className="w-4 h-4 text-gray-500 absolute right-3 top-[70%] -translate-y-1/2 pointer-events-none transition-colors duration-150" />
                   </div>
                 </div>
               </div>
