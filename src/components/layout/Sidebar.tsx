@@ -22,14 +22,20 @@ const nav = [
   { href: "/dashboard/modules/tickets", label: "Tickets", Icon: TicketIcon },
 ];
 
+function isActive(href: string, path: string) {
+  if (!path) return false;
+  if (href === "/dashboard") return path === "/dashboard";
+  return path === href || path.startsWith(href + "/");
+}
+
 export default function Sidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
 
   return (
     <aside className="hidden md:flex w-20 flex-col items-center py-4 bg-white">
       <nav className="mt-2 flex-1 flex flex-col items-center">
         {nav.map(({ href, label, Icon }) => {
-          const active = pathname === href;
+          const active = isActive(href, pathname);
           return (
             <Link
               key={href}
