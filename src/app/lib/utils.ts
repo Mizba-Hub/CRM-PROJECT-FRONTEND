@@ -23,5 +23,8 @@ export const calculateDuration = (start: string, end: string): string => {
 };
 
 
-export const getAttendeeCount = (attendees: string[]): number =>
-  Array.isArray(attendees) ? attendees.length : 0;
+export const getAttendeeCount = (attendees: string[], ownerCount: number = 1): number => {
+  const attendeeCount = Array.isArray(attendees) ? attendees.length : 0;
+  // Include the owner(s) in the total count
+  return attendeeCount + ownerCount;
+};
