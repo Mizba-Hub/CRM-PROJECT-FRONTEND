@@ -2,14 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { notify } from "@/components/ui/toast/Notify";
 
 import InfoCard from "@/components/ui/Card";
 import EntityInfoCard from "@/components/crm/EntityInfoCard";
 import CRMTabHeader from "@/components/crm/CRMTabHeader";
 import ActivityDetailView from "@/components/crm/ActivityDetailView";
 import AttachmentView from "@/components/crm/AttachmentView";
-import Button from "@/components/ui/Button";
 
 import NoteModal from "@/components/modal/FormModals/NoteModal";
 import EmailModal from "@/components/modal/FormModals/EmailModal";
@@ -17,13 +16,13 @@ import CallModal from "@/components/modal/FormModals/CallModal";
 import TaskModal from "@/components/modal/FormModals/TaskModal";
 import MeetingModal from "@/components/modal/FormModals/MeetingModal";
 
-import { notify } from "@/components/ui/toast/Notify";
 import { formatActivityDate, formatDisplayDate } from "@/app/lib/date";
 import ActivitySummaryView from "@/components/crm/ActivitySummaryView";
 import { getCurrentUserName } from "@/app/lib/auth";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
-import { Inputs } from "@/components/ui/Inputs";
+
+import DetailHeader from "@/components/crm/DetailHeader";
 
 type ActivityType = "note" | "call" | "task" | "email" | "meeting";
 
@@ -38,36 +37,6 @@ type Activity = {
   content?: string;
   overdue?: boolean;
   extra?: Record<string, any>;
-};
-
-const LeadDetailHeader = () => {
-  const [searchValue, setSearchValue] = useState("");
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(e.target.value);
-  };
-
-  return (
-    <div className="bg-white rounded-md p-3  flex justify-between items-center">
-      <div className="flex items-center gap-2 flex-grow border-2 border-gray-100 rounded-md  bg-gray-50 hover:bg-white focus-within:ring-2 focus-within:ring-indigo-600 transition">
-        <Search className="w-5 h-6 text-black mx-1" />
-        <div className="h-5 w-px bg-gray-300" />
-
-        <Inputs
-          variant="input"
-          placeholder="Search activities..."
-          value={searchValue}
-          onChange={handleSearchChange}
-          className="text-sm w-full h-[24px]  bg-transparent outline-none border-none focus:ring-0 focus:border-none text-gray-700 placeholder-gray-400"
-          showFocusRing={false}
-        />
-      </div>
-
-      <div className="ml-4 flex-shrink-0">
-        <Button label="Convert" variant="primary" />
-      </div>
-    </div>
-  );
 };
 
 export default function LeadDetailPage() {
@@ -88,6 +57,11 @@ export default function LeadDetailPage() {
     email: false,
     meeting: false,
   });
+
+  const [searchValue, setSearchValue] = useState("");
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setSearchValue(e.target.value);
+
   const currentUserName = getCurrentUserName();
 
   useEffect(() => {
@@ -99,14 +73,6 @@ export default function LeadDetailPage() {
       setEditableLead(found);
     }
   }, [id]);
-
-  const jobTitleOptions = [
-    "Sales Executive",
-    "Marketing Manager",
-    "Business Development Associate",
-    "Account Manager",
-    "Customer Success Executive",
-  ];
 
   const statusOptions = ["Open", "New", "In Progress", "Closed"];
 
@@ -121,24 +87,25 @@ export default function LeadDetailPage() {
 
     switch (type) {
       case "note":
-        title = "Note by " + lead?.contactOwner;
+        title = "Note by " + currentUserName;
         content = data;
         break;
 
       case "email":
-        title = `Logged Email – ${data?.subject || "No Subject"} by ${
-          lead?.contactOwner || "User"
+        title = `Logged Email – ${
+          data?.subject || "No Subject"
+        } by ${currentUserName}
         }`;
         content = data?.body || "Email sent successfully";
         break;
 
       case "call":
-        title = "Call from " + lead?.contactOwner;
+        title = "Call from " + currentUserName;
         content = data?.note || data?.summary;
         break;
 
       case "task":
-        title = `Task assigned to ${lead?.contactOwner}`;
+        title = `Task assigned to ${data?.assignedTo}`;
         content = data?.note || "";
         extra = {
           priority: data?.priority || "-",
@@ -151,14 +118,21 @@ export default function LeadDetailPage() {
         const attendeeNames = Array.isArray(attendees)
           ? attendees.join(" and ")
           : attendees;
-        const organizer = currentUserName || "User";
 
-        title = `Meeting with ${lead?.contactOwner} and ${attendeeNames}`;
+        const organizer = currentUserName || "User";
+        const ownerCount = Array.isArray(lead?.contactOwner)
+          ? lead.contactOwner.length
+          : 1;
+
+        title = `Meeting ${currentUserName} and ${attendeeNames},${lead.firstName} ${lead.lastName} `;
         content = data?.note || "";
+
         extra = {
           duration:
             data?.duration || calculateDuration(data.startTime, data.endTime),
-          attendees: data?.attendeeCount || getAttendeeCount(attendees),
+
+          attendees: getAttendeeCount(attendees, ownerCount),
+
           organizer,
         };
         break;
@@ -294,7 +268,7 @@ export default function LeadDetailPage() {
       label: "Job Title",
       value: editableLead?.jobTitle,
       isEditable: true,
-      options: jobTitleOptions,
+
       onChange: (val: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
@@ -312,7 +286,7 @@ export default function LeadDetailPage() {
     activities.filter((a) => a.type === type);
 
   return (
-    <div className="m-2 bg-white rounded-md h-full flex gap-6">
+    <div className="m-2 bg-white rounded-md min-h-screen flex flex-col lg:flex-row gap-6 overflow-hidden">
       <div className="w-[320px] space-y-4 ml-0 mt-2">
         <InfoCard
           module="leads"
@@ -339,8 +313,14 @@ export default function LeadDetailPage() {
         />
       </div>
 
-      <div className="flex-1 bg-white ">
-        <LeadDetailHeader />
+      <div className="flex-1 bg-white">
+        <DetailHeader
+          searchValue={searchValue}
+          onSearchChange={handleSearchChange}
+          showConvertButton={true}
+          onConvert={() => notify("Convert Lead flow coming soon!", "info")}
+        />
+
         <CRMTabHeader
           value={activeTab}
           onChange={(tab) => setActiveTab(tab)}
