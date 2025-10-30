@@ -14,6 +14,7 @@ import { formatDisplayDateTime } from "@/app/lib/date";
 export interface Ticket {
   id: number;
   name: string;
+  leadName?: string;
   companyName: string;
   description: string;
   status: string;
@@ -349,7 +350,6 @@ export default function TicketsPage() {
         onCreateTicket={handleCreateTicket}
       />
 
-      {/* Ticket Modal - Edit */}
       <TicketCreateButton
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}

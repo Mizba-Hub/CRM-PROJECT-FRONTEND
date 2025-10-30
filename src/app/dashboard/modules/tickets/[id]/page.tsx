@@ -13,7 +13,11 @@ import CallModal from "@/components/modal/FormModals/CallModal";
 import TaskModal from "@/components/modal/FormModals/TaskModal";
 import MeetingModal from "@/components/modal/FormModals/MeetingModal";
 import { notify } from "@/components/ui/toast/Notify";
-import { formatActivityDate, formatDisplayDateTime } from "@/app/lib/date";
+import {
+  formatActivityDate,
+  formatDisplayDateTime,
+  formatDisplayDate,
+} from "@/app/lib/date";
 import ActivitySummaryView from "@/components/crm/ActivitySummaryView";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
@@ -77,45 +81,36 @@ export default function TicketDetailPage() {
         };
         setTicket(found);
         setEditableTicket(editableData);
+
+        
+        try {
+          const key = `crm_tickets_${found.id}`;
+          const existing = localStorage.getItem(key);
+          const data = existing ? JSON.parse(existing) : {};
+          if (data.status !== found.status) {
+            data.status = found.status;
+            localStorage.setItem(key, JSON.stringify(data));
+          }
+        } catch {}
       }
     }
-  }, [id]);
-
-  useEffect(() => {
-    const handleTicketUpdate = () => {
-      const storedTickets = localStorage.getItem("tickets");
-      if (storedTickets) {
-        const tickets = JSON.parse(storedTickets);
-        const found = tickets.find((t: any) => String(t.id) === String(id));
-        if (found) {
-          const editableData = {
-            ...found,
-            owner: Array.isArray(found.owner)
-              ? found.owner
-              : [found.owner].filter(Boolean),
-          };
-          setTicket(found);
-          setEditableTicket(editableData);
-        }
-      }
-    };
-
-    window.addEventListener("ticketsUpdated", handleTicketUpdate);
-    return () =>
-      window.removeEventListener("ticketsUpdated", handleTicketUpdate);
   }, [id]);
 
   useEffect(() => {
     if (ticket?.status) {
       setCardKey((prev) => prev + 1);
+
+      try {
+        const key = `crm_tickets_${ticket.id}`;
+        const existing = localStorage.getItem(key);
+        const data = existing ? JSON.parse(existing) : {};
+        if (data.status !== ticket.status) {
+          data.status = ticket.status;
+          localStorage.setItem(key, JSON.stringify(data));
+        }
+      } catch {}
     }
   }, [ticket?.status]);
-
-  useEffect(() => {
-    if (ticket?.id) {
-      localStorage.removeItem(`crm_tickets_${ticket.id}`);
-    }
-  }, [ticket?.id]);
 
   const simpleActivities: ActivityItem[] = useMemo(() => {
     const now = new Date();
@@ -221,18 +216,9 @@ export default function TicketDetailPage() {
 
       return parseDate(b.date || "") - parseDate(a.date || "");
     });
-  }, [ticket?.owner, ticket?.status, ticket?.createdDate, activities]);
-
-  const statusOptions = [
-    "New",
-    "Closed",
-    "Waiting on us",
-    "Waiting on contact",
-  ];
+  }, [currentUserName, ticket?.status, ticket?.createdDate, activities]);
 
   const priorityOptions = ["Low", "Medium", "High", "Critical"];
-
-  const sourceOptions = ["Email", "Phone", "Chat", "Web"];
 
   const ownerOptions = [
     "Maria johnson",
@@ -281,21 +267,18 @@ export default function TicketDetailPage() {
       case "meeting":
         const attendees = data?.attendees || [];
         const attendeeNames = Array.isArray(attendees)
-          ? // ? attendees.join(" and ")
-            attendees.join(", ")
+          ? attendees.join(", ")
           : attendees;
         const organizer = currentUserName || "User";
 
-        // Count the number of owners (could be multiple)
         const ownerCount = ticket?.owner
           ? Array.isArray(ticket.owner)
             ? ticket.owner.length
             : 1
           : 1;
 
-        title = `Meeting with ${currentUserName},${getTicketOwnerName()},${
-          attendeeNames || "Client"
-        }`;
+        title = `Meeting  ${currentUserName} and
+           `;
         content = data?.note || "";
         extra = {
           duration:
@@ -348,8 +331,6 @@ export default function TicketDetailPage() {
           String(t.id) === String(id) ? updatedTicket : t
         );
         localStorage.setItem("tickets", JSON.stringify(updatedTickets));
-
-        window.dispatchEvent(new CustomEvent("ticketsUpdated"));
       }
       setIsEditing(false);
       notify("Ticket details updated successfully", "success");
@@ -368,13 +349,6 @@ export default function TicketDetailPage() {
 
   const aboutFields = [
     {
-      label: "Ticket Name",
-      value: editableTicket?.name,
-      isEditable: true,
-      onChange: (val: string | string[]) =>
-        setEditableTicket((p: any) => ({ ...p, name: val })),
-    },
-    {
       label: "Description",
       value: editableTicket?.description,
       isEditable: true,
@@ -382,13 +356,15 @@ export default function TicketDetailPage() {
         setEditableTicket((p: any) => ({ ...p, description: val })),
     },
     {
-      label: "Status",
-      value: editableTicket?.status,
+      label: "Ticket Owner",
+      value: editableTicket?.owner,
       isEditable: true,
-      options: statusOptions,
+      options: ownerOptions,
+      variant: "multiselect" as const,
       onChange: (val: string | string[]) =>
-        setEditableTicket((p: any) => ({ ...p, status: val })),
+        setEditableTicket((p: any) => ({ ...p, owner: val })),
     },
+
     {
       label: "Priority",
       value: editableTicket?.priority,
@@ -397,27 +373,11 @@ export default function TicketDetailPage() {
       onChange: (val: string | string[]) =>
         setEditableTicket((p: any) => ({ ...p, priority: val })),
     },
-    {
-      label: "Source",
-      value: editableTicket?.source,
-      isEditable: true,
-      options: sourceOptions,
-      onChange: (val: string | string[]) =>
-        setEditableTicket((p: any) => ({ ...p, source: val })),
-    },
-    {
-      label: "Owner",
-      value: editableTicket?.owner,
-      isEditable: true,
-      options: ownerOptions,
-      variant: "multiselect" as const,
-      onChange: (val: string | string[]) =>
-        setEditableTicket((p: any) => ({ ...p, owner: val })),
-    },
+
     {
       label: "Created Date",
       value: editableTicket?.createdDate
-        ? formatDisplayDateTime(editableTicket.createdDate)
+        ? formatDisplayDate(editableTicket.createdDate)
         : "-",
       isEditable: false,
     },
@@ -427,7 +387,7 @@ export default function TicketDetailPage() {
     activities.filter((a) => a.type === type);
 
   return (
-    <div className="p-0 bg-white rounded-md min-h-full overflow-y-auto flex gap-6">
+    <div className="p-0 bg-white rounded-md min-h-screen overflow-y-auto flex gap-6">
       <div className="w-[280px] space-y-4 ml-0 mt-2">
         <InfoCard
           key={`ticket-card-${ticket.id}-${cardKey}`}
@@ -450,8 +410,13 @@ export default function TicketDetailPage() {
                   String(t.id) === String(id) ? { ...t, status: value } : t
                 );
                 localStorage.setItem("tickets", JSON.stringify(updatedTickets));
-
-                window.dispatchEvent(new CustomEvent("ticketsUpdated"));
+                try {
+                  const key = `crm_tickets_${id}`;
+                  const existing = localStorage.getItem(key);
+                  const data = existing ? JSON.parse(existing) : {};
+                  data.status = value;
+                  localStorage.setItem(key, JSON.stringify(data));
+                } catch {}
               }
             }
           }}
@@ -475,7 +440,7 @@ export default function TicketDetailPage() {
         />
       </div>
 
-      <div className="flex-1 bg-white p-4 mt-2">
+      <div className="flex-1 bg-white  ">
         <DetailHeader
           searchValue={searchValue}
           onSearchChange={(e) => setSearchValue(e.target.value)}
