@@ -32,8 +32,12 @@ export default function TicketCreateButton({
   onClose,
   editData,
 }: TicketCreateButtonProps) {
-  const [formData, setFormData] = useState<Omit<Ticket, "id" | "createdDate">>({
+  const [formData, setFormData] = useState<
+    Omit<Ticket, "id" | "createdDate"> & { leadName?: string }
+  >({
     name: "",
+
+    leadName: "",
     companyName: "",
     description: "",
     status: "",
@@ -189,7 +193,6 @@ export default function TicketCreateButton({
       onSave={handleSave}
     >
       <div className="space-y-4">
-        {/* Ticket Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Ticket Name <span className="text-red-500">*</span>
@@ -204,6 +207,22 @@ export default function TicketCreateButton({
           />
           {errors.name && (
             <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Lead Name <span className="text-red-500">*</span>
+          </label>
+          <Inputs
+            variant="input"
+            name="leadName"
+            placeholder="Enter"
+            value={formData.leadName || ""}
+            onChange={handleChange}
+            className={errors.leadName ? "border-red-500" : ""}
+          />
+          {errors.leadName && (
+            <p className="text-red-500 text-sm mt-1">{errors.leadName}</p>
           )}
         </div>
 
@@ -282,42 +301,40 @@ export default function TicketCreateButton({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Priority <span className="text-red-500">*</span>
-            </label>
-            <Inputs
-              variant="select"
-              name="priority"
-              placeholder="Choose"
-              value={formData.priority}
-              onChange={handleChange}
-              options={priorityOptions}
-              className={errors.priority ? "border-red-500" : ""}
-            />
-            {errors.priority && (
-              <p className="text-red-500 text-sm mt-1">{errors.priority}</p>
-            )}
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Priority <span className="text-red-500">*</span>
+          </label>
+          <Inputs
+            variant="select"
+            name="priority"
+            placeholder="Choose"
+            value={formData.priority}
+            onChange={handleChange}
+            options={priorityOptions}
+            className={errors.priority ? "border-red-500" : ""}
+          />
+          {errors.priority && (
+            <p className="text-red-500 text-sm mt-1">{errors.priority}</p>
+          )}
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ticket Owner <span className="text-red-500">*</span>
-            </label>
-            <Inputs
-              variant="multiselect"
-              name="owner"
-              placeholder="Choose owners"
-              value={Array.isArray(formData.owner) ? formData.owner : []}
-              onChange={handleOwnerChange}
-              options={ownerOptions}
-              className={errors.owner ? "border-red-500" : ""}
-            />
-            {errors.owner && (
-              <p className="text-red-500 text-sm mt-1">{errors.owner}</p>
-            )}
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Ticket Owner <span className="text-red-500">*</span>
+          </label>
+          <Inputs
+            variant="multiselect"
+            name="owner"
+            placeholder="Choose "
+            value={Array.isArray(formData.owner) ? formData.owner : []}
+            onChange={handleOwnerChange}
+            options={ownerOptions}
+            className={errors.owner ? "border-red-500" : ""}
+          />
+          {errors.owner && (
+            <p className="text-red-500 text-sm mt-1">{errors.owner}</p>
+          )}
         </div>
       </div>
     </ModalWrapper>
