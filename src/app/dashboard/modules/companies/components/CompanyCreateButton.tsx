@@ -38,7 +38,7 @@ export default function CreateCompanyModal({
   const [formData, setFormData] = useState<CompanyFormData>({
     domain: "",
     companyName: "",
-    companyOwner: [], // now array
+    companyOwner: [],
     industry: "",
     type: "",
     city: "",
@@ -68,7 +68,9 @@ export default function CreateCompanyModal({
     }
   }, [isOpen, editingCompany]);
 
-  const handleChange = (e: { target: { name: string; value: string | string[] } }) => {
+  const handleChange = (e: {
+    target: { name: string; value: string | string[] };
+  }) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };

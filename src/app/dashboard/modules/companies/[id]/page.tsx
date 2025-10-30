@@ -156,10 +156,10 @@ export default function CompanyDetailPage() {
     const keyMap: Record<string, string> = {
       "Company Domain Name": "domain",
       "Company Name": "companyName",
-      Industry: "industry",
+      "Industry": "industry",
       "Phone number": "phone",
       "Company Owner": "companyOwner",
-      City: "city",
+      "City": "city",
       "Country/Region": "country",
       "No of Employees": "employees",
       "Annual Revenue": "revenue",
@@ -253,34 +253,40 @@ export default function CompanyDetailPage() {
           assignedTo,
         };
         break;
-      case "meeting": {
-        const attendees: string[] = Array.isArray(data?.attendees)
-          ? data.attendees
-          : [];
-        const owners: string[] = Array.isArray(editableCompany?.companyOwner)
-          ? editableCompany.companyOwner
-          : [];
+   case "meeting": {
+  const companyName = editableCompany?.companyName || "Client";
+  const attendees: string[] = Array.isArray(data?.attendees)
+    ? data.attendees
+    : [];
+  const owners: string[] = Array.isArray(editableCompany?.companyOwner)
+    ? editableCompany.companyOwner
+    : [];
 
-        const normalize = (n: string) => n.trim().toLowerCase();
-        const uniqueAttendees = attendees.filter(
-          (a) =>
-            !owners.map(normalize).includes(normalize(a)) &&
-            normalize(a) !== normalize(currentUser)
-        );
+  const currentUser = getCurrentUserName() || "You";
 
-        const allNames = [currentUser, ...owners, ...uniqueAttendees];
-        title = `Meeting with ${allNames.join(" and ")}`;
-        content = data?.note || "";
+  
+  title = `Meeting ${currentUser} and ${companyName}`;
 
-        extra = {
-          duration:
-            data?.duration || calculateDuration(data.startTime, data.endTime),
-          attendees: allNames.length,
-          attendeeNames: uniqueAttendees.join(" and "),
-          organizer: currentUser,
-        };
-        break;
-      }
+ 
+  const normalize = (n: string) => n.trim().toLowerCase();
+  const allParticipants = [currentUser, ...owners, ...attendees];
+  const uniqueParticipants = Array.from(
+    new Set(allParticipants.map(normalize))
+  );
+  const totalCount = uniqueParticipants.length;
+
+  content = data?.note || "";
+
+  extra = {
+    duration:
+      data?.duration || calculateDuration(data.startTime, data.endTime),
+    attendees: totalCount,
+    attendeeNames: attendees.join(" and "),
+    organizer: currentUser,
+  };
+  break;
+}
+
     }
 
     const newActivity: Activity = {
@@ -324,7 +330,7 @@ export default function CompanyDetailPage() {
       isEditable: true,
       onChange: (val: string | string[]) =>
         handleFieldChange("Company Domain Name", val),
-      className: "text-black",
+       className: "text-gray-900",
     },
     {
       label: "Company Name",
@@ -332,7 +338,7 @@ export default function CompanyDetailPage() {
       isEditable: true,
       onChange: (val: string | string[]) =>
         handleFieldChange("Company Name", val),
-      className: "text-black",
+     className: "text-gray-900",
     },
     {
       label: "Industry",
@@ -350,7 +356,7 @@ export default function CompanyDetailPage() {
       isEditable: true,
       onChange: (val: string | string[]) =>
         handleFieldChange("Phone number", val),
-      className: "text-black",
+       className: "text-gray-900",
     },
     {
       label: "Company Owner",
@@ -400,6 +406,7 @@ export default function CompanyDetailPage() {
       className: "text-black",
     },
   ];
+  
 
   return (
     <div className="p-1 bg-white min-h-screen flex gap-4">

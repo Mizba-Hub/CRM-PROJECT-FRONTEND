@@ -7,7 +7,7 @@ import PhoneInputField from "@/components/ui/PhoneInputField";
 export interface CompanyFormData {
   domain: string;
   companyName: string;
-  companyOwner: string[]; // changed to array
+  companyOwner: string[]; 
   industry: string;
   type: string;
   city: string;
@@ -37,7 +37,8 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
 
   return (
     <form className="grid grid-cols-2 gap-4 mt-2">
-      {/* Domain */}
+      
+       <div className="col-span-2">
       <Inputs
         name="domain"
         label={<>Domain Name <span className="text-red-500">*</span></>}
@@ -48,8 +49,10 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
           handleValidation(e.target.name, e.target.value);
         }}
       />
+      </div>
 
-      {/* Company Name */}
+      
+       <div className="col-span-2">
       <Inputs
         name="companyName"
         label={<>Company Name <span className="text-red-500">*</span></>}
@@ -60,8 +63,10 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
           handleValidation(e.target.name, e.target.value);
         }}
       />
+      </div>
 
-      {/* Company Owner (multi-select) */}
+      
+      <div className="col-span-2">
       <Inputs
         variant="multiselect"
         name="companyOwner"
@@ -83,8 +88,9 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
           { label: "Shifa", value: "Shifa" },
         ]}
       />
+      </div>
 
-      {/* Industry */}
+      
       <Inputs
         variant="select"
         name="industry"
@@ -104,7 +110,7 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         }}
       />
 
-      {/* Type */}
+      
       <Inputs
         variant="select"
         name="type"
@@ -123,7 +129,7 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         }}
       />
 
-      {/* City */}
+      
       <Inputs
         name="city"
         label="City"
@@ -134,7 +140,7 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         }
       />
 
-      {/* Country */}
+      
       <Inputs
         name="country"
         label="Country/Region"
@@ -145,7 +151,7 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         }
       />
 
-      {/* Employees */}
+      
       <Inputs
         name="employees"
         label="No of Employees"
@@ -156,7 +162,7 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         }
       />
 
-      {/* Revenue */}
+      
       <Inputs
         name="revenue"
         label="Annual Revenue"
@@ -167,7 +173,7 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         }
       />
 
-      {/* Phone */}
+      
       <div className="col-span-2">
         <PhoneInputField
           value={formData.phone}
