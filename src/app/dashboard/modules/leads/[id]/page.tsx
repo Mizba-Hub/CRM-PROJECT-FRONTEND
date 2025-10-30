@@ -95,7 +95,7 @@ export default function LeadDetailPage() {
         title = `Logged Email – ${
           data?.subject || "No Subject"
         } by ${currentUserName}
-        }`;
+        `;
         content = data?.body || "Email sent successfully";
         break;
 
@@ -124,7 +124,7 @@ export default function LeadDetailPage() {
           ? lead.contactOwner.length
           : 1;
 
-        title = `Meeting ${currentUserName} and ${attendeeNames},${lead.firstName} ${lead.lastName} `;
+        title = `Meeting ${currentUserName},${lead.firstName} ${lead.lastName}  and ${attendeeNames}`;
         content = data?.note || "";
 
         extra = {

@@ -48,7 +48,7 @@ export default function MeetingModal({
   const [location, setLocation] = useState("");
   const [reminder, setReminder] = useState("");
 
-  const availableAttendees = ["Jane Cooper", "Robert Fox", "Jenny Wilson"];
+  const availableAttendees = ["Maria Johnson", "Shifa", "Greeshma","Sabira","Sahimah","Mizba"];
   const locationOptions = [
     { label: "Conference Room A", value: "Conference Room A" },
     { label: "Conference Room B", value: "Conference Room B" },
