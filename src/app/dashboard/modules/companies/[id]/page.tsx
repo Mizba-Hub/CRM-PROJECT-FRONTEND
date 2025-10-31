@@ -409,8 +409,8 @@ export default function CompanyDetailPage() {
   
 
   return (
-    <div className="p-1 bg-white min-h-screen flex gap-4">
-      <div className="w-[310px] space-y-3">
+    <div className="m-2 bg-white rounded-md  flex flex-col lg:flex-row gap-6 overflow-hidden">
+      <div className="w-[320px] space-y-4 ml-0 mt-2">
         <InfoCard
           module="companies"
           id={company.id}
@@ -435,7 +435,7 @@ export default function CompanyDetailPage() {
       </div>
 
   
-      <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col">
+      <div className="flex-1 bg-white rounded-lg flex flex-col">
         <DetailHeader
           searchValue={searchValue}
           onSearchChange={handleSearchChange}
