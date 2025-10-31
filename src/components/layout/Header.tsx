@@ -51,7 +51,7 @@ export default function Header() {
     .trim();
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-white px-6 py-3 border-b">
+    <header className="fixed inset-x-0 top-0 z-50 bg-white px-6 py-3">
       <div className="flex items-center justify-between">
         <div className="font-semibold text-gray-900">CRM</div>
 
