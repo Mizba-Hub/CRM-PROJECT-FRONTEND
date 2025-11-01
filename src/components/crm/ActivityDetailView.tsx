@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ClockIcon } from "@heroicons/react/24/outline";
 import { CalendarIcon } from "@heroicons/react/24/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
@@ -44,9 +44,17 @@ const ActivityDetailView: React.FC<Props> = ({
 }) => {
   const [openId, setOpenId] = useState<number | null>(null);
 
-  // ✅ Added state for Call activity selects
   const [selectedOutcome, setSelectedOutcome] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("");
+
+  useEffect(() => {
+    if (openId) {
+      const openActivity = activities.find((a) => a.id === openId);
+      if (openActivity?.type === "call") {
+        setSelectedOutcome(openActivity.extra?.outcome || "");
+      }
+    }
+  }, [openId, activities]);
 
   const activitiesByMonth: Record<string, Activity[]> = {};
   activities.forEach((a) => {
@@ -244,7 +252,7 @@ const ActivityDetailView: React.FC<Props> = ({
                       onChange={(e) => setSelectedOutcome(e.target.value)}
                       options={[
                         { label: "Successful", value: "successful" },
-                        { label: "Unsuccessful", value: "Unsuccessful" },
+                        { label: "Unsuccessful", value: "unsuccessful" },
                       ]}
                     />
                   </div>
