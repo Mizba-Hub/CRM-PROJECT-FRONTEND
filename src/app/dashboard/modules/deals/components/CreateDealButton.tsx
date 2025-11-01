@@ -13,6 +13,7 @@ interface DealData {
   amount: string;
   priority: string;
   createdDate: string;
+  associatedLead?: string;
 }
 
 interface CreateDealProps {
@@ -21,21 +22,10 @@ interface CreateDealProps {
   onSave: (deal: DealData) => void;
   mode?: "create" | "edit";
   initialData?: DealData;
+  associatedLead?: string;
 }
 
-const formatDateForDisplay = (dateString: string): string => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-const getCurrentDate = (): string => {
-  return new Date().toISOString().split("T")[0];
-};
+const getCurrentDate = (): string => new Date().toISOString().split("T")[0];
 
 const CreateDeal: React.FC<CreateDealProps> = ({
   isOpen,
@@ -43,6 +33,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
   onSave,
   mode = "create",
   initialData,
+  associatedLead = "",
 }) => {
   const [formData, setFormData] = useState<DealData>({
     name: "",
@@ -52,7 +43,82 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     amount: "",
     priority: "",
     createdDate: "",
+    associatedLead: "",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [qualifiedLeads, setQualifiedLeads] = useState<
+    { label: string; value: string }[]
+  >([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const storedLeads = localStorage.getItem("leads");
+      let qualified: { label: string; value: string }[] = [];
+
+      if (storedLeads) {
+        const parsed = JSON.parse(storedLeads);
+        qualified = parsed
+          .filter((l: any) => l.status === "Qualified" && !l.converted)
+          .map((l: any) => ({
+            label: `${l.firstName} ${l.lastName}`,
+            value: `${l.firstName} ${l.lastName}`,
+          }));
+      }
+
+      if (mode === "edit" && initialData?.associatedLead) {
+        const alreadyIncluded = qualified.some(
+          (q) => q.value === initialData.associatedLead
+        );
+        if (!alreadyIncluded) {
+          qualified.unshift({
+            label: initialData.associatedLead,
+            value: initialData.associatedLead,
+          });
+        }
+      }
+
+      setQualifiedLeads(qualified);
+
+      if (mode === "edit" && initialData) {
+        setFormData(initialData);
+      } else {
+        const currentDate = getCurrentDate();
+        setFormData({
+          name: "",
+          stage: "",
+          closeDate: "",
+          owner: [],
+          amount: "",
+          priority: "",
+          createdDate: currentDate,
+          associatedLead:
+            associatedLead && window.location.search.includes("openModal=true")
+              ? associatedLead
+              : "",
+        });
+      }
+      setErrors({});
+    } else {
+      setFormData({
+        name: "",
+        stage: "",
+        closeDate: "",
+        owner: [],
+        amount: "",
+        priority: "",
+        createdDate: "",
+        associatedLead: "",
+      });
+      setErrors({});
+    }
+  }, [isOpen, mode, initialData, associatedLead]);
+
+  const handleChange = (field: keyof DealData, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
 
   const stageOptions = [
     { label: "Presentation Scheduled", value: "Presentation Scheduled" },
@@ -80,55 +146,6 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     { label: "Critical", value: "Critical" },
   ];
 
-  useEffect(() => {
-    if (isOpen) {
-      if (mode === "edit" && initialData) {
-        setFormData(initialData);
-      } else if (mode === "create") {
-        const currentDate = getCurrentDate();
-        setFormData({
-          name: "",
-          stage: "Presentation Scheduled",
-          closeDate: "",
-          owner: [],
-          amount: "",
-          priority: "Medium",
-          createdDate: currentDate,
-        });
-      }
-    }
-  }, [isOpen, mode, initialData]);
-
-  const handleChange = (field: keyof DealData, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = (): boolean => {
-    if (!formData.name.trim() || !formData.stage.trim()) {
-      notify("Please fill all required fields (Name & Stage).", "error");
-      return false;
-    }
-
-    const dealDataToSave = { ...formData };
-    if (mode === "create" && !dealDataToSave.createdDate) {
-      dealDataToSave.createdDate = getCurrentDate();
-    }
-
-    if (dealDataToSave.amount && !dealDataToSave.amount.startsWith("$")) {
-      dealDataToSave.amount = `$${dealDataToSave.amount}`;
-    }
-
-    console.log("Saving deal with createdDate:", dealDataToSave.createdDate);
-    onSave(dealDataToSave);
-    notify(
-      mode === "edit"
-        ? "Deal updated successfully!"
-        : "Deal created successfully!",
-      "success"
-    );
-    return true;
-  };
-
   const RequiredLabel: React.FC<{ children: React.ReactNode }> = ({
     children,
   }) => (
@@ -137,15 +154,130 @@ const CreateDeal: React.FC<CreateDealProps> = ({
       <span className="text-red-500">*</span>
     </span>
   );
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) {
+      newErrors.name = "Deal Name is required";
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = "Deal Name must be at least 2 characters long";
+    } else if (formData.name.trim().length > 100) {
+      newErrors.name = "Deal Name must be less than 100 characters";
+    }
+    if (!formData.stage.trim()) {
+      newErrors.stage = "Please choose a deal stage";
+    }
+    if (!formData.owner.length) {
+      newErrors.owner = "Please select at least one deal owner";
+    }
+    if (!formData.amount.trim()) {
+      newErrors.amount = "Please enter a deal amount";
+    } else {
+      const cleanAmount = formData.amount.replace(/[$,]/g, "").trim();
+      const amountValue = parseFloat(cleanAmount);
+      if (isNaN(amountValue)) {
+        newErrors.amount = "Amount must be a valid number";
+      } else if (amountValue <= 0) {
+        newErrors.amount = "Amount must be greater than 0";
+      } else if (amountValue > 1000000000) {
+        newErrors.amount = "Amount must be less than 1 billion";
+      } else if (!/^\d*\.?\d{0,2}$/.test(cleanAmount)) {
+        newErrors.amount = "Amount can have up to 2 decimal places";
+      }
+    }
+    if (!formData.closeDate.trim()) {
+      newErrors.closeDate = "Please select a close date";
+    } else {
+      const closeDate = new Date(formData.closeDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (closeDate < today) {
+        newErrors.closeDate = "Close date cannot be in the past";
+      }
+    }
+    if (!formData.priority.trim()) {
+      newErrors.priority = "Please select a priority";
+    }
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      notify("⚠ Please correct the highlighted fields.", "error");
+      return false;
+    }
+
+    const dealDataToSave = { ...formData };
+    if (dealDataToSave.amount) {
+      const cleanAmount = dealDataToSave.amount.replace(/[$,]/g, "").trim();
+      const amountValue = parseFloat(cleanAmount);
+      dealDataToSave.amount = `$${amountValue.toFixed(2)}`;
+    }
+    if (mode === "create" && !dealDataToSave.createdDate) {
+      dealDataToSave.createdDate = getCurrentDate();
+    }
+
+    onSave(dealDataToSave);
+    notify(
+      mode === "edit"
+        ? "Deal updated successfully!"
+        : "Deal created successfully!",
+      "success"
+    );
+    setFormData({
+      name: "",
+      stage: "",
+      closeDate: "",
+      owner: [],
+      amount: "",
+      priority: "",
+      createdDate: getCurrentDate(),
+      associatedLead: "",
+    });
+    setErrors({});
+    return true;
+  };
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
+      handleChange("amount", value);
+    }
+  };
 
   return (
     <ModalWrapper
       isOpen={isOpen}
-      title={mode === "edit" ? "Edit Deal" : "Create New Deal"}
-      onClose={onClose}
-      onSave={handleSave}
+      title={mode === "edit" ? "Edit Deal" : "Create Deal"}
+      onClose={() => {
+        onClose();
+        setFormData({
+          name: "",
+          stage: "",
+          closeDate: "",
+          owner: [],
+          amount: "",
+          priority: "",
+          createdDate: "",
+          associatedLead: "",
+        });
+        setErrors({});
+      }}
+      onSave={validate}
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Associated Lead
+          </label>
+          <Inputs
+            variant="select"
+            placeholder="Choose"
+            options={qualifiedLeads}
+            value={formData.associatedLead || ""}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              handleChange("associatedLead", e.target.value)
+            }
+            className="border-gray-300 focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             <RequiredLabel>Deal Name</RequiredLabel>
@@ -157,41 +289,81 @@ const CreateDeal: React.FC<CreateDealProps> = ({
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleChange("name", e.target.value)
             }
+            className={`${
+              errors.name
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+            }`}
           />
+          {errors.name && (
+            <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+          )}
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             <RequiredLabel>Deal Stage</RequiredLabel>
           </label>
           <Inputs
             variant="select"
-            placeholder="Select deal stage"
+            placeholder="Choose"
             options={stageOptions}
             value={formData.stage}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               handleChange("stage", e.target.value)
             }
+            className={`${
+              errors.stage
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+            }`}
           />
+          {errors.stage && (
+            <p className="text-red-500 text-sm mt-1">{errors.stage}</p>
+          )}
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Owner(s)
+            <RequiredLabel>Deal Owner</RequiredLabel>
           </label>
           <Inputs
             variant="multiselect"
-            placeholder="Select owner(s)"
+            placeholder="Choose"
             options={ownerOptions}
             value={formData.owner}
             onChange={(values: string[]) => handleChange("owner", values)}
+            className={`${
+              errors.owner
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+            }`}
           />
+          {errors.owner && (
+            <p className="text-red-500 text-sm mt-1">{errors.owner}</p>
+          )}
         </div>
-
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <RequiredLabel>Amount</RequiredLabel>
+          </label>
+          <Inputs
+            variant="input"
+            placeholder="0.00"
+            value={formData.amount}
+            onChange={handleAmountChange}
+            className={`${
+              errors.amount
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+            }`}
+          />
+          {errors.amount && (
+            <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Close Date
+              <RequiredLabel>Close Date</RequiredLabel>
             </label>
             <Inputs
               variant="input"
@@ -200,37 +372,40 @@ const CreateDeal: React.FC<CreateDealProps> = ({
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 handleChange("closeDate", e.target.value)
               }
+              min={getCurrentDate()}
+              className={`${
+                errors.closeDate
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+              }`}
             />
+            {errors.closeDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.closeDate}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Priority
+              <RequiredLabel>Priority</RequiredLabel>
             </label>
             <Inputs
               variant="select"
-              placeholder="Select priority"
+              placeholder="Choose"
               options={priorityOptions}
               value={formData.priority}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                 handleChange("priority", e.target.value)
               }
+              className={`${
+                errors.priority
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+              }`}
             />
+            {errors.priority && (
+              <p className="text-red-500 text-sm mt-1">{errors.priority}</p>
+            )}
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Amount
-          </label>
-          <Inputs
-            variant="input"
-            placeholder="$0.00"
-            value={formData.amount}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              handleChange("amount", e.target.value)
-            }
-          />
         </div>
       </div>
     </ModalWrapper>

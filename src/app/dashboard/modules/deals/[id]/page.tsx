@@ -16,7 +16,7 @@ import TaskModal from "@/components/modal/FormModals/TaskModal";
 import MeetingModal from "@/components/modal/FormModals/MeetingModal";
 
 import { notify } from "@/components/ui/toast/Notify";
-import { formatDisplayDateOnly } from "@/app/lib/date";
+import { formatDisplayDate } from "@/app/lib/date";
 import { getCurrentUserName } from "@/app/lib/auth";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
@@ -82,7 +82,9 @@ export default function DealDetailPage() {
   const [dealStage, setDealStage] = useState("");
   const [attachments, setAttachments] = useState<any[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [activeTab, setActiveTab] = useState<ActivityType | "activity">("activity");
+  const [activeTab, setActiveTab] = useState<ActivityType | "activity">(
+    "activity"
+  );
   const [showModal, setShowModal] = useState<Record<ActivityType, boolean>>({
     note: false,
     call: false,
@@ -93,7 +95,14 @@ export default function DealDetailPage() {
   const [searchValue, setSearchValue] = useState("");
 
   const currentUserName = getCurrentUserName();
-  const ownerOptions = ["Shaima", "Shifa", "Mizba", "Sabira", "Greeshma", "Maria"];
+  const ownerOptions = [
+    "Shaima",
+    "Shifa",
+    "Mizba",
+    "Sabira",
+    "Greeshma",
+    "Maria",
+  ];
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchValue(e.target.value);
@@ -106,27 +115,16 @@ export default function DealDetailPage() {
 
   const getFormattedOwners = () => {
     if (!editableDeal?.owner) return "";
-    return Array.isArray(editableDeal.owner) ? editableDeal.owner.join(", ") : editableDeal.owner;
+    return Array.isArray(editableDeal.owner)
+      ? editableDeal.owner.join(", ")
+      : editableDeal.owner;
   };
 
-  
   const getAllMeetingParticipants = (attendees: string[] = []) => {
+    // 🟢 Only include current user
     const allParticipants = new Set<string>();
-    
-    
     allParticipants.add(currentUserName);
-    
-    
-    if (deal?.owner) {
-      const owners = Array.isArray(deal.owner) ? deal.owner : [deal.owner];
-      owners.forEach(owner => allParticipants.add(owner));
-    }
-    
-    
-    if (Array.isArray(attendees)) {
-      attendees.forEach(attendee => allParticipants.add(attendee));
-    }
-    
+
     return Array.from(allParticipants);
   };
 
@@ -138,7 +136,9 @@ export default function DealDetailPage() {
       if (found) {
         const dealWithArrayOwner = {
           ...found,
-          owner: Array.isArray(found.owner) ? found.owner : [found.owner].filter(Boolean),
+          owner: Array.isArray(found.owner)
+            ? found.owner
+            : [found.owner].filter(Boolean),
         };
         setDeal(dealWithArrayOwner);
         setEditableDeal(dealWithArrayOwner);
@@ -153,25 +153,30 @@ export default function DealDetailPage() {
         if (activity.type === "meeting") {
           const attendees = activity.extra?.attendeesRaw || [];
           const allParticipants = getAllMeetingParticipants(attendees);
-          const participantNames = allParticipants.join(" and ");
+          const participantNames = currentUserName;
 
           return {
             ...activity,
-            title: `Meeting with ${participantNames}`,
-            description: `Meeting organized by ${currentUserName} with ${participantNames}`,
-            content: activity.content || `Meeting organized by ${currentUserName}`,
+            title: `Meeting by ${currentUserName}`,
+            description: `Meeting organized by ${currentUserName}`,
+            content:
+              activity.content || `Meeting organized by ${currentUserName}`,
             extra: {
               ...activity.extra,
-              attendees: getAttendeeCount(allParticipants, allParticipants.length),
+              attendees: getAttendeeCount(
+                allParticipants,
+                allParticipants.length
+              ),
               organizer: currentUserName,
-              allParticipants: allParticipants, 
+              allParticipants: allParticipants,
             },
           };
         }
         return activity;
       });
 
-      const hasChanges = JSON.stringify(updatedActivities) !== JSON.stringify(activities);
+      const hasChanges =
+        JSON.stringify(updatedActivities) !== JSON.stringify(activities);
       if (hasChanges) {
         setActivities(updatedActivities);
       }
@@ -188,10 +193,11 @@ export default function DealDetailPage() {
     localStorage.setItem("deals", JSON.stringify(updatedDeals));
   };
 
-
   const simpleActivities: ActivityItem[] = useMemo(() => {
     const now = new Date();
-    const dealCreatedDate = deal?.createdDate ? new Date(deal.createdDate) : now;
+    const dealCreatedDate = deal?.createdDate
+      ? new Date(deal.createdDate)
+      : now;
 
     const allActivities = [
       {
@@ -207,8 +213,12 @@ export default function DealDetailPage() {
           minute: "2-digit",
           hour12: true,
         }),
-        description: `${currentUserName} moved deal to ${dealStage || deal?.stage || "New"}`,
-        content: `${currentUserName} moved deal to ${dealStage || deal?.stage || "New"}`,
+        description: `${currentUserName} moved deal to ${
+          dealStage || deal?.stage || "New"
+        }`,
+        content: `${currentUserName} moved deal to ${
+          dealStage || deal?.stage || "New"
+        }`,
         dueDate: now.toLocaleString("en-US", {
           month: "long",
           day: "numeric",
@@ -298,7 +308,9 @@ export default function DealDetailPage() {
         content = data;
         break;
       case "email":
-        title = `Logged Email – ${data?.subject || "No Subject"} by ${currentUserName}`;
+        title = `Logged Email – ${
+          data?.subject || "No Subject"
+        } by ${currentUserName}`;
         content = data?.body || "Email sent successfully";
         break;
       case "call":
@@ -319,19 +331,18 @@ export default function DealDetailPage() {
         };
         break;
       case "meeting":
-      
-        const additionalAttendees = data?.attendees || [];
-        const allParticipants = getAllMeetingParticipants(additionalAttendees);
-        const participantNames = allParticipants.join(" and ");
+        const allParticipants = [currentUserName];
+        const participantNames = currentUserName;
 
-        title = `Meeting with ${participantNames}`;
+        title = `Meeting by ${currentUserName}`;
         content = data?.note || `Meeting organized by ${currentUserName}`;
         extra = {
-          duration: data?.duration || calculateDuration(data.startTime, data.endTime),
+          duration:
+            data?.duration || calculateDuration(data.startTime, data.endTime),
           attendees: getAttendeeCount(allParticipants, allParticipants.length),
           organizer: currentUserName,
           location: data?.location || "",
-          attendeesRaw: additionalAttendees,
+          attendeesRaw: allParticipants,
           allParticipants: allParticipants,
         };
         break;
@@ -343,7 +354,9 @@ export default function DealDetailPage() {
       title,
       author: currentUserName,
       date: formatActivityDateTime(new Date()),
-      dueDate: data?.dueDate ? formatNoteDate(new Date(data.dueDate)) : formatNoteDate(new Date()),
+      dueDate: data?.dueDate
+        ? formatNoteDate(new Date(data.dueDate))
+        : formatNoteDate(new Date()),
       description: content,
       content,
       extra,
@@ -352,7 +365,10 @@ export default function DealDetailPage() {
     setActivities((prev) => [newActivity, ...prev]);
     setActiveTab("activity");
     toggleModal(type, false);
-    notify(`${type.charAt(0).toUpperCase() + type.slice(1)} added successfully`, "success");
+    notify(
+      `${type.charAt(0).toUpperCase() + type.slice(1)} added successfully`,
+      "success"
+    );
     return true;
   };
 
@@ -434,7 +450,7 @@ export default function DealDetailPage() {
     {
       label: "Created Date",
       value: editableDeal?.createdDate
-        ? formatNoteDate(new Date(editableDeal.createdDate))
+        ? formatDisplayDate(editableDeal.createdDate)
         : "",
       isEditable: false,
     },
@@ -478,14 +494,20 @@ export default function DealDetailPage() {
       </div>
 
       <div className="flex-1 bg-white p-4 mt-2">
-        <DetailHeader searchValue={searchValue} onSearchChange={handleSearchChange} />
+        <DetailHeader
+          searchValue={searchValue}
+          onSearchChange={handleSearchChange}
+        />
         <CRMTabHeader
           value={activeTab}
           onChange={(tab) => setActiveTab(tab)}
           renderPanel={(tab, label) => {
             if (tab === "activity") {
               return (
-                <ActivitySummaryView heading="Upcoming" activities={simpleActivities} />
+                <ActivitySummaryView
+                  heading="Upcoming"
+                  activities={simpleActivities}
+                />
               );
             }
             return (
