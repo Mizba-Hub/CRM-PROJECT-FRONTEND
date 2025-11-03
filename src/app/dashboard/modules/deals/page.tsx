@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import HeaderBar from "@/components/crm/EntityList";
-import TableLayout, { TableRow, TableCell, } from "@/components/crm/table/TableLayout";
+import TableLayout, {
+  TableRow,
+  TableCell,
+} from "@/components/crm/table/TableLayout";
 import ActionButtons from "@/components/crm/table/EntityDetailHeader";
 import CreateDeal from "./components/CreateDealButton";
 import Link from "next/link";
@@ -19,20 +23,19 @@ interface Deal {
   createdDate: string;
   description?: string;
   accountName?: string;
+  associatedLead?: string;
 }
 
 const dealFilters = [
   {
     label: "Deal Owner",
     options: [
-      "Jane Cooper",
-      "Wade Warren",
-      "Brooklyn Simmons",
-      "Leslie Alexander",
-      "Jenny Wilson",
-      "Guy Hawkins",
-      "Robert Fox",
-      "Cameron Williamson",
+      "Maria Johnson",
+      "Shaimah",
+      "Mizba",
+      "Greeshma",
+      "Sabira",
+      "Shifa",
     ],
   },
   {
@@ -51,7 +54,7 @@ const dealFilters = [
 
 export default function DealsPage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 68;
+  const [totalPages, setTotalPages] = useState(1);
 
   const [deals, setDeals] = useState<Deal[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,135 +65,90 @@ export default function DealsPage() {
   const [selectedOwner, setSelectedOwner] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  useEffect(() => {
-    const storedDeals = localStorage.getItem("deals");
-    if (storedDeals) {
-      const parsed = JSON.parse(storedDeals);
 
+  // 🟣 Manage associated lead for modal
+  const [tempAssociatedLead, setTempAssociatedLead] = useState("");
+
+  // 🟣 Capture query params (for Convert flow)
+  const searchParams = useSearchParams();
+  const openModal = searchParams.get("openModal");
+  const leadName = searchParams.get("leadName");
+  const leadId = searchParams.get("leadId");
+  useEffect(() => {
+    const stored = localStorage.getItem("deals");
+    if (stored) {
+      const parsed = JSON.parse(stored);
       const normalized = parsed.map((d: any) => ({
         ...d,
-        owner: Array.isArray(d.owner) ? d.owner : [d.owner],
+        owner: Array.isArray(d.owner) ? d.owner : [d.owner].filter(Boolean),
       }));
       setDeals(normalized);
-    } else {
-      const defaultDeals: Deal[] = [
-        {
-          id: 1,
-          name: "Website Revamp - Atlas Corp",
-          stage: "Presentation Scheduled",
-          closeDate: "2025-04-08",
-          owner: ["Jane Cooper"],
-          amount: "$12,500",
-          priority: "High",
-          createdDate: "2024-01-15",
-        },
-        {
-          id: 2,
-          name: "Mobile App for FitBuddy",
-          stage: "Qualified to Buy",
-          closeDate: "2025-04-08",
-          owner: ["Wade Warren"],
-          amount: "$25,000",
-          priority: "Low",
-          createdDate: "2024-01-16",
-        },
-        {
-          id: 3,
-          name: "HR Software Licenses - ZenHR",
-          stage: "Contract Sent",
-          closeDate: "2025-04-08",
-          owner: ["Brooklyn Simmons"],
-          amount: "$18,750",
-          priority: "High",
-          createdDate: "2024-01-17",
-        },
-        {
-          id: 4,
-          name: "CRM Onboarding - NexTech",
-          stage: "Closed Won",
-          closeDate: "2025-04-08",
-          owner: ["Leslie Alexander"],
-          amount: "$22,000",
-          priority: "High",
-          createdDate: "2024-01-18",
-        },
-        {
-          id: 5,
-          name: "Marketing Suite - QuickAdz",
-          stage: "Appointment Scheduled",
-          closeDate: "2025-04-08",
-          owner: ["Jenny Wilson"],
-          amount: "$14,800",
-          priority: "High",
-          createdDate: "2024-01-19",
-        },
-        {
-          id: 6,
-          name: "Inventory Tool - GreenMart",
-          stage: "Decision Maker Bought In",
-          closeDate: "2025-04-08",
-          owner: ["Guy Hawkins"],
-          amount: "$9,200",
-          priority: "High",
-          createdDate: "2024-01-20",
-        },
-        {
-          id: 7,
-          name: "ERP Integration - BlueChip",
-          stage: "Qualified to Buy",
-          closeDate: "2025-04-08",
-          owner: ["Robert Fox"],
-          amount: "$15,000",
-          priority: "High",
-          createdDate: "2024-01-21",
-        },
-        {
-          id: 8,
-          name: "Loyalty Program - FoodiFlex",
-          stage: "Closed Lost",
-          closeDate: "2025-04-08",
-          owner: ["Cameron Williamson"],
-          amount: "$11,000",
-          priority: "High",
-          createdDate: "2024-01-22",
-        },
-      ];
-      localStorage.setItem("deals", JSON.stringify(defaultDeals));
-      setDeals(defaultDeals);
     }
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "deals") {
         const updated = e.newValue ? JSON.parse(e.newValue) : [];
-        const normalized = updated.map((d: any) => ({
-          ...d,
-          owner: Array.isArray(d.owner) ? d.owner : [d.owner],
-        }));
-        setDeals(normalized);
+        setDeals(
+          updated.map((d: any) => ({
+            ...d,
+            owner: Array.isArray(d.owner) ? d.owner : [d.owner].filter(Boolean),
+          }))
+        );
       }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
-
+  useEffect(() => {
+    if (openModal === "true") {
+      setTempAssociatedLead(leadName || "");
+      setModalMode("create");
+      setSelectedDeal(null);
+      setIsModalOpen(true);
+    }
+  }, [openModal, leadName]);
   const handleSaveDeal = (dealData: Omit<Deal, "id">) => {
     let updatedDeals: Deal[];
-    if (modalMode === "create") {
-      const newDeal: Deal = { id: Date.now(), ...dealData };
-      updatedDeals = [newDeal, ...deals];
-    } else if (modalMode === "edit" && selectedDeal) {
+
+    const newDeal: Deal = {
+      id: Date.now(),
+      ...dealData,
+      associatedLead: tempAssociatedLead || dealData.associatedLead || "",
+    };
+
+    if (modalMode === "edit" && selectedDeal) {
       updatedDeals = deals.map((d) =>
         d.id === selectedDeal.id ? { ...d, ...dealData } : d
       );
     } else {
-      updatedDeals = deals;
+      updatedDeals = [newDeal, ...deals];
     }
 
     setDeals(updatedDeals);
     localStorage.setItem("deals", JSON.stringify(updatedDeals));
     window.dispatchEvent(new Event("storage"));
+    if (leadId || newDeal.associatedLead) {
+      const storedLeads = localStorage.getItem("leads");
+      if (storedLeads) {
+        const leads = JSON.parse(storedLeads);
+        const updatedLeads = leads.map((l: any) => {
+          const fullName = `${l.firstName} ${l.lastName}`;
+          if (
+            String(l.id) === String(leadId) ||
+            fullName === newDeal.associatedLead
+          ) {
+            return { ...l, converted: true };
+          }
+          return l;
+        });
+        localStorage.setItem("leads", JSON.stringify(updatedLeads));
+        window.dispatchEvent(new Event("storage"));
+      }
+    }
     setIsModalOpen(false);
     setSelectedDeal(null);
+    setModalMode("create");
+    setTempAssociatedLead("");
   };
 
   const handleEdit = (deal: Deal) => {
@@ -207,11 +165,11 @@ export default function DealsPage() {
   };
 
   const handleCreate = () => {
+    setTempAssociatedLead("");
     setModalMode("create");
     setSelectedDeal(null);
     setIsModalOpen(true);
   };
-
   const filteredDeals = deals.filter((deal) => {
     const matchesSearch =
       deal.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -226,21 +184,29 @@ export default function DealsPage() {
     const matchesDate = selectedDate ? dealDisplayDate === selectedDate : true;
     return matchesSearch && matchesOwner && matchesStage && matchesDate;
   });
-
+  useEffect(() => {
+    const itemsPerPage = 10;
+    const calculatedTotalPages = Math.ceil(filteredDeals.length / itemsPerPage);
+    setTotalPages(calculatedTotalPages > 0 ? calculatedTotalPages : 1);
+    if (currentPage > calculatedTotalPages) {
+      setCurrentPage(1);
+    }
+  }, [filteredDeals.length, currentPage]);
   const columns = [
     { key: "checkbox", label: "" },
     { key: "name", label: "DEAL NAME" },
     { key: "stage", label: "DEAL STAGE" },
     { key: "closeDate", label: "CLOSE DATE" },
-    { key: "owner", label: "DEAL OWNER(S)" },
+    { key: "owner", label: "DEAL OWNER" },
     { key: "amount", label: "AMOUNT" },
     { key: "actions", label: "ACTIONS" },
   ];
 
   return (
-    <div className="p-4 bg-white rounded-lg">
+    <div className="bg-white m-2 rounded-md h-full overflow-hidden">
       <HeaderBar
         title="Deals"
+        searchPlaceholder="Search phone,name,city"
         onSearch={setSearchTerm}
         filters={dealFilters}
         onFilterChange={(name, val) => {
@@ -259,18 +225,21 @@ export default function DealsPage() {
         }}
         isDealPage={true}
       />
-
-
       <CreateDeal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedDeal(null);
+          setModalMode("create");
+          setTempAssociatedLead("");
+        }}
         onSave={handleSaveDeal}
         initialData={
           modalMode === "edit" ? selectedDeal || undefined : undefined
         }
         mode={modalMode}
+        associatedLead={tempAssociatedLead}
       />
-
       <div className="px-4">
         <TableLayout columns={columns}>
           {filteredDeals.length > 0 ? (
@@ -297,7 +266,6 @@ export default function DealsPage() {
 
                 <TableCell>{deal.stage}</TableCell>
                 <TableCell>{formatDisplayDateOnly(deal.closeDate)}</TableCell>
-
                 <TableCell>{deal.owner.join(", ")}</TableCell>
                 <TableCell>{deal.amount}</TableCell>
 
