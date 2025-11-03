@@ -59,34 +59,8 @@ export default function LeadsPage() {
       setLeads(fixed);
       localStorage.setItem("leads", JSON.stringify(fixed));
     } else {
-      const defaultLeads: Lead[] = [
-        {
-          id: 1,
-          firstName: "Jane",
-          lastName: "Cooper",
-          email: "janecooper@gmail.com",
-          phone: "0785432850",
-          fullPhone: "+971785432850",
-          jobTitle: "Sales Executive",
-          contactOwner: ["John Doe"],
-          status: "Open",
-          createdDate: "2025-04-08T14:35:00+05:30",
-        },
-        {
-          id: 2,
-          firstName: "Wade",
-          lastName: "Warren",
-          email: "wadewarren@gmail.com",
-          phone: "0775456878",
-          fullPhone: "+971775456878",
-          jobTitle: "Marketing Manager",
-          contactOwner: ["Sarah Connor"],
-          status: "New",
-          createdDate: "2025-04-08T14:35:00+05:30",
-        },
-      ];
-      setLeads(defaultLeads);
-      localStorage.setItem("leads", JSON.stringify(defaultLeads));
+      setLeads([]);
+      localStorage.setItem("leads", JSON.stringify([]));
     }
   }, []);
 
@@ -190,10 +164,10 @@ export default function LeadsPage() {
   ];
 
   return (
-    <div className="bg-white m-2 rounded-md h-full">
+    <div className="bg-white m-2 rounded-md h-full overflow-hidden">
       <HeaderBar
         title="Leads"
-        searchPlaceholder="Search phone, name, email" 
+        searchPlaceholder="Search phone, name, email"
         onSearch={(val) => setSearchTerm(val)}
         filters={leadFilters}
         activeFilters={activeFilters}
@@ -233,9 +207,7 @@ export default function LeadsPage() {
                 </TableCell>
 
                 <TableCell>{lead.email}</TableCell>
-
                 <TableCell>{lead.phone}</TableCell>
-
                 <TableCell>{formatDisplayDate(lead.createdDate)}</TableCell>
 
                 <TableCell>
