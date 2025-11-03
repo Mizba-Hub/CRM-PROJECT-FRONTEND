@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Inputs } from "@/components/ui/Inputs";
 import ModalWrapper from "@/components/modal/ModalWrapper";
 import { notify } from "@/components/ui/toast/Notify";
+import { useLocalStorage } from "@/app/lib/useLocalStorage"; 
 
 interface DealData {
   name: string;
@@ -35,6 +36,8 @@ const CreateDeal: React.FC<CreateDealProps> = ({
   initialData,
   associatedLead = "",
 }) => {
+  const { getItem } = useLocalStorage(); // ✅ use the custom hook
+
   const [formData, setFormData] = useState<DealData>({
     name: "",
     stage: "",
@@ -51,54 +54,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
   >([]);
 
   useEffect(() => {
-    if (isOpen) {
-      const storedLeads = localStorage.getItem("leads");
-      let qualified: { label: string; value: string }[] = [];
-
-      if (storedLeads) {
-        const parsed = JSON.parse(storedLeads);
-        qualified = parsed
-          .filter((l: any) => l.status === "Qualified" && !l.converted)
-          .map((l: any) => ({
-            label: `${l.firstName} ${l.lastName}`,
-            value: `${l.firstName} ${l.lastName}`,
-          }));
-      }
-
-      if (mode === "edit" && initialData?.associatedLead) {
-        const alreadyIncluded = qualified.some(
-          (q) => q.value === initialData.associatedLead
-        );
-        if (!alreadyIncluded) {
-          qualified.unshift({
-            label: initialData.associatedLead,
-            value: initialData.associatedLead,
-          });
-        }
-      }
-
-      setQualifiedLeads(qualified);
-
-      if (mode === "edit" && initialData) {
-        setFormData(initialData);
-      } else {
-        const currentDate = getCurrentDate();
-        setFormData({
-          name: "",
-          stage: "",
-          closeDate: "",
-          owner: [],
-          amount: "",
-          priority: "",
-          createdDate: currentDate,
-          associatedLead:
-            associatedLead && window.location.search.includes("openModal=true")
-              ? associatedLead
-              : "",
-        });
-      }
-      setErrors({});
-    } else {
+    const resetForm = () => {
       setFormData({
         name: "",
         stage: "",
@@ -110,8 +66,57 @@ const CreateDeal: React.FC<CreateDealProps> = ({
         associatedLead: "",
       });
       setErrors({});
+    };
+
+    if (!isOpen) {
+      resetForm();
+      return;
     }
-  }, [isOpen, mode, initialData, associatedLead]);
+
+    // ✅ Use the custom hook here instead of raw localStorage
+    const leadsData = getItem<any[]>("leads", []);
+    const qualified = leadsData
+      .filter((lead) => lead.status === "Qualified" && !lead.converted)
+      .map((lead) => ({
+        label: `${lead.firstName} ${lead.lastName}`,
+        value: `${lead.firstName} ${lead.lastName}`,
+      }));
+
+    if (mode === "edit" && initialData?.associatedLead) {
+      const exists = qualified.some(
+        (q) => q.value === initialData.associatedLead
+      );
+      if (!exists) {
+        qualified.unshift({
+          label: initialData.associatedLead,
+          value: initialData.associatedLead,
+        });
+      }
+    }
+
+    setQualifiedLeads(qualified);
+
+    if (mode === "edit" && initialData) {
+      setFormData(initialData);
+    } else {
+      const today = getCurrentDate();
+      setFormData({
+        name: "",
+        stage: "",
+        closeDate: "",
+        owner: [],
+        amount: "",
+        priority: "",
+        createdDate: today,
+        associatedLead:
+          associatedLead && window.location.search.includes("openModal=true")
+            ? associatedLead
+            : "",
+      });
+    }
+
+    setErrors({});
+  }, [isOpen, mode, initialData, associatedLead, getItem]);
 
   const handleChange = (field: keyof DealData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
