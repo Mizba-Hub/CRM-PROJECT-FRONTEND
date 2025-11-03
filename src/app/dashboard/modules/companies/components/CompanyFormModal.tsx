@@ -70,7 +70,7 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
       <Inputs
         variant="multiselect"
         name="companyOwner"
-        label={<>Company Owner(s)</>}
+        label={<>Company Owner</>}
         placeholder="Choose"
         
         value={formData.companyOwner || []}
