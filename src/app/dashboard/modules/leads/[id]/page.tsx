@@ -21,7 +21,6 @@ import ActivitySummaryView from "@/components/crm/ActivitySummaryView";
 import { getCurrentUserName } from "@/app/lib/auth";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
-
 import DetailHeader from "@/components/crm/DetailHeader";
 
 type ActivityType = "note" | "call" | "task" | "email" | "meeting";
@@ -74,7 +73,7 @@ export default function LeadDetailPage() {
     }
   }, [id]);
 
-  const statusOptions = ["Open", "New", "In Progress", "Closed"];
+  const statusOptions = ["Open", "New", "In Progress", "Qualified", "Closed"];
 
   const toggleModal = (type: ActivityType, open: boolean) => {
     setShowModal((prev) => ({ ...prev, [type]: open }));
@@ -124,7 +123,7 @@ export default function LeadDetailPage() {
           ? lead.contactOwner.length
           : 1;
 
-        title = `Meeting ${currentUserName},${lead.firstName} ${lead.lastName}  and ${attendeeNames}`;
+        title = `Meeting ${currentUserName} and ${lead.firstName} ${lead.lastName}`;
         content = data?.note || "";
 
         extra = {
@@ -142,7 +141,7 @@ export default function LeadDetailPage() {
       id: Date.now(),
       type,
       title,
-      author: lead?.contactOwner || "Current User",
+      author: currentUserName,
       date: formatActivityDate(new Date()),
       dueDate: formatActivityDate(new Date()),
       description: content,
@@ -160,58 +159,25 @@ export default function LeadDetailPage() {
     return true;
   };
 
-  const handlePhoneChange = (val: string) => {
-    const digitsOnly = val.replace(/\D/g, "");
-    if (digitsOnly.length > 10) return;
-    setEditableLead((p: any) => ({ ...p, phone: digitsOnly }));
-  };
-
-  const handlePhoneBlur = () => {
-    const digits = editableLead?.phone?.replace(/\D/g, "") || "";
-    if (digits.length > 0 && digits.length < 10) {
-      notify("Please enter a valid 10-digit phone number", "error");
-    }
-  };
-
   const handleSaveLead = () => {
-    try {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneDigits = editableLead?.phone?.replace(/\D/g, "") || "";
-
-      if (!emailRegex.test(editableLead?.email)) {
-        notify("Please enter a valid email address", "error");
-        return;
-      }
-
-      if (phoneDigits.length !== 10) {
-        notify("Please enter a valid 10-digit phone number", "error");
-        return;
-      }
-
-      const updatedLead = { ...editableLead, phone: phoneDigits };
-
-      setLead(updatedLead);
-      const storedLeads = localStorage.getItem("leads");
-      if (storedLeads) {
-        const leads = JSON.parse(storedLeads);
-        const updatedLeads = leads.map((l: any) =>
-          String(l.id) === String(id) ? updatedLead : l
-        );
-        localStorage.setItem("leads", JSON.stringify(updatedLeads));
-      }
-      setIsEditing(false);
-      notify("Lead details updated successfully", "success");
-    } catch (error) {
-      console.error("Failed to update lead:", error);
-      notify("Failed to save changes", "error");
+    if (!editableLead) return;
+    const updated = { ...editableLead };
+    const storedLeads = localStorage.getItem("leads");
+    if (storedLeads) {
+      const leads = JSON.parse(storedLeads);
+      const updatedLeads = leads.map((l: any) =>
+        String(l.id) === String(id) ? updated : l
+      );
+      localStorage.setItem("leads", JSON.stringify(updatedLeads));
     }
+    setLead(updated);
+    setIsEditing(false);
+    notify("Lead updated successfully", "success");
   };
 
   if (!lead)
     return (
-      <div className="p-8 text-center text-gray-600">
-        <p>Lead details loading...</p>
-      </div>
+      <p className="p-8 text-gray-500 text-center">Loading lead details...</p>
     );
 
   const aboutFields = [
@@ -219,60 +185,61 @@ export default function LeadDetailPage() {
       label: "Email",
       value: editableLead?.email,
       isEditable: true,
-      onChange: (val: string | string[]) =>
+      onChange: (v: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          email: typeof val === "string" ? val : val[0],
+          email: Array.isArray(v) ? v[0] : v,
         })),
     },
     {
       label: "First Name",
       value: editableLead?.firstName,
       isEditable: true,
-      onChange: (val: string | string[]) =>
+      onChange: (v: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          firstName: typeof val === "string" ? val : val[0],
+          firstName: Array.isArray(v) ? v[0] : v,
         })),
     },
     {
       label: "Last Name",
       value: editableLead?.lastName,
       isEditable: true,
-      onChange: (val: string | string[]) =>
+      onChange: (v: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          lastName: typeof val === "string" ? val : val[0],
+          lastName: Array.isArray(v) ? v[0] : v,
         })),
     },
     {
       label: "Phone Number",
       value: editableLead?.phone,
       isEditable: true,
-      onChange: (val: string | string[]) =>
-        handlePhoneChange(typeof val === "string" ? val : val[0] || ""),
-      onBlur: handlePhoneBlur,
+      onChange: (v: string | string[]) =>
+        setEditableLead((p: any) => ({
+          ...p,
+          phone: Array.isArray(v) ? v[0] : v,
+        })),
     },
     {
       label: "Lead Status",
       value: editableLead?.status || "New",
       isEditable: true,
       options: statusOptions,
-      onChange: (val: string | string[]) =>
+      onChange: (v: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          status: typeof val === "string" ? val : val[0],
+          status: Array.isArray(v) ? v[0] : v,
         })),
     },
     {
       label: "Job Title",
       value: editableLead?.jobTitle,
       isEditable: true,
-
-      onChange: (val: string | string[]) =>
+      onChange: (v: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          jobTitle: typeof val === "string" ? val : val[0],
+          jobTitle: Array.isArray(v) ? v[0] : v,
         })),
     },
     {
@@ -286,7 +253,7 @@ export default function LeadDetailPage() {
     activities.filter((a) => a.type === type);
 
   return (
-    <div className="m-2 bg-white rounded-md min-h-screen flex flex-col lg:flex-row gap-6 overflow-hidden">
+    <div className="m-2 bg-white rounded-md flex flex-col lg:flex-row gap-6 overflow-hidden">
       <div className="w-[320px] space-y-4 ml-0 mt-2">
         <InfoCard
           module="leads"
@@ -317,8 +284,17 @@ export default function LeadDetailPage() {
         <DetailHeader
           searchValue={searchValue}
           onSearchChange={handleSearchChange}
-          showConvertButton={true}
-          onConvert={() => notify("Convert Lead flow coming soon!", "info")}
+          showConvertButton
+          onConvert={() => {
+            if (lead?.converted) return;
+            const leadName = `${lead.firstName} ${lead.lastName}`;
+            window.location.href = `/dashboard/modules/deals?openModal=true&leadId=${
+              lead.id
+            }&leadName=${encodeURIComponent(leadName)}`;
+          }}
+          convertLabel={lead?.converted ? "Converted" : "Convert"}
+          isConverted={lead?.converted}
+          isQualified={editableLead?.status === "Qualified"}
         />
 
         <CRMTabHeader
@@ -355,7 +331,6 @@ export default function LeadDetailPage() {
               name: file.name,
               uploadedAt: new Date().toLocaleString(),
               previewUrl,
-              type: file.type,
             };
             setAttachments((prev) => [...prev, newAttachment]);
           }}
@@ -373,10 +348,7 @@ export default function LeadDetailPage() {
       <EmailModal
         isOpen={showModal.email}
         onClose={() => toggleModal("email", false)}
-        onSend={(data) => {
-          handleSaveActivity("email", data);
-          return true;
-        }}
+        onSend={(data) => handleSaveActivity("email", data)}
       />
       <CallModal
         isOpen={showModal.call}

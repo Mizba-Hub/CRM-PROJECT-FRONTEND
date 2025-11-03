@@ -76,11 +76,22 @@ export default function LeadModal({
   }, [editData, isOpen]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const lettersOnlyRegex = /^[A-Za-z\s]+$/; 
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+
+    
+    if (
+      (name === "firstName" || name === "lastName" || name === "jobTitle") &&
+      value &&
+      !lettersOnlyRegex.test(value)
+    ) {
+      return; 
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === "email" && value.trim().length > 0) setTypedEmail(true);
   };
@@ -123,6 +134,7 @@ export default function LeadModal({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
+
     if (!formData.email.trim())
       newErrors.email = "Please enter an Email Address";
     else if (!emailRegex.test(formData.email.trim()))
@@ -131,6 +143,14 @@ export default function LeadModal({
     if (!formData.firstName.trim())
       newErrors.firstName = "First Name is required";
     if (!formData.lastName.trim()) newErrors.lastName = "Last Name is required";
+
+    
+    if (formData.firstName && !lettersOnlyRegex.test(formData.firstName))
+      newErrors.firstName = "Only letters allowed";
+    if (formData.lastName && !lettersOnlyRegex.test(formData.lastName))
+      newErrors.lastName = "Only letters allowed";
+    if (formData.jobTitle && !lettersOnlyRegex.test(formData.jobTitle))
+      newErrors.jobTitle = "Only letters allowed";
 
     const cleanedPhone = formData.phone.replace(/[\s()-]/g, "");
     if (!cleanedPhone.trim()) newErrors.phone = "Please enter a phone number";
@@ -175,6 +195,7 @@ export default function LeadModal({
       title={editData ? "Edit Lead" : "Create Lead"}
     >
       <div className="space-y-3">
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Email <span className="text-red-500">*</span>
@@ -218,6 +239,7 @@ export default function LeadModal({
           )}
         </div>
 
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             First Name <span className="text-red-500">*</span>
@@ -239,6 +261,7 @@ export default function LeadModal({
           )}
         </div>
 
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Last Name <span className="text-red-500">*</span>
@@ -260,6 +283,7 @@ export default function LeadModal({
           )}
         </div>
 
+        
         <PhoneInputField
           value={editData?.fullPhone || editData?.phone || formData.phone || ""}
           onChange={handlePhoneChange}
@@ -269,6 +293,7 @@ export default function LeadModal({
           required
         />
 
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Job Title
@@ -279,10 +304,16 @@ export default function LeadModal({
             placeholder="Enter"
             value={formData.jobTitle}
             onChange={handleChange}
-            className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
+            className={`border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px] ${
+              errors.jobTitle ? "border-red-500" : ""
+            }`}
           />
+          {errors.jobTitle && (
+            <p className="text-red-500 text-sm mt-1">{errors.jobTitle}</p>
+          )}
         </div>
 
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Contact Owner
@@ -307,6 +338,7 @@ export default function LeadModal({
           />
         </div>
 
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Lead Status
