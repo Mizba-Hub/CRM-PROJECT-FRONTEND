@@ -33,11 +33,11 @@ export default function TicketCreateButton({
   editData,
 }: TicketCreateButtonProps) {
   const [formData, setFormData] = useState<
-    Omit<Ticket, "id" | "createdDate"> & { leadName?: string }
+    Omit<Ticket, "id" | "createdDate"> & { dealName?: string }
   >({
     name: "",
 
-    leadName: "",
+    dealName: "",
     companyName: "",
     description: "",
     status: "",
@@ -211,18 +211,18 @@ export default function TicketCreateButton({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lead Name <span className="text-red-500">*</span>
+            Deal Name <span className="text-red-500">*</span>
           </label>
           <Inputs
             variant="input"
-            name="leadName"
+            name="dealName"
             placeholder="Enter"
-            value={formData.leadName || ""}
+            value={formData.dealName || ""}
             onChange={handleChange}
             className={errors.leadName ? "border-red-500" : ""}
           />
           {errors.leadName && (
-            <p className="text-red-500 text-sm mt-1">{errors.leadName}</p>
+            <p className="text-red-500 text-sm mt-1">{errors.dealName}</p>
           )}
         </div>
 
