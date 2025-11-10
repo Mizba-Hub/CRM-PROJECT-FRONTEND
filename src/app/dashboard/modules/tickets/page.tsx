@@ -11,6 +11,7 @@ import TicketCreateButton from "./components/TicketCreateButton";
 import { notify } from "@/components/ui/toast/Notify";
 import { formatDisplayDateTime } from "@/app/lib/date";
 
+const ITEMS_PER_PAGE = 10;
 export interface Ticket {
   id: number;
   name: string;
@@ -46,10 +47,8 @@ const ticketFilters = [
 
 export default function TicketsPage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 68;
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
 
   const [activeFilters, setActiveFilters] = useState({
     "Ticket Owner": "",
@@ -262,6 +261,19 @@ export default function TicketsPage() {
     );
   });
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredTickets.length / ITEMS_PER_PAGE) + 1
+  );
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeFilters]);
+
   return (
     <div className="bg-white rounded-lg h-full ">
       <HeaderBar
@@ -270,13 +282,8 @@ export default function TicketsPage() {
         filters={ticketFilters}
         onFilterChange={(name, val) => {
           setActiveFilters((prev) => ({ ...prev, [name]: val }));
-
-          if (name === "Ticket Status") {
-            setSelectedFilter(val);
-          }
         }}
         onDateChange={(date) => {
-          setSelectedDate(date);
           setActiveFilters((prev) => ({ ...prev, Date: date }));
         }}
         currentPage={currentPage}
@@ -287,8 +294,8 @@ export default function TicketsPage() {
       />
       <div className="px-4  pb-4">
         <TableLayout columns={columns}>
-          {filteredTickets.length > 0 ? (
-            filteredTickets.map((ticket) => (
+          {paginatedTickets.length > 0 ? (
+            paginatedTickets.map((ticket) => (
               <TableRow key={ticket.id}>
                 <TableCell isCheckbox>
                   <input
@@ -321,7 +328,6 @@ export default function TicketsPage() {
                 <TableCell>
                   {formatDisplayDateTime(ticket.createdDate)}
                 </TableCell>
-
                 <TableCell>
                   <ActionButtons
                     item={ticket}
