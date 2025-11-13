@@ -22,6 +22,7 @@ import { getCurrentUserName } from "@/app/lib/auth";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
 import DetailHeader from "@/components/crm/DetailHeader";
+import { info } from "console";
 
 type ActivityType = "note" | "call" | "task" | "email" | "meeting";
 
@@ -40,7 +41,6 @@ type Activity = {
 
 export default function LeadDetailPage() {
   const { id } = useParams();
-
   const [lead, setLead] = useState<any>(null);
   const [editableLead, setEditableLead] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -49,6 +49,8 @@ export default function LeadDetailPage() {
   const [activeTab, setActiveTab] = useState<ActivityType | "activity">(
     "activity"
   );
+  const [showCallPopup, setShowCallPopup] = useState(false);
+
   const [showModal, setShowModal] = useState<Record<ActivityType, boolean>>({
     note: false,
     call: false,
@@ -58,9 +60,6 @@ export default function LeadDetailPage() {
   });
 
   const [searchValue, setSearchValue] = useState("");
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setSearchValue(e.target.value);
-
   const currentUserName = getCurrentUserName();
 
   useEffect(() => {
@@ -68,6 +67,15 @@ export default function LeadDetailPage() {
     if (storedLeads) {
       const leads = JSON.parse(storedLeads);
       const found = leads.find((l: any) => String(l.id) === String(id));
+
+      const convertedIds = JSON.parse(
+        localStorage.getItem("convertedLeads") || "[]"
+      );
+      if (convertedIds.includes(Number(id))) {
+        found.status = "Converted";
+        found.converted = true;
+      }
+
       setLead(found);
       setEditableLead(found);
     }
@@ -91,16 +99,20 @@ export default function LeadDetailPage() {
         break;
 
       case "email":
+        const leadFullName = `${lead.firstName} ${lead.lastName}`.trim();
+
         title = `Logged Email – ${
           data?.subject || "No Subject"
-        } by ${currentUserName}
-        `;
+        } by ${currentUserName}`;
         content = data?.body || "Email sent successfully";
+
+        extra = { recipients: leadFullName || "Unknown Lead" };
         break;
 
       case "call":
         title = "Call from " + currentUserName;
         content = data?.note || data?.summary;
+        extra = data.extra;
         break;
 
       case "task":
@@ -109,6 +121,7 @@ export default function LeadDetailPage() {
         extra = {
           priority: data?.priority || "-",
           taskType: data?.type || "-",
+          taskName: data?.name || "-",
         };
         break;
 
@@ -117,21 +130,17 @@ export default function LeadDetailPage() {
         const attendeeNames = Array.isArray(attendees)
           ? attendees.join(" and ")
           : attendees;
-
         const organizer = currentUserName || "User";
         const ownerCount = Array.isArray(lead?.contactOwner)
           ? lead.contactOwner.length
           : 1;
-
-        title = `Meeting ${currentUserName} and ${lead.firstName} ${lead.lastName}`;
+        title = `Meeting ${currentUserName}, ${lead.firstName} ${lead.lastName} and ${attendeeNames}`;
         content = data?.note || "";
-
         extra = {
           duration:
             data?.duration || calculateDuration(data.startTime, data.endTime),
-
           attendees: getAttendeeCount(attendees, ownerCount),
-
+          meetingTitle: data?.title || "-",
           organizer,
         };
         break;
@@ -160,24 +169,42 @@ export default function LeadDetailPage() {
   };
 
   const handleSaveLead = () => {
-    if (!editableLead) return;
-    const updated = { ...editableLead };
-    const storedLeads = localStorage.getItem("leads");
-    if (storedLeads) {
-      const leads = JSON.parse(storedLeads);
-      const updatedLeads = leads.map((l: any) =>
-        String(l.id) === String(id) ? updated : l
-      );
-      localStorage.setItem("leads", JSON.stringify(updatedLeads));
+    try {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const phoneDigits = editableLead?.phone?.replace(/\D/g, "") || "";
+
+      if (!emailRegex.test(editableLead?.email)) {
+        notify("Please enter a valid email address", "error");
+        return;
+      }
+      if (phoneDigits.length !== 10) {
+        notify("Please enter a valid 10-digit phone number", "error");
+        return;
+      }
+
+      const updatedLead = { ...editableLead, phone: phoneDigits };
+      setLead(updatedLead);
+      const storedLeads = localStorage.getItem("leads");
+      if (storedLeads) {
+        const leads = JSON.parse(storedLeads);
+        const updatedLeads = leads.map((l: any) =>
+          String(l.id) === String(id) ? updatedLead : l
+        );
+        localStorage.setItem("leads", JSON.stringify(updatedLeads));
+      }
+      setIsEditing(false);
+      notify("Lead details updated successfully", "success");
+    } catch (error) {
+      console.error("Failed to update lead:", error);
+      notify("Failed to save changes", "error");
     }
-    setLead(updated);
-    setIsEditing(false);
-    notify("Lead updated successfully", "success");
   };
 
   if (!lead)
     return (
-      <p className="p-8 text-gray-500 text-center">Loading lead details...</p>
+      <div className="p-8 text-center text-gray-600">
+        <p>Lead details loading...</p>
+      </div>
     );
 
   const aboutFields = [
@@ -185,61 +212,69 @@ export default function LeadDetailPage() {
       label: "Email",
       value: editableLead?.email,
       isEditable: true,
-      onChange: (v: string | string[]) =>
+      onChange: (val: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          email: Array.isArray(v) ? v[0] : v,
+          email: typeof val === "string" ? val : val[0],
         })),
     },
     {
       label: "First Name",
       value: editableLead?.firstName,
       isEditable: true,
-      onChange: (v: string | string[]) =>
+      onChange: (val: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          firstName: Array.isArray(v) ? v[0] : v,
+          firstName: typeof val === "string" ? val : val[0],
         })),
     },
     {
       label: "Last Name",
       value: editableLead?.lastName,
       isEditable: true,
-      onChange: (v: string | string[]) =>
+      onChange: (val: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          lastName: Array.isArray(v) ? v[0] : v,
+          lastName: typeof val === "string" ? val : val[0],
         })),
     },
     {
       label: "Phone Number",
       value: editableLead?.phone,
       isEditable: true,
-      onChange: (v: string | string[]) =>
+      onChange: (val: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          phone: Array.isArray(v) ? v[0] : v,
+          phone: typeof val === "string" ? val : val[0],
         })),
     },
-    {
-      label: "Lead Status",
-      value: editableLead?.status || "New",
-      isEditable: true,
-      options: statusOptions,
-      onChange: (v: string | string[]) =>
-        setEditableLead((p: any) => ({
-          ...p,
-          status: Array.isArray(v) ? v[0] : v,
-        })),
-    },
+
+    editableLead?.status === "Converted"
+      ? {
+          label: "Lead Status",
+          value: "Converted",
+          isEditable: false,
+        }
+      : {
+          label: "Lead Status",
+          value: editableLead?.status || "New",
+          isEditable: true,
+          options: statusOptions,
+          onChange: (val: string | string[]) =>
+            setEditableLead((p: any) => ({
+              ...p,
+              status: typeof val === "string" ? val : val[0],
+            })),
+        },
+
     {
       label: "Job Title",
       value: editableLead?.jobTitle,
       isEditable: true,
-      onChange: (v: string | string[]) =>
+      onChange: (val: string | string[]) =>
         setEditableLead((p: any) => ({
           ...p,
-          jobTitle: Array.isArray(v) ? v[0] : v,
+          jobTitle: typeof val === "string" ? val : val[0],
         })),
     },
     {
@@ -253,8 +288,8 @@ export default function LeadDetailPage() {
     activities.filter((a) => a.type === type);
 
   return (
-    <div className="m-2 bg-white rounded-md flex flex-col lg:flex-row gap-6 overflow-hidden">
-      <div className="w-[320px] space-y-4 ml-0 mt-2">
+    <div className="bg-white rounded-md min-h-screen flex flex-col xl:flex-row overflow-hidden">
+      <div className="w-full xl:w-[300px] flex-shrink-0 space-y-4 mt-1">
         <InfoCard
           module="leads"
           title={`${lead.firstName} ${lead.lastName}`}
@@ -280,17 +315,22 @@ export default function LeadDetailPage() {
         />
       </div>
 
-      <div className="flex-1 bg-white">
+      <div className="flex-1 bg-white px-4 pt-0 pb-4 xl:mt-[4px] min-w-0 xl:max-w-[720px]">
         <DetailHeader
           searchValue={searchValue}
-          onSearchChange={handleSearchChange}
+          onSearchChange={(e) => setSearchValue(e.target.value)}
           showConvertButton
           onConvert={() => {
-            if (lead?.converted) return;
+            if (lead?.status === "Converted") return;
+
             const leadName = `${lead.firstName} ${lead.lastName}`;
-            window.location.href = `/dashboard/modules/deals?openModal=true&leadId=${
+            const redirectUrl = `/dashboard/modules/deals?openModal=true&leadId=${
               lead.id
             }&leadName=${encodeURIComponent(leadName)}`;
+
+            localStorage.setItem("pendingConversionId", String(lead.id));
+
+            window.location.href = redirectUrl;
           }}
           convertLabel={lead?.converted ? "Converted" : "Convert"}
           isConverted={lead?.converted}
@@ -309,29 +349,81 @@ export default function LeadDetailPage() {
                 />
               );
             }
+
+            const buttonLabel =
+              tab === "call"
+                ? "Make a Phone Call"
+                : `Create ${label.slice(0, -1)}`;
+            const handleCreate = () => {
+              if (tab === "call") {
+                setShowCallPopup(true);
+              } else {
+                toggleModal(tab as ActivityType, true);
+              }
+            };
+
             return (
               <ActivityDetailView
                 sectionTitle={label}
-                buttonLabel={`Create ${label.slice(0, -1)}`}
+                buttonLabel={buttonLabel}
                 activities={getFilteredActivities(tab as ActivityType)}
-                onCreate={() => toggleModal(tab as ActivityType, true)}
+                onCreate={handleCreate}
               />
             );
           }}
         />
+        {showCallPopup && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white shadow-lg rounded-lg p-6 w-[320px] text-center">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Connecting to Agent
+              </h3>
+              <p className="text-sm text-gray-500 mt-2">
+                Simulating call connection
+              </p>
+
+              <div className="flex justify-center gap-3 mt-5">
+                <button
+                  onClick={() => {
+                    setShowCallPopup(false);
+                    notify("Call cancelled", "error");
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCallPopup(false);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  Connect
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="w-[280px] space-y-4 mt-5 mr-4">
+      <div className="w-full xl:w-[300px] flex-shrink-0 space-y-4 mt-[3px] xl:mr-2">
         <AISummaryCard type="lead" className="border border-indigo-700" />
         <AttachmentView
           attachments={attachments}
           onAdd={(file, previewUrl) => {
+            if (attachments.some((a) => a.name === file.name)) {
+              notify(`${file.name} already exists in attachments`, "info");
+              return;
+            }
+
             const newAttachment = {
               id: Date.now(),
               name: file.name,
               uploadedAt: new Date().toLocaleString(),
               previewUrl,
+              type: file.type,
             };
+
             setAttachments((prev) => [...prev, newAttachment]);
           }}
           onRemove={(id) =>
@@ -348,8 +440,45 @@ export default function LeadDetailPage() {
       <EmailModal
         isOpen={showModal.email}
         onClose={() => toggleModal("email", false)}
-        onSend={(data) => handleSaveActivity("email", data)}
+        onSend={(data) => {
+          handleSaveActivity("email", data);
+          return true;
+        }}
+        connectedPerson={`lead:${lead.id}`}
+        recordAttachments={attachments.map((a) => ({
+          id: a.id,
+          name: a.name,
+          url: a.previewUrl,
+        }))}
+        onAttachToRecord={(file) => {
+          const isImage =
+            file.type?.startsWith("image/") ||
+            /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
+
+          setAttachments((prev) => {
+            const exists = prev.some((a) => a.name === file.name);
+
+            if (exists) {
+              return prev;
+            }
+
+            const previewUrl = isImage ? file.url : undefined;
+
+            const newAttachment = {
+              id: Date.now(),
+              name: file.name,
+              uploadedAt: new Date().toLocaleString(),
+              previewUrl,
+              type:
+                file.type ||
+                (isImage ? "image/png" : "application/octet-stream"),
+            };
+
+            return [...prev, newAttachment];
+          });
+        }}
       />
+
       <CallModal
         isOpen={showModal.call}
         onClose={() => toggleModal("call", false)}
