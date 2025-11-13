@@ -109,7 +109,9 @@ const CreateDeal: React.FC<CreateDealProps> = ({
         priority: "",
         createdDate: today,
         associatedLead:
-          associatedLead && window.location.search.includes("openModal=true")
+          typeof window !== "undefined" &&
+          associatedLead &&
+          window.location.search.includes("openModal=true")
             ? associatedLead
             : "",
       });
@@ -159,6 +161,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
       <span className="text-red-500">*</span>
     </span>
   );
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) {
@@ -227,6 +230,43 @@ const CreateDeal: React.FC<CreateDealProps> = ({
         : "Deal created successfully!",
       "success"
     );
+
+    try {
+      if (formData.associatedLead) {
+        const urlParams = new URLSearchParams(
+          typeof window !== "undefined" ? window.location.search : ""
+        );
+        const leadId = urlParams.get("leadId");
+
+        if (leadId) {
+          const leads = JSON.parse(
+            localStorage.getItem("leads") || "[]"
+          );
+          const updatedLeads = leads.map((l: any) =>
+            String(l.id) === String(leadId)
+              ? { ...l, status: "Converted", converted: true }
+              : l
+          );
+          localStorage.setItem("leads", JSON.stringify(updatedLeads));
+
+          const convertedLeads = JSON.parse(
+            localStorage.getItem("convertedLeads") || "[]"
+          );
+          if (!convertedLeads.includes(Number(leadId))) {
+            convertedLeads.push(Number(leadId));
+            localStorage.setItem(
+              "convertedLeads",
+              JSON.stringify(convertedLeads)
+            );
+          }
+
+          localStorage.removeItem("pendingConversionId");
+        }
+      }
+    } catch (err) {
+      console.error("Error updating conversion status:", err);
+    }
+
     setFormData({
       name: "",
       stage: "",
@@ -240,6 +280,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     setErrors({});
     return true;
   };
+
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
@@ -253,6 +294,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
       title={mode === "edit" ? "Edit Deal" : "Create Deal"}
       onClose={() => {
         onClose();
+        localStorage.removeItem("pendingConversionId"); 
         setFormData({
           name: "",
           stage: "",
@@ -289,7 +331,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           </label>
           <Inputs
             variant="input"
-            placeholder="Enter deal name"
+            placeholder="Enter"
             value={formData.name}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleChange("name", e.target.value)
@@ -352,7 +394,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           </label>
           <Inputs
             variant="input"
-            placeholder="0.00"
+            placeholder="Enter"
             value={formData.amount}
             onChange={handleAmountChange}
             className={`${

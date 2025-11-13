@@ -55,25 +55,20 @@ const dealFilters = [
 export default function DealsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
   const [deals, setDeals] = useState<Deal[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOwner, setSelectedOwner] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-
-  // 🟣 Manage associated lead for modal
   const [tempAssociatedLead, setTempAssociatedLead] = useState("");
-
-  // 🟣 Capture query params (for Convert flow)
   const searchParams = useSearchParams();
   const openModal = searchParams.get("openModal");
   const leadName = searchParams.get("leadName");
   const leadId = searchParams.get("leadId");
+  const itemsPerPage = 10;
   useEffect(() => {
     const stored = localStorage.getItem("deals");
     if (stored) {
@@ -99,6 +94,7 @@ export default function DealsPage() {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
+  
   useEffect(() => {
     if (openModal === "true") {
       setTempAssociatedLead(leadName || "");
@@ -107,6 +103,7 @@ export default function DealsPage() {
       setIsModalOpen(true);
     }
   }, [openModal, leadName]);
+  
   const handleSaveDeal = (dealData: Omit<Deal, "id">) => {
     let updatedDeals: Deal[];
 
@@ -170,6 +167,7 @@ export default function DealsPage() {
     setSelectedDeal(null);
     setIsModalOpen(true);
   };
+  
   const filteredDeals = deals.filter((deal) => {
     const matchesSearch =
       deal.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -184,14 +182,17 @@ export default function DealsPage() {
     const matchesDate = selectedDate ? dealDisplayDate === selectedDate : true;
     return matchesSearch && matchesOwner && matchesStage && matchesDate;
   });
-  useEffect(() => {
-    const itemsPerPage = 10;
+    useEffect(() => {
     const calculatedTotalPages = Math.ceil(filteredDeals.length / itemsPerPage);
     setTotalPages(calculatedTotalPages > 0 ? calculatedTotalPages : 1);
     if (currentPage > calculatedTotalPages) {
       setCurrentPage(1);
     }
   }, [filteredDeals.length, currentPage]);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageDeals = filteredDeals.slice(startIndex, endIndex);
+
   const columns = [
     { key: "checkbox", label: "" },
     { key: "name", label: "DEAL NAME" },
@@ -199,11 +200,12 @@ export default function DealsPage() {
     { key: "closeDate", label: "CLOSE DATE" },
     { key: "owner", label: "DEAL OWNER" },
     { key: "amount", label: "AMOUNT" },
+     { key: "associatedlead",label:"Associated Lead"},
     { key: "actions", label: "ACTIONS" },
-  ];
+     ];
 
   return (
-    <div className="bg-white m-2 rounded-md h-full overflow-hidden">
+    <div className="bg-white m-2 rounded-md overflow-hidden">
       <HeaderBar
         title="Deals"
         searchPlaceholder="Search phone,name,city"
@@ -242,8 +244,8 @@ export default function DealsPage() {
       />
       <div className="px-4">
         <TableLayout columns={columns}>
-          {filteredDeals.length > 0 ? (
-            filteredDeals.map((deal) => (
+          {currentPageDeals.length > 0 ? (
+            currentPageDeals.map((deal) => (
               <TableRow key={deal.id}>
                 <TableCell isCheckbox>
                   <input
@@ -268,7 +270,7 @@ export default function DealsPage() {
                 <TableCell>{formatDisplayDateOnly(deal.closeDate)}</TableCell>
                 <TableCell>{deal.owner.join(", ")}</TableCell>
                 <TableCell>{deal.amount}</TableCell>
-
+                <TableCell>{deal.associatedLead || "-"}</TableCell>
                 <TableCell>
                   <ActionButtons
                     item={deal}
