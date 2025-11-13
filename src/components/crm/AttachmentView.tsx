@@ -88,13 +88,15 @@ const AttachmentView: React.FC<Props> = ({ attachments, onAdd, onRemove }) => {
   return (
     <div
       ref={wrapperRef}
-      className="bg-white"
+      className="bg-white pt-1 mx-3 mr-1.5"
     >
       
       <div
-        className="flex justify-between items-center py-1 cursor-pointer hover:bg-gray-50 transition"
-        onClick={handleToggle}
-      >
+  className="flex justify-between items-center cursor-pointer hover:bg-gray-50 transition"
+  onClick={handleToggle}
+>
+
+
         <div className="flex items-center gap-2">
           {isDefaultView ? (
             <ChevronDownIcon className="w-4 h-5 text-indigo-600" />
