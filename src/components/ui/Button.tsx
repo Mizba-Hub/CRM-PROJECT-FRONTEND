@@ -33,7 +33,7 @@ export default function Button({
         fullWidth ? "w-full px-5 py-2" : "px-5 py-2 min-w-[80px]",
         label.length <= 6
           ? "text-sm"
-          : label.length <= 15
+          : label.length <= 20
           ? "text-sm"
           : "text-xs",
         variant === "primary" &&

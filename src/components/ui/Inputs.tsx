@@ -179,7 +179,10 @@ export function Inputs({
                 ? (value as string[]).join(", ")
                 : placeholder || "Choose"}
             </span>
-            <ChevronDownIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <ChevronDownIcon
+              className="w-3 h-3 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              strokeWidth={3.5}
+            />
           </button>
 
           {showMulti && (
