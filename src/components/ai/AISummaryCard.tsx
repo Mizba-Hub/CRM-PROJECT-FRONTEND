@@ -38,6 +38,7 @@ export function AISummaryCard({
     message ?? (type === "ticket" ? DEFAULT_TICKET_MESSAGE : DEFAULT_MESSAGE);
 
   return (
+    <div className=" m-3 pt-1">
     <AILabeledCard
       title={title}
       description={description}
@@ -45,5 +46,6 @@ export function AISummaryCard({
       className={className}
       {...rest}
     />
+    </div>
   );
 }
