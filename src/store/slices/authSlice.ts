@@ -23,7 +23,7 @@ const initialState: AuthState = {
   loading: false,
 };
 
-// ---------------- LOGIN ----------------
+
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async (

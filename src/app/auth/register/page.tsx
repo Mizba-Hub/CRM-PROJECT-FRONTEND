@@ -48,8 +48,7 @@ export default function RegisterPage() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    console.log("FORM SUBMITTED!");
-    console.log("FORM STATE = ", form);
+    
 
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
       alert("First name, last name, and email are required");
@@ -66,8 +65,7 @@ export default function RegisterPage() {
       alert("Password and confirm password are required");
       return;
     }
-    console.log("PASSWORD = ", JSON.stringify(form.password));
-    console.log("CONFIRM  = ", JSON.stringify(form.confirm));
+    
 
     if (form.password.trim() !== form.confirm.trim()) {
       alert("Passwords do not match");
