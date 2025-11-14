@@ -135,6 +135,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     { label: "Appointment Scheduled", value: "Appointment Scheduled" },
     { label: "Decision Maker Bought In", value: "Decision Maker Bought In" },
     { label: "Closed Lost", value: "Closed Lost" },
+    { label:"Negotiation",value:"Negotiation"}
   ];
 
   const ownerOptions = [

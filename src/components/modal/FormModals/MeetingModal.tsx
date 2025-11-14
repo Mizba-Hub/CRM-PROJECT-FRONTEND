@@ -152,12 +152,15 @@ export default function MeetingModal({
           Start Date <span className="text-red-500">*</span>
         </label>
         <Inputs
-          variant="input"
-          type="date"
+          variant="date"
           name="startDate"
+          placeholder="Choose"
           value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
+          onChange={(v) => setStartDate(v)}
           className={errors.startDate ? "border-red-500" : ""}
+          inputMode="numeric"
+          pattern="\d{4}-\d{2}-\d{2}"
+          showCalendarIcon
         />
         {errors.startDate && (
           <p className="text-red-500 text-xs">{errors.startDate}</p>
@@ -170,26 +173,33 @@ export default function MeetingModal({
             Start Time <span className="text-red-500">*</span>
           </label>
           <Inputs
-            variant="input"
-            type="time"
+            variant="time"
+            name="startTime"
+            placeholder="Choose"
             value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
+            onChange={(v) => setStartTime(v)}
             className={errors.startTime ? "border-red-500" : ""}
+            inputMode="numeric"
+            pattern="\d{2}:\d{2}"
           />
           {errors.startTime && (
             <p className="text-red-500 text-xs">{errors.startTime}</p>
           )}
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             End Time <span className="text-red-500">*</span>
           </label>
           <Inputs
-            variant="input"
-            type="time"
+            variant="time"
+            name="endTime"
+            placeholder="Choose"
             value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
+            onChange={(v) => setEndTime(v)}
             className={errors.endTime ? "border-red-500" : ""}
+            inputMode="numeric"
+            pattern="\d{2}:\d{2}"
           />
           {errors.endTime && (
             <p className="text-red-500 text-xs">{errors.endTime}</p>

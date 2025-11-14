@@ -99,6 +99,7 @@ const InfoCard: React.FC<InfoCardProps> = ({
         : [
             "Appointment Scheduled",
             "Presentation Scheduled",
+            "Negotiation",
             "Qualified to Buy",
             "Contract Sent",
             "Closed Won",

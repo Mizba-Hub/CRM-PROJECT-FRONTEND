@@ -4,6 +4,7 @@ import React from "react";
 import { Search } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Inputs } from "@/components/ui/Inputs";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 interface Filter {
   label: string;
@@ -138,81 +139,93 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-2 px-4 mt-3">
-        {filters.map((filter, idx) => {
-          const selected = activeFilters[filter.label] || "";
-          return (
-            <div key={idx} className="w-40">
-              {selected ? (
-                <div className="flex items-center justify-between border border-gray-200 rounded-lg px-3 text-sm text-gray-600 bg-white h-10">
-                  <span>{selected}</span>
-                  <span
-                    className="ml-2 cursor-pointer text-lg"
-                    onClick={() => onFilterChange(filter.label, "")}
-                  >
-                    ×
-                  </span>
-                </div>
-              ) : (
-                <Inputs
-                  variant="select"
-                  placeholder={filter.label}
-                  name={`filter-${filter.label}`}
-                  options={filter.options.map((opt) => ({
-                    label: opt,
-                    value: opt,
-                  }))}
-                  onChange={(e) => onFilterChange(filter.label, e.target.value)}
-                  className="rounded-lg h-10 px-3 text-sm bg-white border-gray-300 pr-10 focus:outline-none focus:ring-0"
+        {filters.map((filter, idx) => (
+          <div key={idx} className="w-40 relative">
+            <Inputs
+              variant="select"
+              placeholder={filter.label}
+              name={`filter-${filter.label}`}
+              options={filter.options.map((opt) => ({
+                label: opt,
+                value: opt,
+              }))}
+              value={activeFilters[filter.label] ?? ""}
+              onChange={(e) => onFilterChange(filter.label, e.target.value)}
+              className="rounded-lg h-10 px-3 pr-10 text-sm bg-white border-gray-300 focus:outline-none focus:ring-0"
+              showChevron={!activeFilters[filter.label]}
+            />
+            {activeFilters[filter.label] && (
+              <button
+                type="button"
+                onClick={() => onFilterChange(filter.label, "")}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                aria-label={`Clear ${filter.label} filter`}
+              >
+                <XMarkIcon
+                  className="w-3 h-3  hover:text-gray-700"
+                  strokeWidth={2.5}
                 />
-              )}
-            </div>
-          );
-        })}
+              </button>
+            )}
+          </div>
+        ))}
 
         {isDealPage && (
           <div className="w-44 relative">
             <Inputs
-              variant="input"
-              type="date"
+              variant="date"
               name="close-date"
               placeholder="Close Date"
               className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
-              value={activeFilters["Close Date"] || ""}
-              onChange={(e) =>
-                onFilterChange(
-                  "Close Date",
-                  (e.target as HTMLInputElement).value
-                )
-              }
+              value={activeFilters["Close Date"] ?? ""}
+              onChange={(v) => onFilterChange("Close Date", v)}
+              inputMode="numeric"
+              pattern="\d{4}-\d{2}-\d{2}"
+              max={new Date().toISOString().slice(0, 10)}
+              showChevron={!activeFilters["Close Date"]}
             />
+
             {activeFilters["Close Date"] && (
-              <span
+              <button
+                type="button"
                 onClick={() => onFilterChange("Close Date", "")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                aria-label="Clear close date"
               >
-                ×
-              </span>
+                <XMarkIcon
+                  className="w-3 h-3  hover:text-gray-700"
+                  strokeWidth={2.5}
+                />
+              </button>
             )}
           </div>
         )}
 
         <div className="w-44 relative">
           <Inputs
-            variant="input"
-            type="date"
+            variant="date"
             name="filter-date"
             placeholder="Created Date"
             className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
-            value={activeFilters["Date"] || ""}
-            onChange={(e) => onDateChange((e.target as HTMLInputElement).value)}
+            value={activeFilters["Date"] ?? ""}
+            onChange={(v) => onFilterChange("Date", v)}
+            inputMode="numeric"
+            pattern="\d{4}-\d{2}-\d{2}"
+            showChevron={!activeFilters["Date"]}
           />
+
           {activeFilters["Date"] && (
-            <span
+            <button
+              type="button"
               onClick={() => onFilterChange("Date", "")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-700"
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+              aria-label="Clear created date"
             >
-              ×
-            </span>
+              <XMarkIcon
+                className="w-3 h-3  hover:text-gray-700"
+                strokeWidth={2.5}
+              />
+            </button>
           )}
         </div>
       </div>
