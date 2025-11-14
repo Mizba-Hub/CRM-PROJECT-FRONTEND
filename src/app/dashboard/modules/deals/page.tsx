@@ -48,6 +48,7 @@ const dealFilters = [
       "Appointment Scheduled",
       "Decision Maker Bought In",
       "Closed Lost",
+      "Negotiation"
     ],
   },
 ];

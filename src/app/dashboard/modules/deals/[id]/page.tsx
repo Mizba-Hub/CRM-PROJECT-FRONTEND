@@ -121,7 +121,7 @@ export default function DealDetailPage() {
   };
 
   const getAllMeetingParticipants = (attendees: string[] = []) => {
-    // 🟢 Only include current user
+    
     const allParticipants = new Set<string>();
     allParticipants.add(currentUserName);
 
