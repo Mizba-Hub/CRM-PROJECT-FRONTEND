@@ -13,6 +13,8 @@ import LeadModal from "./components/CreateLeadButton";
 import { formatDisplayDate } from "@/app/lib/date";
 import Link from "next/link";
 
+const ITEMS_PER_PAGE = 10;
+
 interface Lead {
   id: number;
   email: string;
@@ -20,16 +22,17 @@ interface Lead {
   lastName: string;
   phone: string;
   fullPhone?: string;
+  city: string;
   jobTitle: string;
   contactOwner: string[];
-  status: "Open" | "New" | "In Progress" | "Qualified" | "Closed";
+  status: "Open" | "New" | "In Progress" | "Qualified" | "Closed" | "Converted";
   createdDate: string;
 }
 
 const leadFilters = [
   {
     label: "Lead Status",
-    options: ["Open", "New", "In Progress", "Qualified", "Closed"],
+    options: ["Open", "New", "In Progress", "Qualified", "Closed", "Converted"],
   },
 ];
 
@@ -39,7 +42,7 @@ export default function LeadsPage() {
     {}
   );
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 68;
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -158,10 +161,24 @@ export default function LeadsPage() {
     { key: "name", label: "NAME" },
     { key: "email", label: "EMAIL" },
     { key: "phone", label: "PHONE NUMBER" },
+    { key: "city", label: "CITY" },
     { key: "createdDate", label: "CREATED DATE" },
     { key: "status", label: "LEAD STATUS" },
     { key: "actions", label: "ACTIONS" },
   ];
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredLeads.length / ITEMS_PER_PAGE)
+  );
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeFilters]);
 
   return (
     <div className="bg-white m-2 rounded-md h-full overflow-hidden">
@@ -187,8 +204,8 @@ export default function LeadsPage() {
 
       <div className="bg-white p-4">
         <TableLayout columns={columns}>
-          {filteredLeads.length > 0 ? (
-            filteredLeads.map((lead) => (
+          {paginatedLeads.length > 0 ? (
+            paginatedLeads.map((lead) => (
               <TableRow key={lead.id}>
                 <TableCell isCheckbox>
                   <Inputs type="checkbox" variant="input" />
@@ -208,6 +225,8 @@ export default function LeadsPage() {
 
                 <TableCell>{lead.email}</TableCell>
                 <TableCell>{lead.phone}</TableCell>
+                <TableCell>{lead.city || "-"}</TableCell>
+
                 <TableCell>{formatDisplayDate(lead.createdDate)}</TableCell>
 
                 <TableCell>

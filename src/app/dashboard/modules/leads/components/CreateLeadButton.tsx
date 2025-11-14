@@ -15,7 +15,8 @@ export interface Lead {
   fullPhone?: string;
   jobTitle: string;
   contactOwner: string[];
-  status: "Open" | "New" | "In Progress" | "Qualified" | "Closed";
+  city: string;
+  status: "Open" | "New" | "In Progress" | "Qualified" | "Closed" | "Converted";
   createdDate: string;
 }
 
@@ -39,6 +40,7 @@ export default function LeadModal({
     phone: "",
     jobTitle: "",
     contactOwner: [],
+    city: "",
     status: "New",
   });
 
@@ -55,6 +57,7 @@ export default function LeadModal({
           ? rest.contactOwner
           : [rest.contactOwner].filter(Boolean),
         phone: editData.fullPhone || editData.phone || "",
+        city: editData.city || "",
       });
       setErrors({});
       setTypedEmail(false);
@@ -67,6 +70,7 @@ export default function LeadModal({
         phone: "",
         jobTitle: "",
         contactOwner: [],
+        city: "",
         status: "" as any,
       });
       setErrors({});
@@ -76,20 +80,19 @@ export default function LeadModal({
   }, [editData, isOpen]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  const lettersOnlyRegex = /^[A-Za-z\s]+$/; 
+  const lettersOnlyRegex = /^[A-Za-z\s]+$/;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
 
-    
     if (
       (name === "firstName" || name === "lastName" || name === "jobTitle") &&
       value &&
       !lettersOnlyRegex.test(value)
     ) {
-      return; 
+      return;
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -144,7 +147,6 @@ export default function LeadModal({
       newErrors.firstName = "First Name is required";
     if (!formData.lastName.trim()) newErrors.lastName = "Last Name is required";
 
-    
     if (formData.firstName && !lettersOnlyRegex.test(formData.firstName))
       newErrors.firstName = "Only letters allowed";
     if (formData.lastName && !lettersOnlyRegex.test(formData.lastName))
@@ -195,7 +197,6 @@ export default function LeadModal({
       title={editData ? "Edit Lead" : "Create Lead"}
     >
       <div className="space-y-3">
-        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Email <span className="text-red-500">*</span>
@@ -239,7 +240,6 @@ export default function LeadModal({
           )}
         </div>
 
-        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             First Name <span className="text-red-500">*</span>
@@ -261,7 +261,6 @@ export default function LeadModal({
           )}
         </div>
 
-        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Last Name <span className="text-red-500">*</span>
@@ -283,7 +282,6 @@ export default function LeadModal({
           )}
         </div>
 
-        
         <PhoneInputField
           value={editData?.fullPhone || editData?.phone || formData.phone || ""}
           onChange={handlePhoneChange}
@@ -293,7 +291,6 @@ export default function LeadModal({
           required
         />
 
-        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Job Title
@@ -313,7 +310,20 @@ export default function LeadModal({
           )}
         </div>
 
-        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            City
+          </label>
+          <Inputs
+            variant="input"
+            name="city"
+            placeholder="Enter"
+            value={formData.city || ""}
+            onChange={handleChange}
+            className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Contact Owner
@@ -338,27 +348,37 @@ export default function LeadModal({
           />
         </div>
 
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lead Status
-          </label>
-          <Inputs
-            variant="select"
-            name="status"
-            placeholder="Choose"
-            value={formData.status}
-            onChange={handleChange}
-            className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
-            options={[
-              { label: "Open", value: "Open" },
-              { label: "New", value: "New" },
-              { label: "In Progress", value: "In Progress" },
-              { label: "Qualified", value: "Qualified" },
-              { label: "Closed", value: "Closed" },
-            ]}
-          />
-        </div>
+        {editData?.status === "Converted" ? (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lead Status
+            </label>
+            <div className="border border-gray-300 bg-gray-50 rounded-md px-3 py-2 h-[36px] flex items-center text-gray-700 text-sm">
+              Converted
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lead Status
+            </label>
+            <Inputs
+              variant="select"
+              name="status"
+              placeholder="Choose"
+              value={formData.status}
+              onChange={handleChange}
+              className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
+              options={[
+                { label: "Open", value: "Open" },
+                { label: "New", value: "New" },
+                { label: "In Progress", value: "In Progress" },
+                { label: "Qualified", value: "Qualified" },
+                { label: "Closed", value: "Closed" },
+              ]}
+            />
+          </div>
+        )}
       </div>
     </ModalWrapper>
   );
