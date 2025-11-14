@@ -15,13 +15,13 @@ export default function Header() {
 
   useEffect(() => {
     try {
-      const token = localStorage.getItem("auth_token") || "";
-      const users: User[] = JSON.parse(localStorage.getItem("users") || "[]");
-      const current = (users as any[]).find((u) => u.email === token) || null;
-      setUser(current);
+      const userData = localStorage.getItem("auth_user");
+      const userObj = userData ? JSON.parse(userData) : null;
 
-      const first = (current?.firstName || token || "").trim().charAt(0);
-      setInitial(first ? first.toUpperCase() : "");
+      setUser(userObj);
+
+      const first = userObj?.firstName?.trim?.().charAt(0) || "";
+      setInitial(first.toUpperCase());
     } catch {
       setUser(null);
       setInitial("");
@@ -39,6 +39,7 @@ export default function Header() {
 
   function handleLogout() {
     localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
     setOpen(false);
 
     setTimeout(() => router.replace("/auth/login"), 500);

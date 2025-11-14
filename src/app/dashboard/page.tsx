@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchDashboard } from "@/store/slices/dashboardSlice";
+
 import {
   IconUsers,
   IconBriefcase,
@@ -28,7 +31,7 @@ function KpiCard({
       <div>
         <div className="text-sm text-gray-500">{label}</div>
         <div className="mt-2 text-2xl font-semibold">
-          {value.toLocaleString()}
+          {value?.toLocaleString()}
         </div>
       </div>
 
@@ -46,51 +49,86 @@ function KpiCard({
   );
 }
 
-export default function DashboardContent() {
-  const [stats, setStats] = useState({
+export default function DashboardPage() {
+  const dispatch = useAppDispatch();
+
+  const { stats, conversion, sales, team, loading, error } = useAppSelector(
+    (s) => s.dashboard
+  );
+
+  const safeStats = stats || {
     totalLeads: 0,
-    ActiveDeals: 0,
-    ClosedDeals: 0,
-    MonthlyRevenue: 0,
-  });
+    activeDeals: 0,
+    closedDeals: 0,
+    monthlyRevenue: 0,
+  };
+
+  const conversionUI = (conversion || []).map((c: any) => ({
+    label: c.label || c.stage || "",
+    percent: c.percent || 0,
+  }));
+
+  const salesUI = (sales || []).map((s: any) => ({
+    m: s.m || s.month || "",
+    base: s.base || s.won || 0,
+    cap: s.cap || s.lost || 0,
+  }));
+
+  const teamUI = (team || []).map((t: any) => ({
+    employee: t.employee || t.name || "",
+    activeDeals: t.activeDeals || t.active || 0,
+    closedDeals: t.closedDeals || t.closed || 0,
+    revenue: t.revenue || "",
+    change: t.change || "",
+  }));
 
   useEffect(() => {
-    // mock fetch
-    setStats({
-      totalLeads: 1250,
-      ActiveDeals: 320,
-      ClosedDeals: 136,
-      MonthlyRevenue: 45000,
-    });
-  }, []);
+    dispatch(fetchDashboard());
+  }, [dispatch]);
+
+  if (loading) {
+    return (
+      <div className="p-6 text-gray-600 animate-pulse">
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-rose-100 text-rose-700 rounded">
+        Failed: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Total Leads"
-          value={stats.totalLeads}
+          value={safeStats.totalLeads}
           Icon={IconUsers}
           iconBg="bg-violet-100"
           iconColor="text-violet-600"
         />
         <KpiCard
           label="Active Deals"
-          value={stats.ActiveDeals}
+          value={safeStats.activeDeals}
           Icon={IconBriefcase}
           iconBg="bg-emerald-100"
           iconColor="text-emerald-600"
         />
         <KpiCard
           label="Closed Deals"
-          value={stats.ClosedDeals}
+          value={safeStats.closedDeals}
           Icon={IconBriefcaseOff}
           iconBg="bg-rose-100"
           iconColor="text-rose-600"
         />
         <KpiCard
           label="Monthly Revenue"
-          value={stats.MonthlyRevenue}
+          value={safeStats.monthlyRevenue}
           Icon={IconCash}
           iconBg="bg-amber-100"
           iconColor="text-amber-600"
@@ -99,77 +137,36 @@ export default function DashboardContent() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl p-4 shadow">
-          <div className="mb-4">
-            <h3 className="font-medium">Contact to Deal Conversion</h3>
-          </div>
+          <h3 className="font-medium mb-4">Contact to Deal Conversion</h3>
 
           <ul className="space-y-4">
-            <li>
-              <div className="text-[13px] font-medium text-gray-700 mb-1">
-                Contact
-              </div>
-              <div className="h-1.5 w-full rounded bg-slate-200/70 relative overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-violet-500 rounded"
-                  style={{ width: "60%" }}
-                />
-              </div>
-            </li>
-            <li>
-              <div className="text-[13px] font-medium text-gray-700 mb-1">
-                Qualified Lead
-              </div>
-              <div className="h-1.5 w-full rounded bg-slate-200/70 relative overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-violet-400 rounded"
-                  style={{ width: "40%" }}
-                />
-              </div>
-            </li>
-            <li>
-              <div className="text-[13px] font-medium text-gray-700 mb-1">
-                Proposal Sent
-              </div>
-              <div className="h-1.5 w-full rounded bg-slate-200/70 relative overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-amber-400 rounded"
-                  style={{ width: "33%" }}
-                />
-              </div>
-            </li>
-            <li>
-              <div className="text-[13px] font-medium text-gray-700 mb-1">
-                Negotiation
-              </div>
-              <div className="h-1.5 w-full rounded bg-slate-200/70 relative overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-violet-300 rounded"
-                  style={{ width: "40%" }}
-                />
-              </div>
-            </li>
-            <li>
-              <div className="text-[13px] font-medium text-gray-700 mb-1">
-                Closed Won
-              </div>
-              <div className="h-1.5 w-full rounded bg-slate-200/70 relative overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-emerald-500 rounded"
-                  style={{ width: "25%" }}
-                />
-              </div>
-            </li>
-            <li>
-              <div className="text-[13px] font-medium text-gray-700 mb-1">
-                Closed Lost
-              </div>
-              <div className="h-1.5 w-full rounded bg-slate-200/70 relative overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-rose-500 rounded"
-                  style={{ width: "16.6667%" }}
-                />
-              </div>
-            </li>
+            {conversionUI.map((item, idx) => {
+              const colorMap: any = {
+                Contact: "bg-violet-500",
+                "Qualified Lead": "bg-emerald-500",
+                "Proposal Sent": "bg-amber-400",
+                Negotiation: "bg-violet-500",
+                "Closed Won": "bg-emerald-600",
+                "Closed Lost": "bg-rose-500",
+              };
+
+              const barColor = colorMap[item.label] || "bg-violet-500";
+
+              return (
+                <li key={idx}>
+                  <div className="text-[13px] font-medium text-gray-700 mb-1">
+                    {item.label}
+                  </div>
+
+                  <div className="h-1.5 w-full rounded bg-slate-200/70 relative overflow-hidden">
+                    <div
+                      className={`absolute inset-y-0 left-0 rounded ${barColor}`}
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -192,33 +189,19 @@ export default function DashboardContent() {
               <span>$0</span>
             </div>
 
-            {[
-              { m: "Jan", base: 60, cap: 36 },
-              { m: "Feb", base: 70, cap: 70 },
-              { m: "Mar", base: 44, cap: 20 },
-              { m: "Apr", base: 64, cap: 36 },
-              { m: "May", base: 76, cap: 52 },
-              { m: "Jun", base: 40, cap: 24 },
-              { m: "Jul", base: 48, cap: 28 },
-              { m: "Aug", base: 72, cap: 56 },
-              { m: "Sep", base: 88, cap: 12 },
-              { m: "Oct", base: 68, cap: 20 },
-              { m: "Nov", base: 62, cap: 24 },
-              { m: "Dec", base: 70, cap: 24 },
-            ].map(({ m, base, cap }) => (
-              <div key={m} className="flex flex-col items-center">
+            {salesUI.map((bar, i) => (
+              <div key={i} className="flex flex-col items-center">
                 <div className="relative flex flex-col items-center justify-end h-48">
                   <div
                     className="w-4 rounded-t bg-violet-300/35"
-                    style={{ height: cap }}
+                    style={{ height: bar.cap }}
                   />
-
                   <div
                     className="w-4 rounded-t bg-violet-600 -mt-0.5"
-                    style={{ height: base }}
+                    style={{ height: bar.base }}
                   />
                 </div>
-                <span className="text-[11px] text-gray-500 mt-2">{m}</span>
+                <span className="text-[11px] text-gray-500 mt-2">{bar.m}</span>
               </div>
             ))}
           </div>
@@ -228,12 +211,8 @@ export default function DashboardContent() {
       <div className="bg-white rounded-xl p-4 shadow">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">Team Performance Tracking</h3>
-          <button
-            className="border border-blue-600 text-blue-600 bg-transparent
-             rounded px-3 py-1 text-sm
-             hover:bg-blue-50
-             focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+
+          <button className="border border-blue-600 text-blue-600 bg-transparent rounded px-3 py-1 text-sm hover:bg-blue-50">
             Export CSV
           </button>
         </div>
@@ -246,56 +225,15 @@ export default function DashboardContent() {
         </div>
 
         <ul className="mt-3 space-y-2">
-          {[
-            {
-              name: "Ethan Harper",
-              active: 25,
-              closed: 10,
-              revenue: "$12,000",
-              change: "+3.4%",
-            },
-            {
-              name: "Olivia Bennett",
-              active: 30,
-              closed: 15,
-              revenue: "$15,000",
-              change: "-0.1%",
-            },
-            {
-              name: "Liam Carter",
-              active: 22,
-              closed: 12,
-              revenue: "$10,000",
-              change: "+3.4%",
-            },
-            {
-              name: "Sophia Evans",
-              active: 28,
-              closed: 14,
-              revenue: "$14,000",
-              change: "-0.1%",
-            },
-          ].map((r) => (
+          {teamUI.map((emp, idx) => (
             <li
-              key={r.name}
+              key={idx}
               className="grid grid-cols-4 gap-3 items-center rounded-lg border border-gray-200 bg-white px-4 py-2 hover:shadow-sm transition"
             >
-              <div className="truncate">{r.name}</div>
-              <div className="text-center">{r.active}</div>
-              <div className="text-center">{r.closed}</div>
-              <div className="text-right">
-                <span className="mr-2">{r.revenue}</span>
-                <span
-                  className={[
-                    "inline-block rounded px-2 py-0.5 text-[11px]",
-                    r.change.startsWith("+")
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-rose-50 text-rose-700",
-                  ].join(" ")}
-                >
-                  {r.change}
-                </span>
-              </div>
+              <div className="truncate">{emp.employee}</div>
+              <div className="text-center">{emp.activeDeals}</div>
+              <div className="text-center">{emp.closedDeals}</div>
+              <div className="text-right">{emp.revenue}</div>
             </li>
           ))}
         </ul>

@@ -1,69 +1,66 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { loginSuccess, loginFailure } from "@/store/slices/authSlice";
+import { loginUser } from "@/store/slices/authSlice";
 
 export default function LoginPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { error } = useAppSelector((s) => s.auth);
+  const { error, loading } = useAppSelector((s) => s.auth);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const [fpOpen, setFpOpen] = useState(false);
   const [fpEmail, setFpEmail] = useState("");
   const [fpMsg, setFpMsg] = useState<string | null>(null);
   const [fpLoading, setFpLoading] = useState(false);
 
-  function onSubmit(e: React.FormEvent) {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      dispatch(loginFailure("Email and password are required"));
-      return;
+
+    const result = await dispatch(loginUser({ email, password }));
+
+    if (loginUser.fulfilled.match(result)) {
+      const { token, user } = result.payload;
+
+      localStorage.setItem("auth_token", token);
+      localStorage.setItem("auth_user", JSON.stringify(user));
+
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 50);
     }
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find(
-      (u: any) => u.email === email && u.password === password
-    );
-    if (!user) {
-      dispatch(loginFailure("Invalid email or password"));
-      return;
-    }
-    dispatch(loginSuccess({ email: user.email }));
-    localStorage.setItem("auth_token", user.email);
-    setSuccess("Logged in successfully");
-    setTimeout(() => router.replace("/dashboard"), 500);
-  }
+  };
 
   async function handleForgotSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFpMsg(null);
     setFpLoading(true);
-    try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: fpEmail }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to send email");
-      setFpMsg("If the email exists, a reset link has been sent.");
-    } catch (err: any) {
-      setFpMsg(err.message || "Something went wrong");
-    } finally {
-      setFpLoading(false);
-    }
-  }
 
-  function toggleShowPwd(e: React.MouseEvent<HTMLButtonElement>) {
-    e.stopPropagation();
-    e.preventDefault();
-    setShowPwd((v) => !v);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/forgot-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: fpEmail }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setFpMsg("Reset link sent! Check your email.");
+    } catch (err: any) {
+      setFpMsg(err.message);
+    }
+
+    setFpLoading(false);
   }
 
   return (
@@ -77,18 +74,18 @@ export default function LoginPage() {
         <label className="block text-sm">
           <span className="mb-1 block text-gray-700">Email</span>
           <input
-            className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500"
+            className="w-full rounded-md border px-3 py-2"
             type="email"
-            placeholder="Enter your email"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
         </label>
 
-        <div className="text-sm">
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-gray-700">Password</label>
+        <label className="block text-sm">
+          <div className="flex justify-between mb-1">
+            <span className="text-gray-700">Password</span>
 
             <button
               type="button"
@@ -101,7 +98,7 @@ export default function LoginPage() {
 
           <div className="relative">
             <input
-              className="w-full rounded-md border px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full rounded-md border px-3 py-2 pr-12 outline-none focus:ring-2 focus:ring-violet-500"
               type={showPwd ? "text" : "password"}
               placeholder="Enter your password"
               value={password}
@@ -111,13 +108,12 @@ export default function LoginPage() {
 
             <button
               type="button"
-              onMouseDown={(e) => {
-                e.stopPropagation();
+              onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                setShowPwd((v) => !v);
               }}
-              onClick={toggleShowPwd}
-              className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none"
-              aria-label={showPwd ? "Hide password" : "Show password"}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-600 hover:text-gray-800"
             >
               {showPwd ? (
                 <EyeSlashIcon className="h-5 w-5" />
@@ -126,20 +122,20 @@ export default function LoginPage() {
               )}
             </button>
           </div>
-        </div>
+        </label>
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
-        {success && <p className="text-sm text-emerald-700">{success}</p>}
 
         <button
           type="submit"
-          className="w-full inline-flex items-center justify-center rounded-md bg-indigo-700 px-4 py-2 text-white hover:bg-indigo-600"
+          disabled={loading}
+          className="w-full rounded-md bg-indigo-700 text-white py-2"
         >
-          Log in
+          {loading ? "Logging in..." : "Log in"}
         </button>
 
-        <p className="text-center text-sm text-gray-600">
-          Don’t have an account?{" "}
+        <p className="text-center text-sm">
+          Don't have an account?{" "}
           <a href="/auth/register" className="text-violet-600">
             Sign up
           </a>
@@ -147,32 +143,34 @@ export default function LoginPage() {
       </form>
 
       {fpOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold">Reset password</h2>
-              <button
-                onClick={() => setFpOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-                type="button"
-              >
-                ✕
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-gray-200 relative">
+            <button
+              type="button"
+              onClick={() => setFpOpen(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-lg font-semibold mb-2">Reset Password</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Enter your account email to receive a password reset link.
+              Enter your email to receive a password reset link.
             </p>
+
             <form onSubmit={handleForgotSubmit} className="space-y-3">
               <input
                 type="email"
-                required
+                placeholder="you@example.com"
                 value={fpEmail}
                 onChange={(e) => setFpEmail(e.target.value)}
-                placeholder="you@example.com"
                 className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500"
+                required
               />
+
               {fpMsg && <p className="text-sm text-gray-700">{fpMsg}</p>}
-              <div className="flex gap-2">
+
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setFpOpen(false)}
@@ -180,12 +178,13 @@ export default function LoginPage() {
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   disabled={fpLoading}
                   className="flex-1 rounded-md bg-indigo-700 text-white px-3 py-2 hover:bg-indigo-600 disabled:opacity-60"
                 >
-                  {fpLoading ? "Sending..." : "Send link"}
+                  {fpLoading ? "Sending..." : "Send Link"}
                 </button>
               </div>
             </form>

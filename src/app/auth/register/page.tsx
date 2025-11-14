@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { registerFailure, registerSuccess } from "@/store/slices/authSlice";
+import { registerUser } from "@/store/slices/authSlice";
 
 type Form = {
   firstName: string;
@@ -33,77 +33,68 @@ const initial: Form = {
 export default function RegisterPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { error } = useAppSelector((state) => state.auth);
+  const { error, loading } = useAppSelector((state) => state.auth);
 
   const [form, setForm] = useState<Form>(initial);
   const [ok, setOk] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  function onChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  function onChange(e: any) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
     setOk(false);
   }
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    console.log("FORM SUBMITTED!");
+    console.log("FORM STATE = ", form);
 
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-      dispatch(
-        registerFailure("First name, last name, and email are required")
-      );
+      alert("First name, last name, and email are required");
       return;
     }
 
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
     if (!emailOk) {
-      dispatch(registerFailure("Enter a valid email"));
+      alert("Enter a valid email");
       return;
     }
 
     if (!form.password.trim() || !form.confirm.trim()) {
-      dispatch(registerFailure("Password and confirm password are required"));
+      alert("Password and confirm password are required");
+      return;
+    }
+    console.log("PASSWORD = ", JSON.stringify(form.password));
+    console.log("CONFIRM  = ", JSON.stringify(form.confirm));
+
+    if (form.password.trim() !== form.confirm.trim()) {
+      alert("Passwords do not match");
       return;
     }
 
-    if (form.password !== form.confirm) {
-      dispatch(registerFailure("Passwords do not match"));
-      return;
-    }
+    const result = await dispatch(
+      registerUser({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
 
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const existing = users.find((u: any) => u.email === form.email);
-    if (existing) {
-      dispatch(registerFailure("Email already registered"));
-      return;
-    }
+        companyName: form.company,
+        industryType: form.industry,
 
-    const newUser = {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email,
-      phone: form.phone,
-      company: form.company,
-      industry: form.industry,
-      country: form.country,
-      password: form.password,
-    };
-    users.push(newUser);
-    localStorage.setItem("users", JSON.stringify(users));
+        country: form.country,
 
-    dispatch(
-      registerSuccess({
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
+        password: form.password,
+        confirmPassword: form.confirm,
       })
     );
 
-    setOk(true);
-
-    setTimeout(() => router.push("/auth/login"), 600);
+    if (registerUser.fulfilled.match(result)) {
+      setOk(true);
+      setTimeout(() => router.push("/auth/login"), 1000);
+    }
   }
 
   return (
@@ -216,7 +207,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowPwd((v) => !v)}
-                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
               >
                 {showPwd ? (
                   <EyeSlashIcon className="h-5 w-5" />
@@ -241,7 +232,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirm((v) => !v)}
-                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
               >
                 {showConfirm ? (
                   <EyeSlashIcon className="h-5 w-5" />
@@ -263,9 +254,10 @@ export default function RegisterPage() {
         <div className="mt-5">
           <button
             type="submit"
-            className="w-full rounded-md bg-indigo-700 py-2.5 text-white hover:bg-indigo-600"
+            disabled={loading}
+            className="w-full rounded-md bg-indigo-700 py-2.5 text-white hover:bg-indigo-600 disabled:opacity-50"
           >
-            Register
+            {loading ? "Registering..." : "Register"}
           </button>
         </div>
 
