@@ -134,13 +134,15 @@ export default function CallModal({
             Date <span className="text-red-500">*</span>
           </label>
           <Inputs
-            variant="input"
-            type="date"
+            variant="date"
             name="date"
+            placeholder="Choose"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(v) => setDate(v)}
             className={errors.date ? "border-red-500" : ""}
+            showCalendarIcon
           />
+
           {errors.date && (
             <p className="text-red-500 text-sm mt-1">{errors.date}</p>
           )}
@@ -150,13 +152,14 @@ export default function CallModal({
             Time <span className="text-red-500">*</span>
           </label>
           <Inputs
-            variant="input"
-            type="time"
+            variant="time"
             name="time"
+            placeholder="Choose"
             value={time}
-            onChange={(e) => setTime(e.target.value)}
+            onChange={(v) => setTime(v)}
             className={errors.time ? "border-red-500" : ""}
           />
+
           {errors.time && (
             <p className="text-red-500 text-sm mt-1">{errors.time}</p>
           )}

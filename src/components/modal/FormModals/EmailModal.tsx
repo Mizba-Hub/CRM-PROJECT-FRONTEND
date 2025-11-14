@@ -74,6 +74,13 @@ interface EmailModalProps {
     attachments?: { name: string; url: string }[];
   }) => void;
   connectedPerson?: string;
+
+  recordAttachments?: { id: number; name: string; url?: string }[];
+  onAttachToRecord?: (file: {
+    name: string;
+    url: string;
+    type?: string;
+  }) => void;
 }
 
 const EMAIL_SPLIT = /[,\s;]+/;
@@ -237,6 +244,8 @@ export default function EmailModal({
   onClose,
   onSend,
   connectedPerson,
+  recordAttachments,
+  onAttachToRecord,
 }: EmailModalProps) {
   const [toList, setToList] = useState<string[]>([]);
   const [ccList, setCcList] = useState<string[]>([]);
@@ -288,6 +297,33 @@ export default function EmailModal({
   const linkTextInputRef = useRef<HTMLInputElement | null>(null);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<Date | null>(new Date());
+
+  const [showFileSource, setShowFileSource] = useState(false);
+  const [showRecordPicker, setShowRecordPicker] = useState(false);
+
+  const closeAllPopovers = () => {
+    setShowFileSource(false);
+    setShowEmoji(false);
+    setShowFormat(false);
+    setShowLinkPopover(false);
+    setLinkMenu(null);
+    setImageMenu(null);
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      if (target.closest(".file-popover")) return;
+
+      if (target.closest(".paperclip-btn")) return;
+
+      setShowFileSource(false);
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const ExtendedImage = Image.extend({
     addAttributes() {
@@ -344,6 +380,37 @@ export default function EmailModal({
     },
     immediatelyRender: false,
   });
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      if (
+        target.closest(".popover") ||
+        target.closest(".image-popover") ||
+        target.closest(".gmail-link-popover") ||
+        target.closest(".file-popover") ||
+        target.closest(".paperclip-btn") ||
+        target.closest(".send-dropdown-button") ||
+        target.closest(".send-dropdown-menu") ||
+        target.closest(".schedule-popover")
+      ) {
+        return;
+      }
+
+      setShowEmoji(false);
+      setShowLinkPopover(false);
+      setShowFormat(false);
+      setLinkMenu(null);
+      setShowSendMenu(false);
+      setShowSchedulePopover(false);
+      setShowFileSource(false);
+      setImageMenu(null);
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -416,20 +483,6 @@ export default function EmailModal({
       editor.off("transaction", handler);
     };
   }, [editor]);
-
-  useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!modalRef.current?.contains(target) && !target.closest(".popover")) {
-        setShowEmoji(false);
-        setShowLinkPopover(false);
-        setShowFormat(false);
-        setLinkMenu(null);
-      }
-    };
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, []);
 
   useEffect(() => {
     if (!editor) return;
@@ -581,27 +634,17 @@ export default function EmailModal({
 
   const handleAttachment = (files: FileList | null) => {
     if (!files?.length) return;
-    const imageTypes = ["image/png", "image/jpeg", "image/jpg", "image/gif"];
     Array.from(files).forEach((file) => {
-      if (imageTypes.includes(file.type)) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          editor
-            ?.chain()
-            .focus()
-            .setImage({
-              src: reader.result as string,
-              alt: file.name.replace(/\.[^/.]+$/, ""),
-              filename: file.name,
-            })
-            .run();
-        };
-        reader.readAsDataURL(file);
-      } else {
-        const fileUrl = URL.createObjectURL(file);
-        setAttachments((prev) => [...prev, { name: file.name, url: fileUrl }]);
-        notify(`Attached ${file.name}`, "info");
-      }
+      const isImage = file.type.startsWith("image/");
+      const fileUrl = URL.createObjectURL(file);
+
+      setAttachments((prev) => [...prev, { name: file.name, url: fileUrl }]);
+      onAttachToRecord?.({
+        name: file.name,
+        url: fileUrl,
+        type: file.type,
+      });
+      notify(`Attached ${file.name}`, "info");
     });
   };
 
@@ -764,127 +807,13 @@ export default function EmailModal({
               />
             </div>
 
-            <div className="flex-1 relative max-h-[320px] overflow-y-auto border-b border-gray-200">
+            <div className="flex-1 relative border-b border-gray-200 overflow-visible">
               <EditorContent
                 editor={editor}
                 aria-placeholder="Body Text"
                 className="min-h-[220px] max-h-[300px] overflow-y-auto pl-[2px] prose prose-sm max-w-none focus:outline-none"
                 onFocus={collapseCcBcc}
               />
-
-              {attachments.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {attachments.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs border border-blue-200"
-                    >
-                      <a
-                        href={file.url}
-                        download={file.name}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline truncate max-w-[140px]"
-                      >
-                        {file.name}
-                      </a>
-                      <button
-                        onClick={() => {
-                          URL.revokeObjectURL(file.url);
-                          setAttachments((prev) =>
-                            prev.filter((_, i) => i !== idx)
-                          );
-                          notify(`${file.name} removed`, "info");
-                        }}
-                        className="text-gray-400 hover:text-red-500 text-[11px]"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {hoverLabel &&
-                !showFormat &&
-                !showEmoji &&
-                !showLinkPopover &&
-                !linkMenu && (
-                  <div className="absolute bottom-0 left-30 bg-gray-200 text-black text-[12px] rounded-md px-2 py-[2px] whitespace-nowrap z-50">
-                    {hoverLabel}
-                  </div>
-                )}
-
-              {editor && linkMenu && (
-                <div
-                  className="gmail-link-popover absolute bg-white border rounded-md shadow-md px-3 py-2 text-xs flex items-center justify-between whitespace-nowrap z-50 space-x-4"
-                  style={{
-                    top:
-                      linkMenu.y -
-                      (editor.view.dom.getBoundingClientRect().top || 0) +
-                      8,
-                    left:
-                      linkMenu.x -
-                      (editor.view.dom.getBoundingClientRect().left || 0) +
-                      170,
-                    transform: "translateX(-50%)",
-                    minWidth: "260px",
-                  }}
-                >
-                  <span className="text-gray-600">Go to:</span>
-                  <a
-                    href={linkMenu.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-indigo-600 hover:underline truncate max-w-[120px]"
-                  >
-                    {linkMenu.href}
-                  </a>
-                  <span className="text-gray-400">|</span>
-                  <button
-                    onClick={() => {
-                      if (!editor || !linkMenu) return;
-                      const { from, to } = editor.state.selection;
-                      let linkTextValue = "";
-                      editor.state.doc.nodesBetween(from, to, (node) => {
-                        if (
-                          node.isText &&
-                          node.marks.some((m) => m.type.name === "link")
-                        )
-                          linkTextValue += node.text || "";
-                      });
-                      if (!linkTextValue.trim())
-                        linkTextValue =
-                          editor.state.doc.textBetween(from, to, " ") ||
-                          linkMenu.href ||
-                          "";
-                      setLinkText(linkTextValue);
-                      setLinkUrl(linkMenu.href);
-                      setShowLinkPopover(true);
-                      setLinkMenu(null);
-                    }}
-                    className="text-indigo-600 hover:text-black transition-colors"
-                  >
-                    Change
-                  </button>
-                  <span className="text-gray-400">|</span>
-                  <button
-                    onClick={() => {
-                      editor
-                        ?.chain()
-                        .focus()
-                        .extendMarkRange("link")
-                        .unsetLink()
-                        .run();
-                      notify("Link removed", "info");
-                      setLinkMenu(null);
-                    }}
-                    className="text-red-500 hover:underline"
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
 
               {editor && imageMenu && (
                 <div
@@ -897,7 +826,7 @@ export default function EmailModal({
                     left:
                       imageMenu.x -
                       (editor.view.dom.getBoundingClientRect().left || 0) +
-                      100,
+                      80,
                     transform: "translateX(-50%)",
                     minWidth: "320px",
                   }}
@@ -1027,6 +956,120 @@ export default function EmailModal({
                   })()}
                 </div>
               )}
+
+              {attachments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {attachments.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs border border-blue-200"
+                    >
+                      <a
+                        href={file.url}
+                        download={file.name}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline truncate max-w-[140px]"
+                      >
+                        {file.name}
+                      </a>
+                      <button
+                        onClick={() => {
+                          URL.revokeObjectURL(file.url);
+                          setAttachments((prev) =>
+                            prev.filter((_, i) => i !== idx)
+                          );
+                          notify(`${file.name} removed`, "info");
+                        }}
+                        className="text-gray-400 hover:text-red-500 text-[11px]"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {hoverLabel &&
+                !showFormat &&
+                !showEmoji &&
+                !showLinkPopover &&
+                !linkMenu && (
+                  <div className="absolute bottom-0 left-30 bg-gray-200 text-black text-[12px] rounded-md px-2 py-[2px] whitespace-nowrap z-50">
+                    {hoverLabel}
+                  </div>
+                )}
+
+              {editor && linkMenu && (
+                <div
+                  className="gmail-link-popover absolute bg-white border rounded-md shadow-md px-3 py-2 text-xs flex items-center justify-between whitespace-nowrap z-50 space-x-4"
+                  style={{
+                    top:
+                      linkMenu.y -
+                      (editor.view.dom.getBoundingClientRect().top || 0) +
+                      8,
+                    left:
+                      linkMenu.x -
+                      (editor.view.dom.getBoundingClientRect().left || 0) +
+                      170,
+                    transform: "translateX(-50%)",
+                    minWidth: "260px",
+                  }}
+                >
+                  <span className="text-gray-600">Go to:</span>
+                  <a
+                    href={linkMenu.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 hover:underline truncate max-w-[120px]"
+                  >
+                    {linkMenu.href}
+                  </a>
+                  <span className="text-gray-400">|</span>
+                  <button
+                    onClick={() => {
+                      if (!editor || !linkMenu) return;
+                      const { from, to } = editor.state.selection;
+                      let linkTextValue = "";
+                      editor.state.doc.nodesBetween(from, to, (node) => {
+                        if (
+                          node.isText &&
+                          node.marks.some((m) => m.type.name === "link")
+                        )
+                          linkTextValue += node.text || "";
+                      });
+                      if (!linkTextValue.trim())
+                        linkTextValue =
+                          editor.state.doc.textBetween(from, to, " ") ||
+                          linkMenu.href ||
+                          "";
+                      setLinkText(linkTextValue);
+                      setLinkUrl(linkMenu.href);
+                      setShowLinkPopover(true);
+                      setLinkMenu(null);
+                    }}
+                    className="text-indigo-600 hover:text-black transition-colors"
+                  >
+                    Change
+                  </button>
+                  <span className="text-gray-400">|</span>
+                  <button
+                    onClick={() => {
+                      editor
+                        ?.chain()
+                        .focus()
+                        .extendMarkRange("link")
+                        .unsetLink()
+                        .run();
+                      notify("Link removed", "info");
+                      setLinkMenu(null);
+                    }}
+                    className="text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1044,7 +1087,10 @@ export default function EmailModal({
                   <div className="w-[1px] bg-white" />
 
                   <button
-                    onClick={() => setShowSendMenu((prev) => !prev)}
+                    onClick={() => {
+                      closeAllPopovers();
+                      setShowSendMenu((prev) => !prev);
+                    }}
                     className="bg-indigo-600 text-white px-2 flex items-center justify-center transition-transform duration-200 send-dropdown-button"
                   >
                     <ChevronDown
@@ -1099,10 +1145,8 @@ export default function EmailModal({
                     onMouseEnter={() => setHoverLabel("Formatting options")}
                     onMouseLeave={() => setHoverLabel(null)}
                     onClick={() => {
+                      closeAllPopovers();
                       setShowFormat((v) => !v);
-                      setShowEmoji(false);
-                      setShowLinkPopover(false);
-                      setLinkMenu(null);
                     }}
                   />
 
@@ -1179,22 +1223,44 @@ export default function EmailModal({
                 </div>
 
                 <PaperClipIcon
-                  className="w-5 h-5 cursor-pointer hover:text-indigo-600"
+                  className="w-5 h-5 cursor-pointer hover:text-indigo-600 paperclip-btn"
                   onMouseEnter={() => setHoverLabel("Insert files")}
                   onMouseLeave={() => setHoverLabel(null)}
                   onClick={() => {
-                    setShowFormat(false);
-                    attachInputRef.current?.click();
+                    closeAllPopovers();
+                    setShowFileSource((v) => !v);
                   }}
                 />
+                {showFileSource && (
+                  <div className="absolute bottom-12 left-8 bg-white border rounded-md shadow-lg p-2 w-48 z-50 file-popover">
+                    <button
+                      onClick={() => {
+                        attachInputRef.current?.click();
+                        setShowFileSource(false);
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                    >
+                      Choose from browser
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowRecordPicker(true);
+                        setShowFileSource(false);
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                    >
+                      Choose from record
+                    </button>
+                  </div>
+                )}
 
                 <LinkIcon
                   className="w-5 h-5 cursor-pointer hover:text-indigo-600"
                   onMouseEnter={() => setHoverLabel("Insert link")}
                   onMouseLeave={() => setHoverLabel(null)}
                   onClick={() => {
+                    closeAllPopovers();
                     if (!editor) return;
-                    setShowFormat(false);
 
                     const selection = editor.state.selection;
                     (editor as any).__savedSelection = selection;
@@ -1232,10 +1298,8 @@ export default function EmailModal({
                   onMouseEnter={() => setHoverLabel("Insert emojis")}
                   onMouseLeave={() => setHoverLabel(null)}
                   onClick={() => {
+                    closeAllPopovers();
                     setShowEmoji((v) => !v);
-                    setShowFormat(false);
-                    setShowLinkPopover(false);
-                    setLinkMenu(null);
                   }}
                 />
 
@@ -1244,7 +1308,7 @@ export default function EmailModal({
                   onMouseEnter={() => setHoverLabel("Insert photo")}
                   onMouseLeave={() => setHoverLabel(null)}
                   onClick={() => {
-                    setShowFormat(false);
+                    closeAllPopovers();
                     photoInputRef.current?.click();
                   }}
                 />
@@ -1501,6 +1565,56 @@ export default function EmailModal({
                     >
                       Schedule
                     </button>
+                  </div>
+                </div>
+              )}
+              {showRecordPicker && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                  <div className="bg-white rounded-lg shadow-lg w-[400px] p-4">
+                    <h3 className="text-base font-semibold text-gray-800 mb-3">
+                      Choose from Record
+                    </h3>
+
+                    {recordAttachments && recordAttachments.length > 0 ? (
+                      <div className="max-h-[240px] overflow-y-auto space-y-2">
+                        {recordAttachments.map((f) => (
+                          <div
+                            key={f.id}
+                            className="flex justify-between items-center px-3 py-2 border rounded hover:bg-indigo-50"
+                          >
+                            <span className="text-sm text-gray-700 truncate">
+                              {f.name}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setAttachments((prev) => [
+                                  ...prev,
+                                  { name: f.name, url: f.url || "#" },
+                                ]);
+                                notify(`Attached ${f.name}`, "info");
+                                setShowRecordPicker(false);
+                              }}
+                              className="text-indigo-600 text-sm hover:underline"
+                            >
+                              Attach
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No attachments in record.
+                      </p>
+                    )}
+
+                    <div className="flex justify-end mt-3">
+                      <button
+                        onClick={() => setShowRecordPicker(false)}
+                        className="text-sm text-gray-500 hover:text-red-500"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

@@ -1,7 +1,13 @@
 "use client";
 
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronDownIcon,
+  ClockIcon,
+  CalendarIcon,
+} from "@heroicons/react/24/outline";
 import React, { useState, useRef, useEffect } from "react";
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/flatpickr.css";
 
 type Option = {
   label: string;
@@ -46,14 +52,42 @@ type InputProps =
       showFocusRing?: boolean;
       value: string[];
       onChange: (values: string[]) => void;
-    } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">);
+    } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">)
+  | ({
+      variant: "date";
+      label?: React.ReactNode;
+      placeholder?: string;
+      options?: never;
+      showChevron?: boolean;
+      showFocusRing?: boolean;
+      value?: string;
+      onChange?: (value: string) => void;
+      name?: string;
+      showCalendarIcon?: boolean;
+    } & Omit<
+      React.InputHTMLAttributes<HTMLInputElement>,
+      "type" | "value" | "onChange"
+    >)
+  | ({
+      variant: "time";
+      label?: React.ReactNode;
+      placeholder?: string;
+      showChevron?: boolean;
+      showFocusRing?: boolean;
+      value?: string;
+      onChange?: (value: string) => void;
+      name?: string;
+    } & Omit<
+      React.InputHTMLAttributes<HTMLInputElement>,
+      "type" | "value" | "onChange"
+    >);
 
 export function Inputs({
   variant = "input",
   label,
   placeholder,
   className,
-  options,
+
   value,
   showChevron = true,
   showFocusRing = true,
@@ -78,6 +112,8 @@ export function Inputs({
   const focusStyle = showFocusRing
     ? "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
     : "focus:outline-none focus:ring-0 focus:border-blue-500";
+
+  const optionsList = (props as any).options as Option[] | undefined;
 
   return (
     <div className="flex flex-col gap-1 w-full">
@@ -146,7 +182,7 @@ export function Inputs({
                 {placeholder}
               </option>
             )}
-            {options?.map((opt) => (
+            {(optionsList ?? []).map((opt: Option) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -187,7 +223,7 @@ export function Inputs({
 
           {showMulti && (
             <div className="absolute mt-1 w-full border border-gray-300 rounded bg-white shadow-md z-10 max-h-40 overflow-y-auto">
-              {options?.map((opt) => (
+              {(optionsList ?? []).map((opt: Option) => (
                 <label
                   key={opt.value}
                   className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
@@ -209,6 +245,69 @@ export function Inputs({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {variant === "date" && (
+        <div className="relative w-full">
+          <Flatpickr
+            value={(value as string) ?? ""}
+            options={{ dateFormat: "Y-m-d", allowInput: true }}
+            onChange={(_, str) => (props as any).onChange?.(str)}
+            placeholder={placeholder}
+            className={`
+        border border-gray-300 rounded px-2 py-1 pr-8 text-sm
+        ${focusStyle}
+        placeholder-gray-400 h-[36px] bg-white w-full
+        ${className ?? ""}
+      `}
+            id={(props as any).name}
+            name={(props as any).name}
+          />
+
+          {((props as any).showCalendarIcon || showChevron) &&
+            ((props as any).showCalendarIcon ? (
+              <CalendarIcon
+                className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                strokeWidth={2}
+              />
+            ) : (
+              <ChevronDownIcon
+                className="w-3 h-3 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                strokeWidth={3.5}
+              />
+            ))}
+        </div>
+      )}
+
+      {variant === "time" && (
+        <div className="relative w-full">
+          <Flatpickr
+            value={(value as string) ?? ""}
+            options={{
+              enableTime: true,
+              noCalendar: true,
+              time_24hr: false,
+              dateFormat: "h:i K",
+              allowInput: true,
+            }}
+            onChange={(_, str) => (props as any).onChange?.(str)}
+            placeholder={placeholder ?? "HH:mm"}
+            className={`
+              border border-gray-300 rounded px-2 py-1 pr-8 text-sm  /* pr-8 for icon space */
+              ${focusStyle}
+              placeholder-gray-400 h-[36px] bg-white w-full
+              ${className ?? ""}
+            `}
+            id={(props as any).name}
+            name={(props as any).name}
+          />
+
+          <ClockIcon
+            className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+            strokeWidth={2}
+            aria-hidden="true"
+          />
         </div>
       )}
     </div>
