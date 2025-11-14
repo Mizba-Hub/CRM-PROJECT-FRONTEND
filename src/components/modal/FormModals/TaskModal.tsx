@@ -30,7 +30,7 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
   const [taskType, setTaskType] = useState("");
   const [priority, setPriority] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(""); // ✅ note content from RichTextEditor
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -57,7 +57,7 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
       type: taskType,
       priority,
       assignedTo,
-      note,
+      note, // ✅ HTML from RichTextEditor
     };
 
     const isValid = onSave(newTask);
@@ -116,26 +116,34 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             Due Date <span className="text-red-500">*</span>
           </label>
           <Inputs
-            variant="input"
-            type="date"
+            variant="date"
+            name="dueDate"
+            placeholder="Choose"
             value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            onChange={(v) => setDueDate(v)}
             className={errors.dueDate ? "border-red-500" : ""}
+            inputMode="numeric"
+            pattern="\d{4}-\d{2}-\d{2}"
+            showCalendarIcon
           />
           {errors.dueDate && (
             <p className="text-red-500 text-sm">{errors.dueDate}</p>
           )}
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Time <span className="text-red-500">*</span>
           </label>
           <Inputs
-            variant="input"
-            type="time"
+            variant="time"
+            name="time"
+            placeholder="Choose"
             value={time}
-            onChange={(e) => setTime(e.target.value)}
+            onChange={(v) => setTime(v)}
             className={errors.time ? "border-red-500" : ""}
+            inputMode="numeric"
+            pattern="\d{2}:\d{2}"
           />
           {errors.time && <p className="text-red-500 text-sm">{errors.time}</p>}
         </div>
