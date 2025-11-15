@@ -7,28 +7,33 @@ import PhoneInputField from "@/components/ui/PhoneInputField";
 export interface CompanyFormData {
   domain: string;
   companyName: string;
-  companyOwner: string[]; 
+  companyOwner: string[];
   industry: string;
   type: string;
   city: string;
   country: string;
-  employees: string;
-  revenue: string;
+  employees: number | "";
+  revenue: number | "";
   phone: string;
   website?: string;
   logoUrl?: string;
 }
-
 interface FormModalProps {
   formData: CompanyFormData;
-  handleChange: (e: { target: { name: string; value: string | string[] } }) => void;
+  handleChange: (e: {
+    target: { name: string; value: string | string[] };
+  }) => void;
 }
 
 export default function FormModal({ formData, handleChange }: FormModalProps) {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const handleValidation = (name: string, value: string | string[]) => {
-    if (!value || (Array.isArray(value) && value.length === 0) || (typeof value === "string" && !value.trim())) {
+    if (
+      !value ||
+      (Array.isArray(value) && value.length === 0) ||
+      (typeof value === "string" && !value.trim())
+    ) {
       setErrors((prev) => ({ ...prev, [name]: "This field is required" }));
     } else {
       setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -37,64 +42,77 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
 
   return (
     <form className="grid grid-cols-2 gap-4 mt-2">
-      
-       <div className="col-span-2">
-      <Inputs
-        name="domain"
-        label={<>Domain Name <span className="text-red-500">*</span></>}
-        placeholder="Enter"
-        value={formData.domain}
-        onChange={(e) => {
-          handleChange({ target: { name: e.target.name, value: e.target.value } });
-          handleValidation(e.target.name, e.target.value);
-        }}
-      />
-      </div>
-
-      
-       <div className="col-span-2">
-      <Inputs
-        name="companyName"
-        label={<>Company Name <span className="text-red-500">*</span></>}
-        placeholder="Enter"
-        value={formData.companyName}
-        onChange={(e) => {
-          handleChange({ target: { name: e.target.name, value: e.target.value } });
-          handleValidation(e.target.name, e.target.value);
-        }}
-      />
-      </div>
-
-      
       <div className="col-span-2">
-      <Inputs
-        variant="multiselect"
-        name="companyOwner"
-        label={<>Company Owner</>}
-        placeholder="Choose"
-        
-        value={formData.companyOwner || []}
-        onChange={(selectedValues: string[]) => {
-          handleChange({ target: { name: "companyOwner", value: selectedValues } });
-          handleValidation("companyOwner", selectedValues);
-        }}
-        className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
-        options={[
-          { label: "Maria Johnson", value: "Maria Johnson" },
-          { label: "Mizba", value: "Mizba" },
-          { label: "Shaimah", value: "Shaimah" },
-          { label: "Sabira", value: "Sabira" },
-          { label: "Greeshma", value: "Greeshma" },
-          { label: "Shifa", value: "Shifa" },
-        ]}
-      />
+        <Inputs
+          name="domain"
+          label={
+            <>
+              Domain Name <span className="text-red-500">*</span>
+            </>
+          }
+          placeholder="Enter"
+          value={formData.domain}
+          onChange={(e) => {
+            handleChange({
+              target: { name: e.target.name, value: e.target.value },
+            });
+            handleValidation(e.target.name, e.target.value);
+          }}
+        />
       </div>
 
-      
+      <div className="col-span-2">
+        <Inputs
+          name="companyName"
+          label={
+            <>
+              Company Name <span className="text-red-500">*</span>
+            </>
+          }
+          placeholder="Enter"
+          value={formData.companyName}
+          onChange={(e) => {
+            handleChange({
+              target: { name: e.target.name, value: e.target.value },
+            });
+            handleValidation(e.target.name, e.target.value);
+          }}
+        />
+      </div>
+
+      <div className="col-span-2">
+        <Inputs
+          variant="multiselect"
+          name="companyOwner"
+          label={<>Company Owner</>}
+          placeholder="Choose"
+          value={formData.companyOwner || []}
+          onChange={(selectedValues: string[]) => {
+            handleChange({
+              target: { name: "companyOwner", value: selectedValues },
+            });
+            handleValidation("companyOwner", selectedValues);
+          }}
+          className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
+          options={[
+            { label: "Maria Johnson", value: "Maria Johnson" },
+            { label: "Mizba", value: "Mizba" },
+            { label: "Shaimah", value: "Shaimah" },
+            { label: "Sabira", value: "Sabira" },
+            { label: "Greeshma", value: "Greeshma" },
+            { label: "Shifa", value: "Shifa" },
+          ]}
+        />
+      </div>
+
       <Inputs
         variant="select"
         name="industry"
-        label={<>Industry <span className="text-red-500">*</span></>}
+        label={
+          <>
+            Industry <span className="text-red-500">*</span>
+          </>
+        }
         placeholder="Choose"
         options={[
           { label: "Technology", value: "Technology" },
@@ -105,16 +123,21 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         ]}
         value={formData.industry}
         onChange={(e) => {
-          handleChange({ target: { name: e.target.name, value: e.target.value } });
+          handleChange({
+            target: { name: e.target.name, value: e.target.value },
+          });
           handleValidation(e.target.name, e.target.value);
         }}
       />
 
-      
       <Inputs
         variant="select"
         name="type"
-        label={<>Type <span className="text-red-500">*</span></>}
+        label={
+          <>
+            Type <span className="text-red-500">*</span>
+          </>
+        }
         placeholder="Choose"
         options={[
           { label: "Private", value: "Private" },
@@ -124,60 +147,67 @@ export default function FormModal({ formData, handleChange }: FormModalProps) {
         ]}
         value={formData.type}
         onChange={(e) => {
-          handleChange({ target: { name: e.target.name, value: e.target.value } });
+          handleChange({
+            target: { name: e.target.name, value: e.target.value },
+          });
           handleValidation(e.target.name, e.target.value);
         }}
       />
 
-      
       <Inputs
         name="city"
         label="City"
         placeholder="Enter"
         value={formData.city}
-        onChange={(e) =>
-          handleChange({ target: { name: e.target.name, value: e.target.value } })
-        }
+        onChange={(e) => {
+          const value = e.target.value.replace(/[0-9]/g, "");
+          handleChange({ target: { name: e.target.name, value } });
+        }}
       />
 
-      
       <Inputs
         name="country"
         label="Country/Region"
         placeholder="Enter"
         value={formData.country}
-        onChange={(e) =>
-          handleChange({ target: { name: e.target.name, value: e.target.value } })
-        }
+        onChange={(e) => {
+          const value = e.target.value.replace(/[0-9]/g, "");
+          handleChange({ target: { name: e.target.name, value } });
+        }}
       />
 
-      
       <Inputs
+        type="number"
         name="employees"
         label="No of Employees"
         placeholder="Enter"
+        className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         value={formData.employees}
-        onChange={(e) =>
-          handleChange({ target: { name: e.target.name, value: e.target.value } })
-        }
+        onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, "");
+          handleChange({ target: { name: e.target.name, value } });
+        }}
       />
 
-      
       <Inputs
+        type="number"
         name="revenue"
         label="Annual Revenue"
         placeholder="Enter"
+        className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         value={formData.revenue}
-        onChange={(e) =>
-          handleChange({ target: { name: e.target.name, value: e.target.value } })
-        }
+        onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, "");
+          handleChange({ target: { name: e.target.name, value } });
+        }}
       />
 
-      
       <div className="col-span-2">
         <PhoneInputField
           value={formData.phone}
-          onChange={(val) => handleChange({ target: { name: "phone", value: val } })}
+          onChange={(val) =>
+            handleChange({ target: { name: "phone", value: val } })
+          }
           label="Phone Number"
           required
           error={errors.phone}
