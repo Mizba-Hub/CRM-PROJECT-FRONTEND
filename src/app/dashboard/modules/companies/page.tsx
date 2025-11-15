@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-
 import HeaderBar from "@/components/crm/EntityList";
 import TableLayout, {
   TableRow,
@@ -15,22 +14,25 @@ import { formatDisplayDate } from "@/app/lib/date";
 
 const companyFilters = [
   {
-    label: "Industry",
+    label: "Industry Type",
     options: ["Technology", "Education", "Finance", "Healthcare", "Retail"],
   },
-  { label: "Type", options: ["Private", "Public", "Government"] },
-  { label: "Country", options: ["India", "USA", "UK", "Canada"] },
+  { label: "City", options: ["Delhi", "Chicago", "Paris", "Baku"] },
+  { label: "Country/Region", options: ["India", "USA", "UK", "Canada"] },
+  {
+    label: "Lead Status",
+    options: ["Open", "New", "In Progress", "Qualified", "Closed"],
+  },
 ];
 
 export default function CompaniesPage() {
   const [mounted, setMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 68;
-
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
-
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>(
+    {}
+  );
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -40,6 +42,10 @@ export default function CompaniesPage() {
     const stored = localStorage.getItem("companies");
     if (stored) setCompanies(JSON.parse(stored));
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeFilters, selectedDate]);
 
   if (!mounted) return null;
 
@@ -56,12 +62,15 @@ export default function CompaniesPage() {
     const matchesFilters = Object.entries(activeFilters).every(([key, val]) => {
       if (!val) return true;
       switch (key) {
-        case "Industry":
+        case "Industry Type":
           return company.industry === val;
-        case "Type":
-          return company.type === val;
+        case "City":
+          return company.city === val;
         case "Country":
           return company.country === val;
+
+        case "Lead Status":
+          return company.leadStatus === val;
         default:
           return true;
       }
@@ -90,14 +99,16 @@ export default function CompaniesPage() {
     localStorage.setItem("companies", JSON.stringify(updated));
   };
 
-  const handleSaveCompany = (data: Omit<Company, "id" | "createdDate">) => {
+  const handleSaveCompany = (
+    data: Omit<Company, "id" | "createdDate"> & { leadStatus?: string }
+  ) => {
     if (editingCompany) {
       const updatedCompany: Company = { ...editingCompany, ...data };
       const updatedCompanies = companies.map((c) =>
         c.id === editingCompany.id ? updatedCompany : c
       );
       updateLocalStorage(updatedCompanies);
-      notify("✏ Company updated successfully", "success");
+      notify("Company updated successfully", "success");
       setEditingCompany(null);
     } else {
       const newCompany: Company = {
@@ -106,7 +117,7 @@ export default function CompaniesPage() {
         createdDate: new Date().toISOString(),
       };
       updateLocalStorage([newCompany, ...companies]);
-      notify("✅ Company created successfully", "success");
+      notify("Company created successfully", "success");
     }
     setIsModalOpen(false);
   };
@@ -114,7 +125,7 @@ export default function CompaniesPage() {
   const handleDelete = (company: Company) => {
     const updated = companies.filter((c) => c.id !== company.id);
     updateLocalStorage(updated);
-    notify("🗑 Company deleted successfully", "success");
+    notify("Company deleted successfully", "success");
   };
 
   const handleEdit = (company: Company) => {
@@ -126,6 +137,15 @@ export default function CompaniesPage() {
     setEditingCompany(null);
     setIsModalOpen(false);
   };
+
+  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredCompanies.length / ITEMS_PER_PAGE)
+  );
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedCompanies = filteredCompanies.slice(startIndex, endIndex);
 
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -145,8 +165,8 @@ export default function CompaniesPage() {
 
       <div className="px-4 pt-2 pb-4">
         <TableLayout columns={columns}>
-          {filteredCompanies.length > 0 ? (
-            filteredCompanies.map((company) => (
+          {paginatedCompanies.length > 0 ? (
+            paginatedCompanies.map((company) => (
               <TableRow key={company.id}>
                 <TableCell isCheckbox>
                   <input
