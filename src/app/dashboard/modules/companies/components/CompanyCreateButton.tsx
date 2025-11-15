@@ -14,12 +14,13 @@ export interface Company {
   type: string;
   city: string;
   country: string;
-  employees: string;
-  revenue: string;
-  phone: string;
+  employees: number;
+  revenue: number;
+  phone: string; 
   createdDate: string;
   website?: string;
   logoUrl?: string;
+  leadStatus?: string;
 }
 
 interface CreateCompanyModalProps {
@@ -67,12 +68,23 @@ export default function CreateCompanyModal({
       });
     }
   }, [isOpen, editingCompany]);
-
   const handleChange = (e: {
     target: { name: string; value: string | string[] };
   }) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let newValue: string | number | string[] = value;
+
+    
+    if (name === "employees" || name === "revenue") {
+      
+      const digitsOnly = (value as string).replace(/\D/g, "");
+      newValue = digitsOnly === "" ? "" : parseInt(digitsOnly, 10);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: newValue,
+    }));
   };
 
   const handleSubmit = (): boolean => {
@@ -87,7 +99,15 @@ export default function CreateCompanyModal({
       return false;
     }
 
-    onCreate(formData);
+    
+    const submissionData = {
+      ...formData,
+      employees:
+        typeof formData.employees === "number" ? formData.employees : 0,
+      revenue: typeof formData.revenue === "number" ? formData.revenue : 0,
+    };
+
+    onCreate(submissionData as Omit<Company, "id" | "createdDate">);
     return true;
   };
 
