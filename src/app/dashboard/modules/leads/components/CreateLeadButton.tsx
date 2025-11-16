@@ -16,7 +16,14 @@ export interface Lead {
   jobTitle: string;
   contactOwner: string[];
   city: string;
-  status: "Open" | "New" | "In Progress" | "Qualified" | "Closed" | "Converted";
+  status:
+    | "Open"
+    | "New"
+    | "In Progress"
+    | "Contact"
+    | "Qualified"
+    | "Closed"
+    | "Converted";
   createdDate: string;
 }
 
@@ -373,6 +380,7 @@ export default function LeadModal({
                 { label: "Open", value: "Open" },
                 { label: "New", value: "New" },
                 { label: "In Progress", value: "In Progress" },
+                { label: "Contact", value: "Contact" },
                 { label: "Qualified", value: "Qualified" },
                 { label: "Closed", value: "Closed" },
               ]}

@@ -22,7 +22,6 @@ import { getCurrentUserName } from "@/app/lib/auth";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
 import DetailHeader from "@/components/crm/DetailHeader";
-import { info } from "console";
 
 type ActivityType = "note" | "call" | "task" | "email" | "meeting";
 
@@ -134,7 +133,7 @@ export default function LeadDetailPage() {
         const ownerCount = Array.isArray(lead?.contactOwner)
           ? lead.contactOwner.length
           : 1;
-        title = `Meeting ${currentUserName}, ${lead.firstName} ${lead.lastName} and ${attendeeNames}`;
+        title = `Meeting ${currentUserName} and ${lead.firstName} ${lead.lastName}`;
         content = data?.note || "";
         extra = {
           duration:

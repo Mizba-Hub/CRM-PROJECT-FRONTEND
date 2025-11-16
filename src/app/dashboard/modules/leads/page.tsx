@@ -25,14 +25,29 @@ interface Lead {
   city: string;
   jobTitle: string;
   contactOwner: string[];
-  status: "Open" | "New" | "In Progress" | "Qualified" | "Closed" | "Converted";
+  status:
+    | "Open"
+    | "New"
+    | "In Progress"
+    | "Contact"
+    | "Qualified"
+    | "Closed"
+    | "Converted";
   createdDate: string;
 }
 
 const leadFilters = [
   {
     label: "Lead Status",
-    options: ["Open", "New", "In Progress", "Qualified", "Closed", "Converted"],
+    options: [
+      "Open",
+      "New",
+      "In Progress",
+      "Contact",
+      "Qualified",
+      "Closed",
+      "Converted",
+    ],
   },
 ];
 
@@ -44,8 +59,6 @@ export default function LeadsPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState<Lead | null>(null);
 
@@ -87,7 +100,11 @@ export default function LeadsPage() {
         .toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
       lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.phone.includes(searchTerm);
+
+    const selectedStatus = activeFilters["Lead Status"] || "";
+    const selectedDate = activeFilters["Date"] || "";
 
     const matchesStatus = selectedStatus
       ? lead.status === selectedStatus
@@ -182,86 +199,99 @@ export default function LeadsPage() {
 
   return (
     <div className="bg-white m-2 rounded-md h-full overflow-hidden">
-      <HeaderBar
-        title="Leads"
-        searchPlaceholder="Search phone, name, email"
-        onSearch={(val) => setSearchTerm(val)}
-        filters={leadFilters}
-        activeFilters={activeFilters}
-        onFilterChange={(name, val) => {
-          setActiveFilters((prev) => ({ ...prev, [name]: val }));
-          setSelectedStatus(val);
-        }}
-        onDateChange={(date) => setSelectedDate(date)}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-        onCreate={() => {
-          setEditData(null);
-          setShowModal(true);
-        }}
-      />
+      <div className="w-full overflow-x-auto">
+        <HeaderBar
+          title="Leads"
+          searchPlaceholder="Search phone, name, email"
+          onSearch={(val) => setSearchTerm(val)}
+          filters={leadFilters}
+          activeFilters={activeFilters}
+          onFilterChange={(name, val) => {
+            setActiveFilters((prev) => ({ ...prev, [name]: val }));
+          }}
+          onDateChange={(date) => {
+            setActiveFilters((prev) => ({ ...prev, Date: date }));
+          }}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          onCreate={() => {
+            setEditData(null);
+            setShowModal(true);
+          }}
+        />
 
-      <div className="bg-white p-4">
-        <TableLayout columns={columns}>
-          {paginatedLeads.length > 0 ? (
-            paginatedLeads.map((lead) => (
-              <TableRow key={lead.id}>
-                <TableCell isCheckbox>
-                  <Inputs type="checkbox" variant="input" />
-                </TableCell>
+        <div className="bg-white p-2 sm:p-4 overflow-x-auto">
+          <TableLayout columns={columns}>
+            {paginatedLeads.length > 0 ? (
+              paginatedLeads.map((lead) => (
+                <TableRow key={lead.id}>
+                  <TableCell isCheckbox>
+                    <Inputs type="checkbox" variant="input" />
+                  </TableCell>
 
-                <TableCell>
-                  <Link
-                    href={`/dashboard/modules/leads/${lead.id}`}
-                    onClick={() =>
-                      localStorage.setItem("leads", JSON.stringify(leads))
-                    }
-                    className="hover:underline"
-                  >
-                    {lead.firstName} {lead.lastName}
-                  </Link>
-                </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/dashboard/modules/leads/${lead.id}`}
+                      onClick={() =>
+                        localStorage.setItem("leads", JSON.stringify(leads))
+                      }
+                      className="hover:underline whitespace-nowrap"
+                    >
+                      {lead.firstName} {lead.lastName}
+                    </Link>
+                  </TableCell>
 
-                <TableCell>{lead.email}</TableCell>
-                <TableCell>{lead.phone}</TableCell>
-                <TableCell>{lead.city || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {lead.email}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {lead.phone}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {lead.city || "-"}
+                  </TableCell>
 
-                <TableCell>{formatDisplayDate(lead.createdDate)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatDisplayDate(lead.createdDate)}
+                  </TableCell>
 
-                <TableCell>
-                  <span
-                    className={`px-2 py-1 text-xs rounded ${
-                      lead.status === "Open"
-                        ? "bg-green-100 text-green-700"
-                        : lead.status === "New"
-                        ? "bg-blue-100 text-blue-700"
-                        : lead.status === "In Progress"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-gray-200 text-gray-700"
-                    }`}
-                  >
-                    {lead.status}
-                  </span>
-                </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <span
+                      className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+                        lead.status === "Open"
+                          ? "bg-green-100 text-green-700"
+                          : lead.status === "New"
+                          ? "bg-blue-100 text-blue-700"
+                          : lead.status === "In Progress"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      {lead.status}
+                    </span>
+                  </TableCell>
 
-                <TableCell>
-                  <ActionButtons
-                    item={lead}
-                    onEdit={() => handleEdit(lead)}
-                    onDelete={() => handleDelete(lead)}
-                  />
+                  <TableCell className="whitespace-nowrap">
+                    <ActionButtons
+                      item={lead}
+                      onEdit={() => handleEdit(lead)}
+                      onDelete={() => handleDelete(lead)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length}>
+                  <p className="text-gray-500 text-center py-4">
+                    No leads found
+                  </p>
                 </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length}>
-                <p className="text-gray-500 text-center py-4">No leads found</p>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableLayout>
+            )}
+          </TableLayout>
+        </div>
       </div>
 
       <LeadModal
