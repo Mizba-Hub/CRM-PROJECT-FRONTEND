@@ -11,6 +11,7 @@ type User = {
 
 type AuthState = {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   error: string | null;
   loading: boolean;
@@ -18,11 +19,11 @@ type AuthState = {
 
 const initialState: AuthState = {
   user: null,
+  token: null,
   isAuthenticated: false,
   error: null,
   loading: false,
 };
-
 
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
@@ -78,6 +79,7 @@ const slice = createSlice({
   reducers: {
     logout(state) {
       state.user = null;
+      state.token = null;
       state.isAuthenticated = false;
       localStorage.removeItem("token");
     },
@@ -92,6 +94,7 @@ const slice = createSlice({
         (s, a: PayloadAction<{ token: string; user: User }>) => {
           s.loading = false;
           s.user = a.payload.user;
+          s.token = a.payload.token;
           s.isAuthenticated = true;
         }
       )
