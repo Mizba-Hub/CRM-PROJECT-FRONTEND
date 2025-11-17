@@ -178,7 +178,10 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               placeholder="Close Date"
               className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
               value={activeFilters["Close Date"] ?? ""}
-              onChange={(v) => onFilterChange("Close Date", v)}
+              onChange={(v) => {
+                onFilterChange("Date", v);
+                onDateChange(v);
+              }}
               inputMode="numeric"
               pattern="\d{4}-\d{2}-\d{2}"
               max={new Date().toISOString().slice(0, 10)}
@@ -188,7 +191,10 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             {activeFilters["Close Date"] && (
               <button
                 type="button"
-                onClick={() => onFilterChange("Close Date", "")}
+                onClick={() => {
+                  onFilterChange("Date", "");
+                  onDateChange("");
+                }}
                 className="absolute right-3 top-1/2 -translate-y-1/2"
                 aria-label="Clear close date"
               >
@@ -208,7 +214,10 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             placeholder="Created Date"
             className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
             value={activeFilters["Date"] ?? ""}
-            onChange={(v) => onFilterChange("Date", v)}
+            onChange={(v) => {
+              onFilterChange("Date", v);
+              onDateChange(v);
+            }}
             inputMode="numeric"
             pattern="\d{4}-\d{2}-\d{2}"
             showChevron={!activeFilters["Date"]}
@@ -217,12 +226,14 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           {activeFilters["Date"] && (
             <button
               type="button"
-              onClick={() => onFilterChange("Date", "")}
+              onClick={() => {
+                onFilterChange("Date", "");
+                onDateChange("");
+              }}
               className="absolute right-3 top-1/2 -translate-y-1/2"
-              aria-label="Clear created date"
             >
               <XMarkIcon
-                className="w-3 h-3  hover:text-gray-700"
+                className="w-3 h-3 hover:text-gray-700"
                 strokeWidth={2.5}
               />
             </button>
