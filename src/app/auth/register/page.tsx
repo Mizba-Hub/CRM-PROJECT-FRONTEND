@@ -16,6 +16,7 @@ type Form = {
   country: string;
   password: string;
   confirm: string;
+  role:string;
 };
 
 const initial: Form = {
@@ -28,6 +29,7 @@ const initial: Form = {
   country: "",
   password: "",
   confirm: "",
+  role:""
 };
 
 export default function RegisterPage() {
@@ -61,6 +63,14 @@ export default function RegisterPage() {
       return;
     }
 
+    if (form.phone.trim()) {
+  const phoneOk = /^[0-9]{10}$/.test(form.phone.trim());
+  if (!phoneOk) {
+    alert("Phone number must be a 10-digit number");
+    return;
+  }
+}
+
     if (!form.password.trim() || !form.confirm.trim()) {
       alert("Password and confirm password are required");
       return;
@@ -86,6 +96,8 @@ export default function RegisterPage() {
 
         password: form.password,
         confirmPassword: form.confirm,
+
+        role: form.role, 
       })
     );
 
@@ -165,6 +177,22 @@ export default function RegisterPage() {
             />
           </Field>
 
+          <Field label="Role">
+  <select
+    name="role"
+    value={form.role}
+    onChange={onChange}
+    className="ui-input"
+    required
+  >
+    <option value="" disabled>
+      Choose
+    </option>
+    <option value="admin">Admin</option>
+    <option value="user">User</option>
+  </select>
+</Field>
+
           <Field label="Industry Type">
             <select
               name="industry"
@@ -172,7 +200,7 @@ export default function RegisterPage() {
               onChange={onChange}
               className="ui-input"
             >
-              <option value="">Choose</option>
+              <option value="" disabled>Choose</option>
               <option value="Software">Software</option>
               <option value="Finance">Finance</option>
               <option value="Healthcare">Healthcare</option>

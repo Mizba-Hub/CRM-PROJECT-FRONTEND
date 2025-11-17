@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchDashboard } from "@/store/slices/dashboardSlice";
+import CsvExportButton from "./components/CsvExportButton";
 
 import {
   IconUsers,
@@ -212,9 +213,17 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">Team Performance Tracking</h3>
 
-          <button className="border border-blue-600 text-blue-600 bg-transparent rounded px-3 py-1 text-sm hover:bg-blue-50">
-            Export CSV
-          </button>
+          <CsvExportButton
+            data={teamUI}
+            filename="team_performance.csv"
+            headers={[
+              { key: "employee", label: "Employee" },
+              { key: "activeDeals", label: "Active Deals" },
+              { key: "closedDeals", label: "Closed Deals" },
+              { key: "revenue", label: "Revenue" },
+            ]}
+            buttonText="Export CSV"
+          />
         </div>
 
         <div className="grid grid-cols-4 gap-3 text-m font-semibold text-gray-700 bg-gray-100 rounded-lg px-4 py-2">
