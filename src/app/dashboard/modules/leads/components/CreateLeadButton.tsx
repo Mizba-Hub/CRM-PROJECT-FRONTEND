@@ -30,7 +30,9 @@ export interface Lead {
 interface LeadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (lead: Omit<Lead, "id" | "createdDate">) => boolean;
+  onSave: (
+    data: Omit<Lead, "id" | "createdDate">
+  ) => boolean | Promise<boolean>;
   editData?: Lead | null;
 }
 
@@ -60,12 +62,12 @@ export default function LeadModal({
       const { id, createdDate, ...rest } = editData;
       setFormData({
         ...rest,
+        phone: editData.fullPhone || editData.phone || "",
         contactOwner: Array.isArray(rest.contactOwner)
           ? rest.contactOwner
-          : [rest.contactOwner].filter(Boolean),
-        phone: editData.fullPhone || editData.phone || "",
-        city: editData.city || "",
+          : [rest.contactOwner],
       });
+
       setErrors({});
       setTypedEmail(false);
       setTypedPhone(false);
@@ -78,8 +80,9 @@ export default function LeadModal({
         jobTitle: "",
         contactOwner: [],
         city: "",
-        status: "" as any,
+        status: "New",
       });
+
       setErrors({});
       setTypedEmail(false);
       setTypedPhone(false);
@@ -103,12 +106,12 @@ export default function LeadModal({
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === "email" && value.trim().length > 0) setTypedEmail(true);
+    if (name === "email" && value.trim()) setTypedEmail(true);
   };
 
   const handlePhoneChange = (val: string) => {
     setFormData((prev) => ({ ...prev, phone: val }));
-    if (val.trim().length > 0) setTypedPhone(true);
+    if (val.trim()) setTypedPhone(true);
   };
 
   const handleEmailBlur = () => {
@@ -128,7 +131,9 @@ export default function LeadModal({
 
   const handlePhoneBlur = () => {
     if (!typedPhone) return;
+
     const cleaned = formData.phone.replace(/[\s()-]/g, "");
+
     if (cleaned.trim() && (!/^\+?\d+$/.test(cleaned) || cleaned.length < 7)) {
       setErrors((prev) => ({
         ...prev,
@@ -142,7 +147,7 @@ export default function LeadModal({
     }
   };
 
-  const validate = () => {
+  const validate = async () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.email.trim())
@@ -158,6 +163,7 @@ export default function LeadModal({
       newErrors.firstName = "Only letters allowed";
     if (formData.lastName && !lettersOnlyRegex.test(formData.lastName))
       newErrors.lastName = "Only letters allowed";
+
     if (formData.jobTitle && !lettersOnlyRegex.test(formData.jobTitle))
       newErrors.jobTitle = "Only letters allowed";
 
@@ -169,25 +175,27 @@ export default function LeadModal({
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return false;
 
-    if (
-      !formData.jobTitle ||
-      !formData.contactOwner.length ||
-      !formData.status
-    ) {
-      notify(
-        "⚠️ Please fill Job Title, Contact Owner, and Lead Status",
-        "info"
-      );
+    if (!formData.jobTitle) {
+      notify("⚠️ Job Title is required", "info");
       return false;
     }
 
-    const success = onSave({
+    if (!formData.status) {
+      notify("⚠️ Lead Status is required", "info");
+      return false;
+    }
+
+    if (!editData && formData.contactOwner.length === 0) {
+      notify("⚠️ Contact Owner is required when creating a lead", "info");
+      return false;
+    }
+
+    const success = await onSave({
       ...formData,
       phone: cleanedPhone,
       fullPhone: formData.phone,
     });
-    if (success) setTimeout(() => onClose(), 150);
-    else notify(" Failed to save lead", "error");
+
     return success;
   };
 
@@ -196,42 +204,21 @@ export default function LeadModal({
   return (
     <ModalWrapper
       isOpen={isOpen}
-      onClose={() => {
-        setErrors({});
-        onClose();
-      }}
+      onClose={onClose}
       onSave={validate}
       title={editData ? "Edit Lead" : "Create Lead"}
     >
       <div className="space-y-3">
+        {/* Email */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Email <span className="text-red-500">*</span>
           </label>
           <div
             className={`flex items-center border rounded-md bg-white transition-all ${
-              errors.email
-                ? "border-red-500 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500"
-                : "border-gray-300 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500"
+              errors.email ? "border-red-500" : "border-gray-300"
             }`}
           >
-            <div className="flex items-center justify-center pl-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-4 h-4 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-            </div>
-            <div className="w-px h-4 bg-gray-300 mx-3" />
             <input
               type="email"
               name="email"
@@ -239,7 +226,7 @@ export default function LeadModal({
               value={formData.email}
               onChange={handleChange}
               onBlur={handleEmailBlur}
-              className="flex-1 text-sm text-gray-700 placeholder-gray-400 focus:outline-none h-[36px] bg-transparent"
+              className="flex-1 text-sm text-gray-700 placeholder-gray-400 focus:outline-none h-[36px] bg-transparent px-3"
             />
           </div>
           {errors.email && (
@@ -258,9 +245,7 @@ export default function LeadModal({
             value={formData.firstName}
             onChange={handleChange}
             className={`${inputHeight} ${
-              errors.firstName
-                ? "border-red-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              errors.firstName ? "border-red-500" : "border-gray-300"
             }`}
           />
           {errors.firstName && (
@@ -279,9 +264,7 @@ export default function LeadModal({
             value={formData.lastName}
             onChange={handleChange}
             className={`${inputHeight} ${
-              errors.lastName
-                ? "border-red-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              errors.lastName ? "border-red-500" : "border-gray-300"
             }`}
           />
           {errors.lastName && (
@@ -290,7 +273,7 @@ export default function LeadModal({
         </div>
 
         <PhoneInputField
-          value={editData?.fullPhone || editData?.phone || formData.phone || ""}
+          value={formData.phone}
           onChange={handlePhoneChange}
           onBlur={handlePhoneBlur}
           error={errors.phone}
@@ -308,8 +291,8 @@ export default function LeadModal({
             placeholder="Enter"
             value={formData.jobTitle}
             onChange={handleChange}
-            className={`border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px] ${
-              errors.jobTitle ? "border-red-500" : ""
+            className={`${inputHeight} ${
+              errors.jobTitle ? "border-red-500" : "border-gray-300"
             }`}
           />
           {errors.jobTitle && (
@@ -325,9 +308,9 @@ export default function LeadModal({
             variant="input"
             name="city"
             placeholder="Enter"
-            value={formData.city || ""}
+            value={formData.city}
             onChange={handleChange}
-            className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
+            className={`${inputHeight} border-gray-300`}
           />
         </div>
 
@@ -343,7 +326,7 @@ export default function LeadModal({
             onChange={(selectedValues) =>
               setFormData((prev) => ({ ...prev, contactOwner: selectedValues }))
             }
-            className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
+            className={`${inputHeight} border-gray-300`}
             options={[
               { label: "Maria Johnson", value: "Maria Johnson" },
               { label: "Mizba", value: "Mizba" },
@@ -375,7 +358,7 @@ export default function LeadModal({
               placeholder="Choose"
               value={formData.status}
               onChange={handleChange}
-              className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
+              className={`${inputHeight} border-gray-300`}
               options={[
                 { label: "Open", value: "Open" },
                 { label: "New", value: "New" },

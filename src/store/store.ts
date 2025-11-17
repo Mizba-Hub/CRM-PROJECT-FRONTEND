@@ -2,7 +2,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
 import dashboardReducer from "./slices/dashboardSlice";
-
+import leadReducer from "./slices/leadSlice";
 import notesReducer from "./slices/activity/notesSlice";
 import callsReducer from "./slices/activity/callSlice";
 import tasksReducer from "./slices/activity/taskSlice";
@@ -11,6 +11,7 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     dashboard: dashboardReducer,
+    leads: leadReducer,
     notes: notesReducer,
     calls: callsReducer,
     tasks: tasksReducer,
