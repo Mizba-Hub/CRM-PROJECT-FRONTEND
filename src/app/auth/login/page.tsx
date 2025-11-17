@@ -32,7 +32,11 @@ export default function LoginPage() {
       localStorage.setItem("auth_user", JSON.stringify(user));
 
       setTimeout(() => {
-        router.push("/dashboard");
+        if (user.role === "admin") {
+          router.push("/dashboard");
+        } else {
+          router.push("/dashboard/modules/leads");
+        }
       }, 50);
     }
   };
