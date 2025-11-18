@@ -6,6 +6,8 @@ import leadReducer from "./slices/leadSlice";
 import notesReducer from "./slices/activity/notesSlice";
 import callsReducer from "./slices/activity/callSlice";
 import tasksReducer from "./slices/activity/taskSlice";
+import attachmentsReducer from "./slices/activity/attachmentSlice";
+
 
 export const store = configureStore({
   reducer: {
@@ -15,6 +17,8 @@ export const store = configureStore({
     notes: notesReducer,
     calls: callsReducer,
     tasks: tasksReducer,
+    attachments: attachmentsReducer,
+     
   },
 });
 

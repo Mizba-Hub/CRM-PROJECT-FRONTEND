@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -21,9 +22,10 @@ interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Task) => boolean;
+  userOptions?: Array<{ label: string; value: string; id?: number }>;
 }
 
-export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
+export default function TaskModal({ isOpen, onClose, onSave, userOptions = [] }: TaskModalProps) {
   const [taskName, setTaskName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [time, setTime] = useState("");
@@ -160,10 +162,10 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             onChange={(e) => setTaskType(e.target.value)}
             placeholder="Choose"
             options={[
-              { label: "To-Do", value: "To-Do" },
-              { label: "Call", value: "Call" },
-              { label: "Meeting", value: "Meeting" },
-              { label: "Email", value: "Email" },
+              { label: "To-Do", value: "to do" },
+              { label: "Call", value: "call" },
+              { label: "Meeting", value: "meeting" },
+              { label: "Email", value: "email" },
             ]}
             className={errors.taskType ? "border-red-500" : ""}
           />
@@ -182,9 +184,9 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
             onChange={(e) => setPriority(e.target.value)}
             placeholder="Choose"
             options={[
-              { label: "High", value: "High" },
-              { label: "Medium", value: "Medium" },
-              { label: "Low", value: "Low" },
+              { label: "High", value: "high" },
+              { label: "Medium", value: "medium" },
+              { label: "Low", value: "low" },
             ]}
             className={errors.priority ? "border-red-500" : ""}
           />
@@ -203,14 +205,7 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
           value={assignedTo}
           onChange={(e) => setAssignedTo(e.target.value)}
           placeholder="Choose"
-          options={[
-            { label: "Maria Johnson", value: "Maria Johnson" },
-            { label: "Mizba", value: "Mizba" },
-            { label: "Shaimah", value: "Shaimah" },
-            { label: "Sabira", value: "Sabira" },
-            { label: "Greeshma", value: "Greeshma" },
-            { label: "Shifa", value: "Shifa" },
-          ]}
+          options={userOptions || []}
           className={errors.assignedTo ? "border-red-500" : ""}
         />
         {errors.assignedTo && (
@@ -234,3 +229,4 @@ export default function TaskModal({ isOpen, onClose, onSave }: TaskModalProps) {
     </ModalWrapper>
   );
 }
+
