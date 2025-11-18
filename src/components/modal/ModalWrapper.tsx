@@ -8,7 +8,10 @@ interface ModalWrapperProps {
   isOpen: boolean;
   title: string;
   onClose: () => void;
-  onSave?: () => boolean; 
+
+  // 🔥 Updated to allow async & sync
+  onSave?: () => boolean | Promise<boolean>; 
+
   children: React.ReactNode;
 }
 
@@ -19,7 +22,7 @@ export default function ModalWrapper({
   onSave,
   children,
 }: ModalWrapperProps) {
-  
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -30,13 +33,14 @@ export default function ModalWrapper({
 
   if (!isOpen) return null;
 
-  
-  const handleSaveWithValidation = () => {
+  // 🔥 Updated to handle async validation
+  const handleSaveWithValidation = async () => {
     if (onSave) {
-      const valid = onSave();
-      if (!valid) return; 
+      const valid = await onSave();   // <— accepts Promise or boolean
+
+      if (!valid) return;             // block save if validation fails
     }
-    onClose(); 
+                        
   };
 
   return (
@@ -48,7 +52,8 @@ export default function ModalWrapper({
       }}
     >
       <div className="bg-white h-full w-full max-w-md flex flex-col text-black">
-        
+
+        {/* Header */}
         <div className="flex justify-between items-center p-3 border-b border-gray-200">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button
@@ -59,10 +64,10 @@ export default function ModalWrapper({
           </button>
         </div>
 
-       
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">{children}</div>
 
-        
+        {/* Footer */}
         <div className="flex justify-center gap-3 p-4">
           <Button
             label="Cancel"
