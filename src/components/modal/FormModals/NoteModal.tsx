@@ -8,14 +8,13 @@ import RichTextEditor from "@/components/ui/RichTextEditor";
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (noteContent: string) => boolean;
+  onSave: (noteContent: string) => boolean | Promise<boolean>;
 }
 
 export default function NoteModal({ isOpen, onClose, onSave }: NoteModalProps) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
 
-  
   useEffect(() => {
     if (isOpen) {
       setNote("");
@@ -23,15 +22,15 @@ export default function NoteModal({ isOpen, onClose, onSave }: NoteModalProps) {
     }
   }, [isOpen]);
 
-  
-  const validate = () => {
-    const plainText = note.replace(/<[^>]*>/g, "").trim(); 
+  const validate = async () => {
+    const plainText = note.replace(/<[^>]*>/g, "").trim();
     if (!plainText) {
       setError("Note is required.");
       return false;
     }
 
-    const isValid = onSave(note);
+    const isValid = await onSave(note);  
+
     if (!isValid) {
       notify("Failed to save note", "error");
       return false;
@@ -52,7 +51,6 @@ export default function NoteModal({ isOpen, onClose, onSave }: NoteModalProps) {
       title="Create Note"
       onSave={validate}
     >
-     
       <label className="block text-sm font-medium text-gray-700 mb-1">
         Note <span className="text-red-500">*</span>
       </label>
