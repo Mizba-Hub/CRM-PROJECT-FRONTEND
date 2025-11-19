@@ -27,6 +27,11 @@ export interface Lead {
   createdDate: string;
 }
 
+interface UserOption {
+  label: string;
+  value: string;
+}
+
 interface LeadModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,6 +39,10 @@ interface LeadModalProps {
     data: Omit<Lead, "id" | "createdDate">
   ) => boolean | Promise<boolean>;
   editData?: Lead | null;
+  users: UserOption[];
+  isAdmin: boolean;
+  currentUserId?: string;
+  currentUserName: string;
 }
 
 export default function LeadModal({
@@ -41,6 +50,10 @@ export default function LeadModal({
   onClose,
   onSave,
   editData,
+  users,
+  isAdmin,
+  currentUserId,
+  currentUserName,
 }: LeadModalProps) {
   const [formData, setFormData] = useState<Omit<Lead, "id" | "createdDate">>({
     email: "",
@@ -67,10 +80,6 @@ export default function LeadModal({
           ? rest.contactOwner
           : [rest.contactOwner],
       });
-
-      setErrors({});
-      setTypedEmail(false);
-      setTypedPhone(false);
     } else {
       setFormData({
         email: "",
@@ -78,16 +87,16 @@ export default function LeadModal({
         lastName: "",
         phone: "",
         jobTitle: "",
-        contactOwner: [],
+        contactOwner: isAdmin ? [] : [currentUserId || ""],
         city: "",
         status: "New",
       });
-
-      setErrors({});
-      setTypedEmail(false);
-      setTypedPhone(false);
     }
-  }, [editData, isOpen]);
+
+    setErrors({});
+    setTypedEmail(false);
+    setTypedPhone(false);
+  }, [editData, isOpen, isAdmin, currentUserId]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   const lettersOnlyRegex = /^[A-Za-z\s]+$/;
@@ -209,7 +218,6 @@ export default function LeadModal({
       title={editData ? "Edit Lead" : "Create Lead"}
     >
       <div className="space-y-3">
-        {/* Email */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Email <span className="text-red-500">*</span>
@@ -316,26 +324,28 @@ export default function LeadModal({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Contact Owner
+            Contact Owner {!isAdmin && "(You)"}
           </label>
-          <Inputs
-            variant="multiselect"
-            name="contactOwner"
-            placeholder="Choose"
-            value={formData.contactOwner}
-            onChange={(selectedValues) =>
-              setFormData((prev) => ({ ...prev, contactOwner: selectedValues }))
-            }
-            className={`${inputHeight} border-gray-300`}
-            options={[
-              { label: "Maria Johnson", value: "Maria Johnson" },
-              { label: "Mizba", value: "Mizba" },
-              { label: "Shaimah", value: "Shaimah" },
-              { label: "Sabira", value: "Sabira" },
-              { label: "Greeshma", value: "Greeshma" },
-              { label: "Shifa", value: "Shifa" },
-            ]}
-          />
+          {isAdmin ? (
+            <Inputs
+              variant="multiselect"
+              name="contactOwner"
+              placeholder="Choose"
+              value={formData.contactOwner}
+              onChange={(selectedValues) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  contactOwner: selectedValues,
+                }))
+              }
+              className={`${inputHeight} border-gray-300`}
+              options={users}
+            />
+          ) : (
+            <div className="border border-gray-300 bg-gray-50 rounded-md px-3 py-2 h-[36px] flex items-center text-gray-700 text-sm">
+              {currentUserName}
+            </div>
+          )}
         </div>
 
         {editData?.status === "Converted" ? (
