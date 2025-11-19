@@ -1,218 +1,168 @@
 "use client";
 
-import React, { useState } from "react";
-import { Inputs } from "@/components/ui/Inputs";
-import PhoneInputField from "@/components/ui/PhoneInputField";
+import React from "react";
 
-export interface CompanyFormData {
-  domain: string;
+export type CompanyFormData = {
+  domainName: string;
   companyName: string;
-  companyOwner: string[];
-  industry: string;
+  companyOwner: number[]; // IDs for multiselect
+  industryType: string;
   type: string;
   city: string;
   country: string;
-  employees: number | "";
-  revenue: number | "";
-  phone: string;
-  website?: string;
-  logoUrl?: string;
-}
-interface FormModalProps {
+  noOfEmployees: number | "";
+  annualRevenue: number | "";
+  phoneNumber: string;
+   leadId?: number;
+};
+
+
+interface CompanyFormModalProps {
   formData: CompanyFormData;
-  handleChange: (e: {
-    target: { name: string; value: string | string[] };
-  }) => void;
+  setFormData: React.Dispatch<React.SetStateAction<CompanyFormData>>;
+  allOwners?: { id: number; name: string }[]; // <-- FIXED TYPE
 }
 
-export default function FormModal({ formData, handleChange }: FormModalProps) {
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+export default function CompanyFormModal({
+  formData,
+  setFormData,
+  allOwners = [],
+}: CompanyFormModalProps) {
+  // Generic text handler
+  const handleStringChange =
+    (field: keyof CompanyFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    };
 
-  const handleValidation = (name: string, value: string | string[]) => {
-    if (
-      !value ||
-      (Array.isArray(value) && value.length === 0) ||
-      (typeof value === "string" && !value.trim())
-    ) {
-      setErrors((prev) => ({ ...prev, [name]: "This field is required" }));
-    } else {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
+  // Number handler
+  const handleNumberChange =
+    (field: keyof CompanyFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const num = Number(e.target.value);
+      setFormData((prev) => ({ ...prev, [field]: isNaN(num) ? 0 : num }));
+    };
+
+  // Owner multi-select handler (IDs only)
+  const handleOwnersChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedIds = Array.from(e.target.selectedOptions, (opt) =>
+      Number(opt.value)
+    );
+    setFormData((prev) => ({ ...prev, companyOwner: selectedIds }));
   };
 
   return (
-    <form className="grid grid-cols-2 gap-4 mt-2">
-      <div className="col-span-2">
-        <Inputs
-          name="domain"
-          label={
-            <>
-              Domain Name <span className="text-red-500">*</span>
-            </>
-          }
-          placeholder="Enter"
-          value={formData.domain}
-          onChange={(e) => {
-            handleChange({
-              target: { name: e.target.name, value: e.target.value },
-            });
-            handleValidation(e.target.name, e.target.value);
-          }}
-        />
-      </div>
-
-      <div className="col-span-2">
-        <Inputs
-          name="companyName"
-          label={
-            <>
-              Company Name <span className="text-red-500">*</span>
-            </>
-          }
-          placeholder="Enter"
-          value={formData.companyName}
-          onChange={(e) => {
-            handleChange({
-              target: { name: e.target.name, value: e.target.value },
-            });
-            handleValidation(e.target.name, e.target.value);
-          }}
-        />
-      </div>
-
-      <div className="col-span-2">
-        <Inputs
-          variant="multiselect"
-          name="companyOwner"
-          label={<>Company Owner</>}
-          placeholder="Choose"
-          value={formData.companyOwner || []}
-          onChange={(selectedValues: string[]) => {
-            handleChange({
-              target: { name: "companyOwner", value: selectedValues },
-            });
-            handleValidation("companyOwner", selectedValues);
-          }}
-          className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 h-[36px]"
-          options={[
-            { label: "Maria Johnson", value: "Maria Johnson" },
-            { label: "Mizba", value: "Mizba" },
-            { label: "Shaimah", value: "Shaimah" },
-            { label: "Sabira", value: "Sabira" },
-            { label: "Greeshma", value: "Greeshma" },
-            { label: "Shifa", value: "Shifa" },
-          ]}
-        />
-      </div>
-
-      <Inputs
-        variant="select"
-        name="industry"
-        label={
-          <>
-            Industry <span className="text-red-500">*</span>
-          </>
-        }
-        placeholder="Choose"
-        options={[
-          { label: "Technology", value: "Technology" },
-          { label: "Finance", value: "Finance" },
-          { label: "Healthcare", value: "Healthcare" },
-          { label: "Manufacturing", value: "Manufacturing" },
-          { label: "Education", value: "Education" },
-        ]}
-        value={formData.industry}
-        onChange={(e) => {
-          handleChange({
-            target: { name: e.target.name, value: e.target.value },
-          });
-          handleValidation(e.target.name, e.target.value);
-        }}
+    <div className="grid grid-cols-2 gap-4">
+      {/* Company Name */}
+      <input
+        type="text"
+        placeholder="Company Name"
+        value={formData.companyName}
+        onChange={handleStringChange("companyName")}
+        className="border p-2 rounded"
       />
 
-      <Inputs
-        variant="select"
-        name="type"
-        label={
-          <>
-            Type <span className="text-red-500">*</span>
-          </>
-        }
-        placeholder="Choose"
-        options={[
-          { label: "Private", value: "Private" },
-          { label: "Public", value: "Public" },
-          { label: "Government", value: "Government" },
-          { label: "Non-profit", value: "Non-profit" },
-        ]}
+      {/* Domain */}
+      <input
+        type="text"
+        placeholder="Domain"
+        value={formData.domainName}
+        onChange={handleStringChange("domainName")}
+        className="border p-2 rounded"
+      />
+
+      {/* Type */}
+      <select
         value={formData.type}
-        onChange={(e) => {
-          handleChange({
-            target: { name: e.target.name, value: e.target.value },
-          });
-          handleValidation(e.target.name, e.target.value);
-        }}
-      />
+        onChange={(e) =>
+          setFormData((prev) => ({ ...prev, type: e.target.value }))
+        }
+        className="border p-2 rounded"
+      >
+        <option value="">Select Type</option>
+        <option value="Private">Private</option>
+        <option value="Public">Public</option>
+      </select>
 
-      <Inputs
-        name="city"
-        label="City"
-        placeholder="Enter"
-        value={formData.city}
-        onChange={(e) => {
-          const value = e.target.value.replace(/[0-9]/g, "");
-          handleChange({ target: { name: e.target.name, value } });
-        }}
-      />
+      {/* Industry */}
+      <select
+        value={formData.industryType}
+        onChange={(e) =>
+          setFormData((prev) => ({ ...prev, industry: e.target.value }))
+        }
+        className="border p-2 rounded"
+      >
+        <option value="">Select Industry</option>
+        <option value="IT">IT</option>
+        <option value="Finance">Finance</option>
+        <option value="Healthcare">Healthcare</option>
+      </select>
 
-      <Inputs
-        name="country"
-        label="Country/Region"
-        placeholder="Enter"
-        value={formData.country}
-        onChange={(e) => {
-          const value = e.target.value.replace(/[0-9]/g, "");
-          handleChange({ target: { name: e.target.name, value } });
-        }}
-      />
+      {/* Company Owner (MULTI-SELECT) */}
+      <div>
+        <label className="block mb-1">Company Owner</label>
 
-      <Inputs
-        type="number"
-        name="employees"
-        label="No of Employees"
-        placeholder="Enter"
-        className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        value={formData.employees}
-        onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, "");
-          handleChange({ target: { name: e.target.name, value } });
-        }}
-      />
-
-      <Inputs
-        type="number"
-        name="revenue"
-        label="Annual Revenue"
-        placeholder="Enter"
-        className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        value={formData.revenue}
-        onChange={(e) => {
-          const value = e.target.value.replace(/\D/g, "");
-          handleChange({ target: { name: e.target.name, value } });
-        }}
-      />
-
-      <div className="col-span-2">
-        <PhoneInputField
-          value={formData.phone}
-          onChange={(val) =>
-            handleChange({ target: { name: "phone", value: val } })
-          }
-          label="Phone Number"
-          required
-          error={errors.phone}
-        />
+        <select
+          multiple
+          value={formData.companyOwner.map(String)} // number[] -> string[]
+          onChange={handleOwnersChange}
+          className="border p-2 rounded w-full h-24"
+        >
+          {allOwners.map((owner) => (
+            <option key={owner.id} value={owner.id.toString()}>
+              {owner.name}
+            </option>
+          ))}
+        </select>
       </div>
-    </form>
+
+      {/* City */}
+      <input
+        type="text"
+        placeholder="City"
+        value={formData.city}
+        onChange={handleStringChange("city")}
+        className="border p-2 rounded"
+      />
+
+      {/* Country */}
+      <input
+        type="text"
+        placeholder="Country / Region"
+        value={formData.country}
+        onChange={handleStringChange("country")}
+        className="border p-2 rounded"
+      />
+
+      {/* Employees */}
+      <input
+        type="number"
+        placeholder="No. of Employees"
+        value={formData.noOfEmployees}
+        onChange={handleNumberChange("noOfEmployees")}
+        className="border p-2 rounded"
+      />
+
+      {/* Revenue */}
+      <input
+        type="number"
+        placeholder="Annual Revenue"
+        value={formData.annualRevenue}
+        onChange={handleNumberChange("annualRevenue")}
+        className="border p-2 rounded"
+      />
+
+      {/* Phone */}
+      <input
+        type="text"
+        placeholder="Phone Number"
+        value={formData.phoneNumber}
+        onChange={handleStringChange("phoneNumber")}
+        className="border p-2 rounded"
+      />
+
+      {/* Website */}
+      
+    </div>
   );
 }
