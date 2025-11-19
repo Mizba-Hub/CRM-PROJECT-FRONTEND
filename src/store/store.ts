@@ -7,6 +7,7 @@ import notesReducer from "./slices/activity/notesSlice";
 import callsReducer from "./slices/activity/callSlice";
 import tasksReducer from "./slices/activity/taskSlice";
 import attachmentsReducer from "./slices/activity/attachmentSlice";
+import ticketsReducer from "./slices/ticketsSlice";
 
 
 export const store = configureStore({
@@ -18,6 +19,8 @@ export const store = configureStore({
     calls: callsReducer,
     tasks: tasksReducer,
     attachments: attachmentsReducer,
+     
+     tickets: ticketsReducer,
      
   },
 });
