@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -6,6 +7,7 @@ import { CalendarIcon } from "@heroicons/react/24/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Inputs } from "@/components/ui/Inputs";
+import { formatDurationFromSeconds } from "@/app/lib/utils";
 
 export type ActivityType =
   | "note"
@@ -44,12 +46,13 @@ const ActivityDetailView: React.FC<Props> = ({
 }) => {
   const [openId, setOpenId] = useState<number | null>(null);
   const [selectedOutcome, setSelectedOutcome] = useState("");
-  const [selectedDuration, setSelectedDuration] = useState("");
 
   useEffect(() => {
     if (openId) {
       const open = activities.find((a) => a.id === openId);
-      if (open?.type === "call") setSelectedOutcome(open.extra?.outcome || "");
+      if (open?.type === "call") {
+        setSelectedOutcome(open.extra?.outcome || "");
+      }
     }
   }, [openId, activities]);
 
@@ -302,24 +305,25 @@ const ActivityDetailView: React.FC<Props> = ({
                     </div>
                     <div className="relative">
                       <Inputs
-                        variant="select"
+                        variant="input"
+                        type="text"
                         name="duration"
                         label={
                           <>
                             Duration <span className="text-red-500">*</span>
                           </>
                         }
-                        placeholder="Choose"
-                        value={selectedDuration}
-                        onChange={(e) => setSelectedDuration(e.target.value)}
-                        options={[
-                          { label: "5 mins", value: "5" },
-                          { label: "15 mins", value: "15" },
-                          { label: "30 mins", value: "30" },
-                          { label: "1 hr", value: "60" },
-                        ]}
-                        showChevron={false}
-                        className="appearance-none pr-9 pl-3 text-sm text-gray-700 border border-gray-300 rounded h-[36px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={
+                          a.extra?.duration !== null && a.extra?.duration !== undefined
+                            ? formatDurationFromSeconds(
+                                typeof a.extra.duration === "number"
+                                  ? a.extra.duration
+                                  : parseInt(String(a.extra.duration), 10) || 0
+                              )
+                            : "-"
+                        }
+                        disabled
+                        className="text-gray-700 bg-gray-100 pr-9"
                       />
                       <ClockIcon className="w-4 h-4 text-gray-500 absolute right-3 top-[70%] -translate-y-1/2 pointer-events-none transition-colors duration-150" />
                     </div>
@@ -395,7 +399,7 @@ const ActivityDetailView: React.FC<Props> = ({
         </div>
       )}
 
-      {Object.keys(byMonth).map((m, i) => (
+      {Object.keys(byMonth).map((m: string, i: number) => (
         <div key={m} className={`${i === 0 ? "" : "mt-3"} space-y-2`}>
           <p className="text-sm font-semibold text-gray-600">{m}</p>
           {byMonth[m].map(renderActivity)}
@@ -412,3 +416,7 @@ const ActivityDetailView: React.FC<Props> = ({
 };
 
 export default ActivityDetailView;
+
+
+
+
