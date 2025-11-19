@@ -1,6 +1,6 @@
 "use client";
 
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -9,7 +9,6 @@ const toApiStatus = (status: string) => status.toUpperCase().replace(" ", "_");
 const toUiStatus = (status: any) => {
   if (!status) return "New";
   const s = status.toString().trim().toUpperCase().replace(/_/g, " ");
-
   switch (s) {
     case "OPEN":
       return "Open";
@@ -30,10 +29,25 @@ const toUiStatus = (status: any) => {
   }
 };
 
-export const loadLeads = createAsyncThunk(
-  "leads/loadLeads",
-  async ({ page = 1, size = 10 }: any, thunkAPI) => {
-    return thunkAPI.dispatch(fetchLeads({ page, size })).unwrap();
+export const fetchLeadById = createAsyncThunk(
+  "leads/fetchById",
+  async (id: number | string, { rejectWithValue, getState }) => {
+    try {
+      const token = (getState() as any).auth.token;
+
+      const res = await fetch(`${BASE_URL}/api/v1/lead/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) return rejectWithValue(data.message);
+
+      return data.data;
+    } catch (err: any) {
+      return rejectWithValue(err.message);
+    }
   }
 );
 
@@ -57,7 +71,6 @@ export const fetchLeads = createAsyncThunk(
       );
 
       const json = await res.json();
-
       if (!res.ok) return rejectWithValue(json.message);
 
       return {
@@ -143,21 +156,9 @@ export const deleteLeadAPI = createAsyncThunk(
   }
 );
 
-export interface Lead {
-  id: number;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  city: string;
-  jobTitle: string;
-  status: string;
-  createdDate: string;
-  contactOwner: string[];
-}
-
 interface LeadState {
-  leads: Lead[];
+  leads: any[];
+  currentLead: any | null;
   total: number;
   page: number;
   size: number;
@@ -165,6 +166,7 @@ interface LeadState {
 
 const initialState: LeadState = {
   leads: [],
+  currentLead: null,
   total: 0,
   page: 1,
   size: 10,
@@ -176,6 +178,23 @@ const leadSlice = createSlice({
   reducers: {},
 
   extraReducers: (builder) => {
+    builder.addCase(fetchLeadById.fulfilled, (state, action) => {
+      const l = action.payload;
+
+      state.currentLead = {
+        id: Number(l.id),
+        email: l.email,
+        firstName: l.firstName,
+        lastName: l.lastName,
+        phone: l.phoneNumber,
+        jobTitle: l.jobTitle,
+        city: l.city,
+        status: toUiStatus(l.leadStatus),
+        contactOwner: l.userIds ?? [],
+        createdDate: l.createdAt,
+      };
+    });
+
     builder.addCase(fetchLeads.fulfilled, (state, action) => {
       state.leads = action.payload.data.map((l: any) => ({
         id: Number(l.id),
@@ -219,6 +238,21 @@ const leadSlice = createSlice({
             }
           : lead
       );
+
+      if (state.currentLead?.id === Number(id)) {
+        state.currentLead = {
+          ...state.currentLead,
+          email: updates.email ?? state.currentLead.email,
+          firstName: updates.firstName ?? state.currentLead.firstName,
+          lastName: updates.lastName ?? state.currentLead.lastName,
+          phone: updates.phoneNumber ?? state.currentLead.phone,
+          city: updates.city ?? state.currentLead.city,
+          jobTitle: updates.jobTitle ?? state.currentLead.jobTitle,
+          status: updates.leadStatus
+            ? toUiStatus(updates.leadStatus)
+            : state.currentLead.status,
+        };
+      }
     });
   },
 });
