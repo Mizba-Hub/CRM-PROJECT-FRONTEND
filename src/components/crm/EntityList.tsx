@@ -179,7 +179,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
               value={activeFilters["Close Date"] ?? ""}
               onChange={(v) => {
-                onFilterChange("Date", v);
+                onFilterChange("Close Date", v);
                 onDateChange(v);
               }}
               inputMode="numeric"
@@ -192,7 +192,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onFilterChange("Date", "");
+                  onFilterChange("Close Date", "");
                   onDateChange("");
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2"
@@ -210,24 +210,24 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         <div className="w-44 relative">
           <Inputs
             variant="date"
-            name="filter-date"
+            name="created-date"
             placeholder="Created Date"
             className="border-gray-300 rounded-lg px-2 text-sm text-gray-600 bg-white w-full h-10 pr-8"
-            value={activeFilters["Date"] ?? ""}
+            value={activeFilters["Created Date"] ?? ""}
             onChange={(v) => {
-              onFilterChange("Date", v);
+              onFilterChange("Created Date", v);
               onDateChange(v);
             }}
             inputMode="numeric"
             pattern="\d{4}-\d{2}-\d{2}"
-            showChevron={!activeFilters["Date"]}
+            showChevron={!activeFilters["Created Date"]}
           />
 
-          {activeFilters["Date"] && (
+          {activeFilters["Created Date"] && (
             <button
               type="button"
               onClick={() => {
-                onFilterChange("Date", "");
+                onFilterChange("Created Date", "");
                 onDateChange("");
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2"
