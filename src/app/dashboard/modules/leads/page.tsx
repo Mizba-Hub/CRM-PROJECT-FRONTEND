@@ -28,6 +28,20 @@ export default function LeadsPage() {
   const leads = useAppSelector((state) => state.leads.leads);
   const total = useAppSelector((state) => state.leads.total);
   const size = useAppSelector((state) => state.leads.size);
+  const [users, setUsers] = useState<{ label: string; value: string }[]>([]);
+  const token = useAppSelector((s) => s.auth.token);
+
+  const reduxUser = useAppSelector((s) => s.auth.user);
+
+  const storedUser =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("user") || "null")
+      : null;
+
+  const currentUser = reduxUser || storedUser;
+
+  const isAdmin = currentUser?.role === "admin";
+  const currentUserId = currentUser?.id?.toString();
 
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>(
     {}
@@ -41,6 +55,45 @@ export default function LeadsPage() {
   useEffect(() => {
     dispatch(fetchLeads({ page: currentPage, size: ITEMS_PER_PAGE }));
   }, [dispatch, currentPage]);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        if (!isAdmin) {
+          setUsers([]);
+          return;
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/users`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch users: ${res.status}`);
+        }
+
+        const data: any[] = await res.json();
+
+        const formatted = data.map((u) => ({
+          label: `${u.firstName} ${u.lastName}`,
+          value: u.id.toString(),
+        }));
+
+        setUsers(formatted);
+      } catch (err) {
+        notify("Failed to load users", "error");
+      }
+    };
+
+    if (token && isAdmin) {
+      loadUsers();
+    }
+  }, [token, isAdmin]);
 
   const filteredLeads = leads.filter((lead) => {
     const search = searchTerm.toLowerCase();
@@ -68,6 +121,10 @@ export default function LeadsPage() {
   const totalPages = Math.max(1, Math.ceil(total / size));
 
   const handleSaveLead = async (form: any) => {
+    const userIds = isAdmin
+      ? (form.contactOwner || []).map((id: string) => Number(id))
+      : [Number(currentUserId)].filter(Boolean);
+
     const payload = {
       email: form.email,
       firstName: form.firstName,
@@ -76,7 +133,7 @@ export default function LeadsPage() {
       jobTitle: form.jobTitle,
       city: form.city,
       leadStatus: form.status.toUpperCase().replace(" ", "_"),
-      userIds: [],
+      userIds: userIds,
     };
 
     const res: any = await dispatch(createLeadAPI(payload));
@@ -90,6 +147,10 @@ export default function LeadsPage() {
   };
 
   const handleUpdateLead = async (form: any) => {
+    const userIds = isAdmin
+      ? (form.contactOwner || []).map((id: any) => Number(id)).filter(Boolean)
+      : [Number(currentUserId)];
+
     const payload = {
       id: editData.id,
       updates: {
@@ -99,16 +160,19 @@ export default function LeadsPage() {
         phoneNumber: form.phone,
         jobTitle: form.jobTitle,
         city: form.city,
-        leadStatus: form.status.toUpperCase().replace(" ", "_"),
+        leadStatus: form.status?.toUpperCase().replace(/ /g, "_"),
+        userIds,
       },
     };
 
     const res: any = await dispatch(updateLeadAPI(payload));
+
     if (res.meta.requestStatus === "fulfilled") {
       notify("Lead updated successfully", "success");
       dispatch(fetchLeads({ page: currentPage, size: ITEMS_PER_PAGE }));
       return true;
     }
+
     notify("Failed to update lead", "error");
     return false;
   };
@@ -245,6 +309,14 @@ export default function LeadsPage() {
         }}
         editData={editData}
         onSave={editData ? handleUpdateLead : handleSaveLead}
+        users={users}
+        isAdmin={isAdmin}
+        currentUserId={currentUserId}
+        currentUserName={
+          `${currentUser?.firstName || ""} ${
+            currentUser?.lastName || ""
+          }`.trim() || "You"
+        }
       />
     </div>
   );
