@@ -24,6 +24,7 @@ interface HeaderBarProps {
   onCreate?: () => void;
   isDealPage?: boolean;
   searchPlaceholder?: string;
+  extraButtons?: React.ReactNode;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -39,6 +40,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   onCreate,
   isDealPage = false,
   searchPlaceholder,
+  extraButtons,
 }) => {
   const pages: (number | string)[] = [];
 
@@ -68,7 +70,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         <div className="flex justify-between items-center px-4 pt-4">
           <h3 className="text-md font-bold text-black">{title}</h3>
           <div className="flex gap-2">
-            <Button label="Import" variant="secondary" />
+            {extraButtons}
             <Button label="Create" variant="primary" onClick={onCreate} />
           </div>
         </div>
