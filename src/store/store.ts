@@ -9,7 +9,7 @@ import tasksReducer from "./slices/activity/taskSlice";
 import emailsReducer from "./slices/activity/emailSlice";
 import attachmentsReducer from"./slices/activity/attachmentSlice";
 import companyReducer from "./slices/companySlice";
-// import meetingReducer from "./slices/activity/meetingSlice";
+import meetingReducer from "./slices/activity/meetingSlice";
 
 
 import ticketsReducer from "./slices/ticketsSlice";
@@ -27,7 +27,7 @@ export const store = configureStore({
     attachments: attachmentsReducer,
     emails: emailsReducer,
     companies: companyReducer,
-      // meetings: meetingReducer,
+      meetings: meetingReducer,
      tickets: ticketsReducer,
      
 
