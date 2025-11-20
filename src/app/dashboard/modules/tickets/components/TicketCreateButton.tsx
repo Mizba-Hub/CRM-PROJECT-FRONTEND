@@ -12,12 +12,16 @@ interface TicketCreateButtonProps {
   isOpen: boolean;
   onClose: () => void;
   editData?: Ticket | null;
+  ownerOptions?: Array<{ label: string; value: string }>;
+  companyOptions?: Array<{ label: string; value: string }>;
+  dealOptions?: Array<{ label: string; value: string }>;
 }
 
 export type Ticket = {
   id: number;
   name: string;
-  companyName: string;
+  companyName?: string;
+  dealName?: string;
   description: string;
   status: string;
   source: string;
@@ -31,12 +35,12 @@ export default function TicketCreateButton({
   isOpen,
   onClose,
   editData,
+  ownerOptions = [],
+  companyOptions = [],
+  dealOptions = [],
 }: TicketCreateButtonProps) {
-  const [formData, setFormData] = useState<
-    Omit<Ticket, "id" | "createdDate"> & { dealName?: string }
-  >({
+  const [formData, setFormData] = useState<Omit<Ticket, "id" | "createdDate">>({
     name: "",
-
     dealName: "",
     companyName: "",
     description: "",
@@ -55,11 +59,15 @@ export default function TicketCreateButton({
         owner: Array.isArray(rest.owner)
           ? rest.owner
           : [rest.owner].filter(Boolean),
+
+        dealName: rest.dealName || "",
+        companyName: rest.companyName || "",
       });
       setErrors({});
     } else {
       setFormData({
         name: "",
+        dealName: "",
         companyName: "",
         description: "",
         status: "",
@@ -75,13 +83,13 @@ export default function TicketCreateButton({
     { label: "New", value: "New" },
     { label: "Closed", value: "Closed" },
     { label: "Waiting on us", value: "Waiting on us" },
-    { label: "Waiting on contact", value: "Waiting on contact" },
+    { label: "Waiting on Contact", value: "Waiting on Contact" },
   ];
 
   const sourceOptions = [
     { label: "Email", value: "Email" },
     { label: "Phone", value: "Phone" },
-    { label: "Web", value: "Web" },
+
     { label: "Chat", value: "Chat" },
   ];
 
@@ -92,29 +100,54 @@ export default function TicketCreateButton({
     { label: "Critical", value: "Critical" },
   ];
 
-  const ownerOptions = [
-    { label: "Maria johnson", value: "Maria johnson" },
-    { label: "Shifa", value: "Shifa" },
-    { label: "Mizba", value: "Mizba" },
-    { label: "Sabira", value: "Sabira" },
-    { label: "Shaima", value: "Shaima" },
-    { label: "Greeshma", value: "Greeshma" },
-  ];
-
-  const companyOptions = [
-    { label: "Client Edge", value: "Client Edge" },
-    { label: "Relatia", value: "Relatia" },
-    { label: "TrustSphere", value: "TrustSphere" },
-    { label: "SalesTrail", value: "SalesTrail" },
-  ];
-
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "dealName") {
+      const dealHasValue = value.trim().length > 0;
+      setFormData((prev) => ({
+        ...prev,
+        dealName: value,
+
+        companyName: dealHasValue ? "" : prev.companyName,
+      }));
+
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.dealName;
+        delete newErrors.companyName;
+        return newErrors;
+      });
+    } else if (name === "companyName") {
+      const companyHasValue = value.trim().length > 0;
+      setFormData((prev) => ({
+        ...prev,
+        companyName: value,
+
+        dealName: companyHasValue ? "" : prev.dealName,
+      }));
+
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.dealName;
+        delete newErrors.companyName;
+        return newErrors;
+      });
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+
+      if (errors[name]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+    }
   };
 
   const handleOwnerChange = (owners: string[]) => {
@@ -125,8 +158,25 @@ export default function TicketCreateButton({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = "Ticket Name is required";
-    if (!formData.companyName)
-      newErrors.companyName = "Company Name is required";
+
+    const hasDealName = formData.dealName && formData.dealName.trim();
+    const hasCompanyName = formData.companyName && formData.companyName.trim();
+
+    if (!hasDealName && !hasCompanyName) {
+      newErrors.dealName = "Please enter either Deal Name or Company Name";
+      newErrors.companyName = "Please enter either Deal Name or Company Name";
+    } else if (hasDealName && hasCompanyName) {
+      // This shouldn't happen due to mutual exclusivity, but validate anyway
+      newErrors.dealName =
+        "Please enter only Deal Name or Company Name, not both";
+      newErrors.companyName =
+        "Please enter only Deal Name or Company Name, not both";
+    } else if (hasDealName && !hasDealName.trim()) {
+      newErrors.dealName = "Deal Name cannot be empty";
+    } else if (hasCompanyName && !hasCompanyName.trim()) {
+      newErrors.companyName = "Company Name cannot be empty";
+    }
+
     if (!formData.description.trim())
       newErrors.description = "Description is required";
     if (!formData.status) newErrors.status = "Ticket Status is required";
@@ -142,7 +192,15 @@ export default function TicketCreateButton({
       return false;
     }
 
-    const result = onCreateTicket?.(formData);
+    const dataToSubmit: Omit<Ticket, "id" | "createdDate"> = { ...formData };
+
+    if (hasDealName) {
+      delete dataToSubmit.companyName;
+    } else if (hasCompanyName) {
+      delete dataToSubmit.dealName;
+    }
+
+    const result = onCreateTicket?.(dataToSubmit);
 
     if (result instanceof Promise) {
       try {
@@ -175,8 +233,18 @@ export default function TicketCreateButton({
   };
 
   const handleClose = () => {
-    onClose();
+    setFormData({
+      name: "",
+      dealName: "",
+      companyName: "",
+      description: "",
+      status: "",
+      source: "",
+      priority: "",
+      owner: [],
+    });
     setErrors({});
+    onClose();
   };
 
   const handleSave = () => {
@@ -209,19 +277,26 @@ export default function TicketCreateButton({
             <p className="text-red-500 text-sm mt-1">{errors.name}</p>
           )}
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Deal Name <span className="text-red-500">*</span>
           </label>
           <Inputs
-            variant="input"
+            variant="select"
             name="dealName"
-            placeholder="Enter"
+            placeholder="Choose"
             value={formData.dealName || ""}
             onChange={handleChange}
-            className={errors.leadName ? "border-red-500" : ""}
+            options={dealOptions}
+            disabled={!!(formData.companyName && formData.companyName.trim())}
+            className={`${errors.dealName ? "border-red-500" : ""} ${
+              formData.companyName && formData.companyName.trim()
+                ? "bg-gray-100 cursor-not-allowed"
+                : ""
+            }`}
           />
-          {errors.leadName && (
+          {errors.dealName && (
             <p className="text-red-500 text-sm mt-1">{errors.dealName}</p>
           )}
         </div>
@@ -234,10 +309,15 @@ export default function TicketCreateButton({
             variant="select"
             name="companyName"
             placeholder="Choose"
-            value={formData.companyName}
+            value={formData.companyName || ""}
             onChange={handleChange}
             options={companyOptions}
-            className={errors.companyName ? "border-red-500" : ""}
+            disabled={!!(formData.dealName && formData.dealName.trim())}
+            className={`${errors.companyName ? "border-red-500" : ""} ${
+              formData.dealName && formData.dealName.trim()
+                ? "bg-gray-100 cursor-not-allowed"
+                : ""
+            }`}
           />
           {errors.companyName && (
             <p className="text-red-500 text-sm mt-1">{errors.companyName}</p>

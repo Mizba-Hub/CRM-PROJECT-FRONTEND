@@ -10,44 +10,32 @@ import ActionButtons from "@/components/crm/table/EntityDetailHeader";
 import TicketCreateButton from "./components/TicketCreateButton";
 import { notify } from "@/components/ui/toast/Notify";
 import { formatDisplayDateTime } from "@/app/lib/date";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  fetchTickets,
+  createTicket,
+  updateTicket,
+  deleteTicket,
+  type Ticket,
+} from "@/store/slices/ticketsSlice";
 
 const ITEMS_PER_PAGE = 10;
-export interface Ticket {
-  id: number;
-  name: string;
-  leadName?: string;
-  companyName: string;
-  description: string;
-  status: string;
-  priority: string;
-  source: string;
-  owner: string | string[];
-  createdDate: string;
-}
 
-const ticketFilters = [
-  {
-    label: "Ticket Owner",
-    options: [
-      "Maria johnson",
-      "Shifa",
-      "Mizba",
-      "Sabira",
-      "Shaima",
-      "Greeshma",
-    ],
-  },
+const ticketFiltersStatic = [
   {
     label: "Ticket Status",
-    options: ["New", "Closed", "Waiting on us", "Waiting on contact"],
+    options: ["New", "Closed", "Waiting on us", "Waiting on Contact"],
   },
   { label: "Source", options: ["Chat", "Email", "Phone"] },
   { label: "Priority", options: ["Low", "Medium", "High", "Critical"] },
 ];
 
 export default function TicketsPage() {
-  const [currentPage, setCurrentPage] = useState(1);
+  const dispatch = useAppDispatch();
+  const ticketsState = useAppSelector((state) => state.tickets);
+  const { tickets = [], loading = false, error = null } = ticketsState || {};
 
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
 
   const [activeFilters, setActiveFilters] = useState({
@@ -58,24 +46,62 @@ export default function TicketsPage() {
     Date: "",
   });
 
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-
-  useEffect(() => {
-    const storedTickets = localStorage.getItem("tickets");
-    if (storedTickets) {
-      try {
-        const parsedTickets = JSON.parse(storedTickets);
-        setTickets(parsedTickets);
-      } catch (error) {
-        console.error("Error parsing tickets from localStorage:", error);
-        setTickets([]);
-      }
-    }
-  }, []);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [ownerOptions, setOwnerOptions] = useState<
+    Array<{ label: string; value: string }>
+  >([]);
+  const [companyOptions, setCompanyOptions] = useState<
+    Array<{ label: string; value: string }>
+  >([]);
+  const [dealOptions, setDealOptions] = useState<
+    Array<{ label: string; value: string }>
+  >([]);
+
+  useEffect(() => {
+    const run = async () => {
+      const filters: any = {
+        page: currentPage,
+        size: ITEMS_PER_PAGE,
+      };
+
+      if (searchTerm) {
+        filters.search = searchTerm;
+      }
+
+      if (activeFilters["Ticket Status"]) {
+        filters.status = activeFilters["Ticket Status"];
+      }
+
+      if (activeFilters["Ticket Owner"]) {
+        const ids = await mapOwnerNamesToUserIds([
+          activeFilters["Ticket Owner"],
+        ]);
+        if (ids.length > 0) {
+          filters.owner = String(ids[0]);
+        }
+      }
+
+      if (activeFilters["Source"]) {
+        filters.source = activeFilters["Source"];
+      }
+
+      if (activeFilters["Priority"]) {
+        filters.priority = activeFilters["Priority"];
+      }
+
+      if (activeFilters["Date"]) {
+        filters.date = activeFilters["Date"].trim();
+      }
+
+      dispatch(fetchTickets(filters)).catch((err) => {
+        console.error("Error fetching tickets:", err);
+      });
+    };
+
+    run();
+  }, [dispatch, currentPage, searchTerm, activeFilters]);
 
   const columns = [
     { key: "checkbox", label: "" },
@@ -88,60 +114,669 @@ export default function TicketsPage() {
     { key: "actions", label: "ACTIONS" },
   ];
 
-  const handleCreateTicket = (
-    ticketData: Omit<Ticket, "id" | "createdDate">
-  ) => {
-    const newTicket: Ticket = {
-      id: Date.now(),
-      ...ticketData,
-      createdDate: new Date().toISOString(),
-    };
-    setTickets((prev) => [newTicket, ...prev]);
-
-    localStorage.setItem("tickets", JSON.stringify([newTicket, ...tickets]));
-
-    window.dispatchEvent(new CustomEvent("ticketsUpdated"));
-    notify("✅ Ticket created successfully", "success");
-    return true;
+  // Helper functions to fetch company/deal/user IDs from API
+  const getAuthHeaders = () => {
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("auth_token");
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = token.startsWith("Bearer ")
+        ? token
+        : `Bearer ${token}`;
+    }
+    return headers;
   };
 
-  const handleUpdateTicket = (
-    ticketData: Omit<Ticket, "id" | "createdDate">
+  useEffect(() => {
+    const fetchAllData = async () => {
+      const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+      const token =
+        localStorage.getItem("token") || localStorage.getItem("auth_token");
+
+      if (!BASE_URL || !token) return;
+
+      const headers = getAuthHeaders();
+
+      // Fetch users
+      try {
+        const usersRes = await fetch(`${BASE_URL}/api/auth/users`, { headers });
+        if (usersRes.ok) {
+          const data = await usersRes.json();
+          const users = data.data || data || [];
+          if (Array.isArray(users) && users.length > 0) {
+            const options = users.map((user: any) => {
+              const fullName = `${user.firstName || ""} ${
+                user.lastName || ""
+              }`.trim();
+              return {
+                label: fullName || user.email || `User ${user.id}`,
+                value: fullName || user.email || `User ${user.id}`,
+              };
+            });
+            setOwnerOptions(options);
+          }
+        } else {
+          if (usersRes.status === 403) {
+            console.warn(
+              "Access denied: User list requires admin privileges. Using current user as fallback."
+            );
+
+            try {
+              const authUserRaw = localStorage.getItem("auth_user");
+              if (authUserRaw) {
+                const authUser = JSON.parse(authUserRaw);
+                const fullName = `${authUser.firstName || ""} ${
+                  authUser.lastName || ""
+                }`.trim();
+                if (fullName || authUser.email) {
+                  setOwnerOptions([
+                    {
+                      label:
+                        fullName || authUser.email || `User ${authUser.id}`,
+                      value:
+                        fullName || authUser.email || `User ${authUser.id}`,
+                    },
+                  ]);
+                }
+              }
+            } catch (fallbackError) {
+              console.error(
+                "Error getting current user from localStorage:",
+                fallbackError
+              );
+            }
+          } else {
+            console.error(
+              "Failed to fetch users:",
+              usersRes.status,
+              usersRes.statusText
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+
+        try {
+          const authUserRaw = localStorage.getItem("auth_user");
+          if (authUserRaw) {
+            const authUser = JSON.parse(authUserRaw);
+            const fullName = `${authUser.firstName || ""} ${
+              authUser.lastName || ""
+            }`.trim();
+            if (fullName || authUser.email) {
+              setOwnerOptions([
+                {
+                  label: fullName || authUser.email || `User ${authUser.id}`,
+                  value: fullName || authUser.email || `User ${authUser.id}`,
+                },
+              ]);
+            }
+          }
+        } catch (fallbackError) {
+          console.error(
+            "Error getting current user from localStorage:",
+            fallbackError
+          );
+        }
+      }
+
+      try {
+        const companiesRes = await fetch(`${BASE_URL}/api/v1/companies`, {
+          headers,
+        });
+        if (companiesRes.ok) {
+          const data = await companiesRes.json();
+          const companies = data.data || data || [];
+
+          const options = [
+            { label: "Choose", value: "" },
+            ...(Array.isArray(companies) && companies.length > 0
+              ? companies.map((company: any) => ({
+                  label: company.companyName || `Company ${company.id}`,
+                  value: company.companyName || `Company ${company.id}`,
+                }))
+              : []),
+          ];
+          setCompanyOptions(options);
+        }
+      } catch (error) {
+        console.error("Error fetching companies:", error);
+
+        setCompanyOptions([{ label: "Choose", value: "" }]);
+      }
+
+      try {
+        const dealsRes = await fetch(`${BASE_URL}/api/v1/deal`, { headers });
+        if (dealsRes.ok) {
+          const data = await dealsRes.json();
+          const deals = data.data || data || [];
+
+          const options = [
+            { label: "Choose", value: "" },
+            ...(Array.isArray(deals) && deals.length > 0
+              ? deals.map((deal: any) => ({
+                  label: deal.dealName || deal.name || `Deal ${deal.id}`,
+                  value: deal.dealName || deal.name || `Deal ${deal.id}`,
+                }))
+              : []),
+          ];
+          setDealOptions(options);
+        }
+      } catch (error) {
+        console.error("Error fetching deals:", error);
+
+        setDealOptions([{ label: "Choose", value: "" }]);
+      }
+    };
+
+    fetchAllData();
+  }, []);
+
+  const fetchCompanyByName = async (
+    companyName: string
+  ): Promise<number | null> => {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (!BASE_URL) return null;
+
+    try {
+      const res = await fetch(
+        `${BASE_URL}/api/v1/companies?search=${encodeURIComponent(
+          companyName.trim()
+        )}`,
+        { headers: getAuthHeaders() }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const companies = data.data || data || [];
+        const company = companies.find(
+          (c: any) =>
+            c.companyName?.trim().toLowerCase() ===
+            companyName.trim().toLowerCase()
+        );
+        return company?.id || null;
+      }
+    } catch (error) {
+      console.error("Error fetching company:", error);
+    }
+    return null;
+  };
+
+  const fetchDealByName = async (dealName: string): Promise<number | null> => {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (!BASE_URL) return null;
+
+    try {
+      let res = await fetch(
+        `${BASE_URL}/api/v1/deal?search=${encodeURIComponent(dealName.trim())}`,
+        { headers: getAuthHeaders() }
+      );
+
+      let deals: any[] = [];
+      if (res.ok) {
+        const data = await res.json();
+        deals = data.data || data || [];
+      } else if (res.status !== 404) {
+        res = await fetch(`${BASE_URL}/api/v1/deal`, {
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          deals = data.data || data || [];
+        }
+      }
+
+      if (deals.length > 0) {
+        const normalizedSearch = dealName.trim().toLowerCase();
+        const deal = deals.find((d: any) => {
+          const nameField = d.dealName || d.name || d.DealName || "";
+          return nameField.trim().toLowerCase() === normalizedSearch;
+        });
+        return deal?.id || null;
+      }
+    } catch (error) {
+      console.error("Error fetching deal:", error);
+    }
+    return null;
+  };
+
+  const mapOwnerNamesToUserIds = async (
+    ownerNames: string[]
+  ): Promise<number[]> => {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (!BASE_URL || ownerNames.length === 0) return [];
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/users`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const users = data.data || data || [];
+
+        if (Array.isArray(users) && users.length > 0) {
+          const userIds: number[] = [];
+
+          for (const ownerName of ownerNames) {
+            const nameParts = ownerName.trim().split(/\s+/);
+            const firstName = nameParts[0] || "";
+            const lastName = nameParts.slice(1).join(" ") || "";
+
+            const user = users.find((u: any) => {
+              const userFirstName = (u.firstName || "").trim().toLowerCase();
+              const userLastName = (u.lastName || "").trim().toLowerCase();
+              return (
+                userFirstName === firstName.toLowerCase() &&
+                userLastName === lastName.toLowerCase()
+              );
+            });
+
+            if (user?.id) {
+              userIds.push(user.id);
+            } else {
+              console.warn(`User not found for owner name: "${ownerName}"`);
+            }
+          }
+
+          return userIds;
+        }
+      } else {
+        if (res.status === 403) {
+          console.warn(
+            "Access denied: User list requires admin privileges for mapping owner names"
+          );
+        } else {
+          console.error("Failed to fetch users:", res.status, res.statusText);
+        }
+      }
+    } catch (error) {
+      console.error("Error mapping owner names to user IDs:", error);
+    }
+
+    return [];
+  };
+
+  const handleCreateTicket = async (
+    ticketData: Omit<
+      Ticket,
+      | "id"
+      | "createdDate"
+      | "TicketName"
+      | "owners"
+      | "createdAt"
+      | "deal"
+      | "company"
+      | "associatedLeadId"
+    >
+  ) => {
+    try {
+      const backendData: any = {
+        TicketName: ticketData.name,
+        description: ticketData.description,
+        TicketStatus: ticketData.status,
+        priority: ticketData.priority,
+        source: ticketData.source,
+      };
+
+      let hasCompanyOrDeal = false;
+
+      if (ticketData.companyName && ticketData.companyName.trim()) {
+        try {
+          const companyNameTrimmed = ticketData.companyName.trim();
+          let companyId: number | null = null;
+
+          console.log("Fetching company from backend API:", companyNameTrimmed);
+          companyId = await fetchCompanyByName(companyNameTrimmed);
+
+          if (!companyId) {
+            console.log(
+              "Company not found in API, trying localStorage cache..."
+            );
+            const companies = JSON.parse(
+              localStorage.getItem("companies") || "[]"
+            );
+            const company = companies.find(
+              (c: any) =>
+                c.companyName &&
+                c.companyName.trim().toLowerCase() ===
+                  companyNameTrimmed.toLowerCase()
+            );
+
+            if (company?.id) {
+              companyId = company.id;
+              console.log(
+                "Found company in localStorage cache:",
+                company.companyName,
+                "ID:",
+                company.id
+              );
+            }
+          }
+
+          if (!companyId) {
+            const parsedId = parseInt(companyNameTrimmed);
+            if (!isNaN(parsedId)) {
+              companyId = parsedId;
+              console.log(
+                "Using company ID directly (assuming ID was entered):",
+                companyId
+              );
+            }
+          }
+
+          if (companyId) {
+            backendData.companyId = companyId;
+            hasCompanyOrDeal = true;
+          } else {
+            console.warn(
+              "Company not found in API or localStorage:",
+              companyNameTrimmed
+            );
+          }
+        } catch (error) {
+          console.error("Error finding company:", error);
+        }
+      }
+
+      if (
+        !hasCompanyOrDeal &&
+        ticketData.dealName &&
+        ticketData.dealName.trim()
+      ) {
+        try {
+          const dealNameTrimmed = ticketData.dealName.trim();
+          let dealId: number | null = null;
+
+          console.log("Fetching deal from backend API:", dealNameTrimmed);
+          dealId = await fetchDealByName(dealNameTrimmed);
+
+          if (!dealId) {
+            const parsedId = parseInt(dealNameTrimmed);
+            if (!isNaN(parsedId)) {
+              dealId = parsedId;
+              console.log(
+                "Using deal ID directly (assuming ID was entered):",
+                dealId
+              );
+            }
+          }
+
+          if (dealId) {
+            backendData.dealId = dealId;
+            hasCompanyOrDeal = true;
+          } else {
+            console.warn(
+              "Deal not found in API or localStorage:",
+              dealNameTrimmed
+            );
+          }
+        } catch (error) {
+          console.error("Error finding deal:", error);
+        }
+      }
+
+      if (!hasCompanyOrDeal) {
+        const errorMsg =
+          ticketData.companyName || ticketData.dealName
+            ? `❌ ${ticketData.companyName ? "Company" : "Deal"} "${
+                ticketData.companyName || ticketData.dealName
+              }" not found. Please select a valid ${
+                ticketData.companyName ? "Company" : "Deal"
+              }.`
+            : "❌ Please select either a Company or Deal for this ticket";
+        notify(errorMsg, "error");
+        return false;
+      }
+
+      if (
+        ticketData.owner &&
+        Array.isArray(ticketData.owner) &&
+        ticketData.owner.length > 0
+      ) {
+        const userIds = await mapOwnerNamesToUserIds(ticketData.owner);
+        backendData.userIds = userIds;
+      }
+
+      console.log("Sending ticket data to backend:", backendData);
+
+      const result = await dispatch(createTicket(backendData));
+
+      if (createTicket.fulfilled.match(result)) {
+        notify("✅ Ticket created successfully", "success");
+        setIsModalOpen(false);
+
+        dispatch(fetchTickets({ page: currentPage, size: ITEMS_PER_PAGE }));
+        return true;
+      } else {
+        const errorPayload = result.payload as any;
+        let errorMsg = "❌ Failed to create ticket";
+
+        if (typeof errorPayload === "string") {
+          errorMsg = errorPayload;
+        } else if (errorPayload?.message) {
+          errorMsg = errorPayload.message;
+        } else if (errorPayload?.error) {
+          errorMsg = errorPayload.error;
+        }
+
+        console.error("Create ticket failed:", errorPayload);
+        notify(errorMsg, "error");
+        return false;
+      }
+    } catch (error: any) {
+      console.error("Create ticket error:", error);
+      const errorMessage =
+        error?.message || error?.error || "❌ Failed to create ticket";
+      notify(errorMessage, "error");
+      return false;
+    }
+  };
+
+  const handleUpdateTicket = async (
+    ticketData: Omit<
+      Ticket,
+      | "id"
+      | "createdDate"
+      | "TicketName"
+      | "owners"
+      | "createdAt"
+      | "deal"
+      | "company"
+      | "associatedLeadId"
+    >
   ) => {
     if (!editingTicket) return false;
 
-    const updatedTicket: Ticket = {
-      ...editingTicket,
-      ...ticketData,
-    };
+    try {
+      const backendData: any = {
+        TicketName: ticketData.name,
+        description: ticketData.description,
+        TicketStatus: ticketData.status,
+        priority: ticketData.priority,
+        source: ticketData.source,
+      };
 
-    setTickets((prev) =>
-      prev.map((t) => (t.id === editingTicket.id ? updatedTicket : t))
-    );
+      let hasCompanyOrDeal = false;
 
-    const updatedTickets = tickets.map((t) =>
-      t.id === editingTicket.id ? updatedTicket : t
-    );
-    localStorage.setItem("tickets", JSON.stringify(updatedTickets));
+      if (ticketData.companyName && ticketData.companyName.trim()) {
+        try {
+          const companyNameTrimmed = ticketData.companyName.trim();
+          let companyId: number | null = null;
 
-    window.dispatchEvent(new CustomEvent("ticketsUpdated"));
+          console.log(
+            "Fetching company from backend API for update:",
+            companyNameTrimmed
+          );
+          companyId = await fetchCompanyByName(companyNameTrimmed);
 
-    notify("✏️ Ticket updated successfully", "success");
-    return true;
+          if (!companyId) {
+            console.log(
+              "Company not found in API, trying localStorage cache for update..."
+            );
+            const companies = JSON.parse(
+              localStorage.getItem("companies") || "[]"
+            );
+            const company = companies.find(
+              (c: any) =>
+                c.companyName &&
+                c.companyName.trim().toLowerCase() ===
+                  companyNameTrimmed.toLowerCase()
+            );
+
+            if (company?.id) {
+              companyId = company.id;
+              console.log(
+                "Found company in localStorage cache for update:",
+                company.companyName,
+                "ID:",
+                company.id
+              );
+            }
+          }
+
+          if (!companyId) {
+            const parsedId = parseInt(companyNameTrimmed);
+            if (!isNaN(parsedId)) {
+              companyId = parsedId;
+              console.log(
+                "Using company ID directly for update (assuming ID was entered):",
+                companyId
+              );
+            }
+          }
+
+          if (companyId) {
+            backendData.companyId = companyId;
+            backendData.dealId = null;
+            hasCompanyOrDeal = true;
+          }
+        } catch (error) {
+          console.error("Error finding company for update:", error);
+        }
+      } else if (ticketData.dealName && ticketData.dealName.trim()) {
+        try {
+          const dealNameTrimmed = ticketData.dealName.trim();
+          let dealId: number | null = null;
+
+          console.log(
+            "Fetching deal from backend API for update:",
+            dealNameTrimmed
+          );
+          dealId = await fetchDealByName(dealNameTrimmed);
+
+          if (!dealId) {
+            const parsedId = parseInt(dealNameTrimmed);
+            if (!isNaN(parsedId)) {
+              dealId = parsedId;
+              console.log(
+                "Using deal ID directly for update (assuming ID was entered):",
+                dealId
+              );
+            }
+          }
+
+          if (dealId) {
+            backendData.dealId = dealId;
+            backendData.companyId = null;
+            hasCompanyOrDeal = true;
+          }
+        } catch (error) {
+          console.error("Error finding deal for update:", error);
+        }
+      } else {
+        hasCompanyOrDeal = true;
+      }
+
+      if (
+        !hasCompanyOrDeal &&
+        (ticketData.companyName || ticketData.dealName)
+      ) {
+        const errorMsg =
+          ticketData.companyName || ticketData.dealName
+            ? `❌ ${ticketData.companyName ? "Company" : "Deal"} "${
+                ticketData.companyName || ticketData.dealName
+              }" not found. Please select a valid ${
+                ticketData.companyName ? "Company" : "Deal"
+              }.`
+            : "❌ Please select either a Company or Deal for this ticket";
+        notify(errorMsg, "error");
+        return false;
+      }
+
+      if (
+        ticketData.owner &&
+        Array.isArray(ticketData.owner) &&
+        ticketData.owner.length > 0
+      ) {
+        const userIds = await mapOwnerNamesToUserIds(ticketData.owner);
+        backendData.userIds = userIds;
+      }
+
+      console.log("Sending update ticket data to backend:", backendData);
+
+      const result = await dispatch(
+        updateTicket({ id: editingTicket.id, ticketData: backendData })
+      );
+
+      if (updateTicket.fulfilled.match(result)) {
+        notify("✏️ Ticket updated successfully", "success");
+        setIsEditModalOpen(false);
+        setEditingTicket(null);
+
+        dispatch(fetchTickets({ page: currentPage, size: ITEMS_PER_PAGE }));
+        return true;
+      } else {
+        const errorPayload = result.payload as any;
+        let errorMsg = "❌ Failed to update ticket";
+
+        if (typeof errorPayload === "string") {
+          errorMsg = errorPayload;
+        } else if (errorPayload?.message) {
+          errorMsg = errorPayload.message;
+        } else if (errorPayload?.error) {
+          errorMsg = errorPayload.error;
+        }
+
+        console.error("Update ticket failed:", errorPayload);
+        notify(errorMsg, "error");
+        return false;
+      }
+    } catch (error: any) {
+      console.error("Update ticket error:", error);
+      const errorMessage =
+        error?.message || error?.error || "❌ Failed to update ticket";
+      notify(errorMessage, "error");
+      return false;
+    }
   };
 
-  const handleDelete = (ticket: Ticket) => {
-    setTickets((prev) => prev.filter((t) => t.id !== ticket.id));
+  const handleDelete = async (ticket: Ticket) => {
+    try {
+      const result = await dispatch(deleteTicket(ticket.id));
 
-    const updatedTickets = tickets.filter((t) => t.id !== ticket.id);
-    localStorage.setItem("tickets", JSON.stringify(updatedTickets));
-
-    window.dispatchEvent(new CustomEvent("ticketsUpdated"));
-    notify("🗑️ Ticket deleted successfully", "success");
+      if (deleteTicket.fulfilled.match(result)) {
+        notify("🗑️ Ticket deleted successfully", "success");
+      } else {
+        notify(
+          (result.payload as string) || "❌ Failed to delete ticket",
+          "error"
+        );
+      }
+    } catch (error: any) {
+      notify(error.message || "❌ Failed to delete ticket", "error");
+    }
   };
 
   const handleEdit = (ticket: Ticket) => {
-    setEditingTicket(ticket);
+    const editTicket: any = {
+      ...ticket,
+      name: ticket.name || ticket.TicketName,
+      companyName: ticket.companyName || ticket.company?.name || "",
+      dealName: ticket.dealName || ticket.deal?.name || "",
+      owner: ticket.owner || ticket.owners?.map((o) => o.name) || [],
+    };
+    setEditingTicket(editTicket);
     setIsEditModalOpen(true);
   };
 
@@ -154,7 +789,7 @@ export default function TicketsPage() {
     { label: "New", value: "New" },
     { label: "Closed", value: "Closed" },
     { label: "Waiting on us", value: "Waiting on us" },
-    { label: "Waiting on contact", value: "Waiting on contact" },
+    { label: "Waiting on Contact", value: "Waiting on Contact" },
   ];
 
   const priorityOptions = [
@@ -167,17 +802,7 @@ export default function TicketsPage() {
   const sourceOptions = [
     { label: "Email", value: "Email" },
     { label: "Phone", value: "Phone" },
-    { label: "Web", value: "Web" },
     { label: "Chat", value: "Chat" },
-  ];
-
-  const ownerOptions = [
-    { label: "Maria johnson", value: "Maria johnson" },
-    { label: "Shifa", value: "Shifa" },
-    { label: "Mizba", value: "Mizba" },
-    { label: "Sabira", value: "Sabira" },
-    { label: "Shaima", value: "Shaima" },
-    { label: "Greeshma", value: "Greeshma" },
   ];
 
   useEffect(() => {
@@ -195,80 +820,28 @@ export default function TicketsPage() {
     return () => document.removeEventListener("click", handleCreateClick);
   }, []);
 
-  const filteredTickets = tickets.filter((ticket) => {
-    const ownerString = Array.isArray(ticket.owner)
-      ? ticket.owner.join(" ")
-      : ticket.owner;
+  useEffect(() => {
+    if (error) {
+      notify(error, "error");
+    }
+  }, [error]);
 
-    const matchesSearch =
-      ticket.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ownerString.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.source.toLowerCase().includes(searchTerm.toLowerCase());
+  let totalPages: number;
 
-    const matchesStatus = activeFilters["Ticket Status"]
-      ? ticket.status === activeFilters["Ticket Status"]
-      : true;
-
-    const matchesOwner = activeFilters["Ticket Owner"]
-      ? (() => {
-          if (Array.isArray(ticket.owner)) {
-            return ticket.owner.includes(activeFilters["Ticket Owner"]);
-          } else {
-            return ticket.owner === activeFilters["Ticket Owner"];
-          }
-        })()
-      : true;
-
-    const matchesSource = activeFilters["Source"]
-      ? ticket.source === activeFilters["Source"]
-      : true;
-
-    const matchesPriority = activeFilters["Priority"]
-      ? ticket.priority === activeFilters["Priority"]
-      : true;
-
-    const matchesDate = activeFilters["Date"]
-      ? (() => {
-          try {
-            const filterDate = new Date(activeFilters["Date"]);
-            const ticketDate = new Date(ticket.createdDate);
-
-            const filterDateOnly = new Date(
-              filterDate.getFullYear(),
-              filterDate.getMonth(),
-              filterDate.getDate()
-            );
-            const ticketDateOnly = new Date(
-              ticketDate.getFullYear(),
-              ticketDate.getMonth(),
-              ticketDate.getDate()
-            );
-
-            return filterDateOnly.getTime() === ticketDateOnly.getTime();
-          } catch (error) {
-            return ticket.createdDate.includes(activeFilters["Date"]);
-          }
-        })()
-      : true;
-
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesOwner &&
-      matchesSource &&
-      matchesPriority &&
-      matchesDate
+  if (ticketsState.totalCount && ticketsState.totalCount > 0) {
+    totalPages = Math.max(
+      1,
+      Math.ceil(ticketsState.totalCount / ITEMS_PER_PAGE)
     );
-  });
+  } else {
+    if (tickets.length === ITEMS_PER_PAGE) {
+      totalPages = Math.max(currentPage + 1, currentPage);
+    } else {
+      totalPages = Math.max(1, currentPage);
+    }
+  }
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredTickets.length / ITEMS_PER_PAGE) + 1
-  );
-
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
+  const paginatedTickets = tickets;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -279,7 +852,13 @@ export default function TicketsPage() {
       <HeaderBar
         title="Tickets"
         onSearch={setSearchTerm}
-        filters={ticketFilters}
+        filters={[
+          {
+            label: "Ticket Owner",
+            options: ownerOptions.map((o) => o.label),
+          },
+          ...ticketFiltersStatic,
+        ]}
         onFilterChange={(name, val) => {
           setActiveFilters((prev) => ({ ...prev, [name]: val }));
         }}
@@ -294,7 +873,15 @@ export default function TicketsPage() {
       />
       <div className="px-4  pb-4">
         <TableLayout columns={columns}>
-          {paginatedTickets.length > 0 ? (
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={columns.length}>
+                <div className="py-4 text-gray-500 text-center">
+                  Loading tickets...
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : paginatedTickets.length > 0 ? (
             paginatedTickets.map((ticket) => (
               <TableRow key={ticket.id}>
                 <TableCell isCheckbox>
@@ -308,12 +895,9 @@ export default function TicketsPage() {
                 <TableCell>
                   <Link
                     href={`/dashboard/modules/tickets/${ticket.id}`}
-                    onClick={() =>
-                      localStorage.setItem("tickets", JSON.stringify(tickets))
-                    }
                     className="hover:underline cursor-pointer"
                   >
-                    {ticket.name}
+                    {ticket.name || ticket.TicketName}
                   </Link>
                 </TableCell>
 
@@ -321,12 +905,16 @@ export default function TicketsPage() {
                 <TableCell>{ticket.priority}</TableCell>
                 <TableCell>{ticket.source}</TableCell>
                 <TableCell>
-                  {Array.isArray(ticket.owner)
+                  {ticket.owners && ticket.owners.length > 0
+                    ? ticket.owners.map((o) => o.name).join(", ")
+                    : Array.isArray(ticket.owner)
                     ? ticket.owner.join(", ")
-                    : ticket.owner}
+                    : ticket.owner || "-"}
                 </TableCell>
                 <TableCell>
-                  {formatDisplayDateTime(ticket.createdDate)}
+                  {formatDisplayDateTime(
+                    ticket.createdDate || ticket.createdAt
+                  )}
                 </TableCell>
                 <TableCell>
                   <ActionButtons
@@ -354,13 +942,19 @@ export default function TicketsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCreateTicket={handleCreateTicket}
+        ownerOptions={ownerOptions}
+        companyOptions={companyOptions}
+        dealOptions={dealOptions}
       />
 
       <TicketCreateButton
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}
         onCreateTicket={handleUpdateTicket}
-        editData={editingTicket}
+        editData={editingTicket as any}
+        ownerOptions={ownerOptions}
+        companyOptions={companyOptions}
+        dealOptions={dealOptions}
       />
     </div>
   );
