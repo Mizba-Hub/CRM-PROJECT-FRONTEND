@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -7,7 +6,7 @@ import { CalendarIcon } from "@heroicons/react/24/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Inputs } from "@/components/ui/Inputs";
-import { formatDurationFromSeconds } from "@/app/lib/utils";
+import { formatDurationFromSeconds } from "@/app/lib/utils"; 
 
 export type ActivityType =
   | "note"
@@ -50,9 +49,7 @@ const ActivityDetailView: React.FC<Props> = ({
   useEffect(() => {
     if (openId) {
       const open = activities.find((a) => a.id === openId);
-      if (open?.type === "call") {
-        setSelectedOutcome(open.extra?.outcome || "");
-      }
+      if (open?.type === "call") setSelectedOutcome(open.extra?.outcome || "");
     }
   }, [openId, activities]);
 
@@ -164,6 +161,16 @@ const ActivityDetailView: React.FC<Props> = ({
               <p className="font-bold text-gray-900 truncate" title={a.title}>
                 {a.title}
               </p>
+            ) : a.type === "task" ? (
+              <div
+                className="flex items-center min-w-0 overflow-hidden"
+                title={a.title}
+              >
+                <span className="font-bold text-gray-900 flex-shrink-0 mr-1">
+                  Task assigned to
+                </span>
+                <span className="truncate text-gray-800">{a.extra?.assignedTo?.name || a.author}</span>
+              </div>
             ) : (
               <div
                 className="flex items-center min-w-0 overflow-hidden"
@@ -196,8 +203,16 @@ const ActivityDetailView: React.FC<Props> = ({
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded-full border-2 border-gray-400 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                  checked={a.extra?.status === "completed"}
+                  onChange={(e) => {
+                    if (e.target.checked && a.extra?.onComplete) {
+                      a.extra.onComplete();
+                    }
+                  }}
                 />
-                <span>{a.extra?.taskName || "Untitled Task"}</span>
+                <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
+                  {a.extra?.taskName || "Untitled Task"}
+                </span>
               </div>
             ) : a.type === "meeting" ? (
               <span className="px-3">
@@ -246,8 +261,16 @@ const ActivityDetailView: React.FC<Props> = ({
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded-full border-2 border-gray-400 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                      checked={a.extra?.status === "completed"}
+                      onChange={(e) => {
+                        if (e.target.checked && a.extra?.onComplete) {
+                          a.extra.onComplete();
+                        }
+                      }}
                     />
-                    {a.extra?.taskName}
+                    <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
+                      {a.extra?.taskName}
+                    </span>
                   </div>
                   <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4 bg-gray-200 p-3 rounded mb-3">
                     <div>
@@ -274,6 +297,7 @@ const ActivityDetailView: React.FC<Props> = ({
                   {a.content && (
                     <span
                       dangerouslySetInnerHTML={{ __html: a.content }}
+                      className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}
                     ></span>
                   )}
                 </>
@@ -399,7 +423,7 @@ const ActivityDetailView: React.FC<Props> = ({
         </div>
       )}
 
-      {Object.keys(byMonth).map((m: string, i: number) => (
+      {Object.keys(byMonth).map((m, i) => (
         <div key={m} className={`${i === 0 ? "" : "mt-3"} space-y-2`}>
           <p className="text-sm font-semibold text-gray-600">{m}</p>
           {byMonth[m].map(renderActivity)}
@@ -416,7 +440,3 @@ const ActivityDetailView: React.FC<Props> = ({
 };
 
 export default ActivityDetailView;
-
-
-
-

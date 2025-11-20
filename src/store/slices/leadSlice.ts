@@ -226,15 +226,13 @@ const leadSlice = createSlice({
         lead.id === Number(id)
           ? {
               ...lead,
-              email: updates.email ?? lead.email,
-              firstName: updates.firstName ?? lead.firstName,
-              lastName: updates.lastName ?? lead.lastName,
-              phone: updates.phoneNumber ?? lead.phone,
-              city: updates.city ?? lead.city,
-              jobTitle: updates.jobTitle ?? lead.jobTitle,
-              status: updates.leadStatus
-                ? toUiStatus(updates.leadStatus)
-                : lead.status,
+              email: updates.email,
+              firstName: updates.firstName,
+              lastName: updates.lastName,
+              phone: updates.phoneNumber,
+              city: updates.city,
+              jobTitle: updates.jobTitle,
+              status: toUiStatus(updates.leadStatus),
             }
           : lead
       );
@@ -242,15 +240,13 @@ const leadSlice = createSlice({
       if (state.currentLead?.id === Number(id)) {
         state.currentLead = {
           ...state.currentLead,
-          email: updates.email ?? state.currentLead.email,
-          firstName: updates.firstName ?? state.currentLead.firstName,
-          lastName: updates.lastName ?? state.currentLead.lastName,
-          phone: updates.phoneNumber ?? state.currentLead.phone,
-          city: updates.city ?? state.currentLead.city,
-          jobTitle: updates.jobTitle ?? state.currentLead.jobTitle,
-          status: updates.leadStatus
-            ? toUiStatus(updates.leadStatus)
-            : state.currentLead.status,
+          email: updates.email,
+          firstName: updates.firstName,
+          lastName: updates.lastName,
+          phone: updates.phoneNumber,
+          city: updates.city,
+          jobTitle: updates.jobTitle,
+          status: toUiStatus(updates.leadStatus),
         };
       }
     });
