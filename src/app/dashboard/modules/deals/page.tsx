@@ -1,297 +1,258 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchDeals, createDeal, updateDeal, deleteDeal } from "@/store/slices/dealSlice";
 import HeaderBar from "@/components/crm/EntityList";
-import TableLayout, {
-  TableRow,
-  TableCell,
-} from "@/components/crm/table/TableLayout";
+import TableLayout, { TableRow, TableCell } from "@/components/crm/table/TableLayout";
 import ActionButtons from "@/components/crm/table/EntityDetailHeader";
 import CreateDeal from "./components/CreateDealButton";
-import Link from "next/link";
+import { notify } from "@/components/ui/toast/Notify";
 import { formatDisplayDateOnly } from "@/app/lib/date";
+import Link from "next/link";
 
-interface Deal {
-  id: number;
-  name: string;
-  stage: string;
-  closeDate: string;
-  owner: string[];
-  amount: string;
-  priority: string;
-  createdDate: string;
-  description?: string;
-  accountName?: string;
-  associatedLead?: string;
-}
-
-const dealFilters = [
-  {
-    label: "Deal Owner",
-    options: [
-      "Maria Johnson",
-      "Shaimah",
-      "Mizba",
-      "Greeshma",
-      "Sabira",
-      "Shifa",
-    ],
-  },
-  {
-    label: "Deal Stage",
-    options: [
-      "Presentation Scheduled",
-      "Qualified to Buy",
-      "Contract Sent",
-      "Closed Won",
-      "Appointment Scheduled",
-      "Decision Maker Bought In",
-      "Closed Lost",
-      "Negotiation"
-    ],
-  },
-];
+const ITEMS_PER_PAGE = 10;
 
 export default function DealsPage() {
+  const dispatch = useAppDispatch();
+  const { deals, loading, error } = useAppSelector((state) => state.deals);
+  const { token } = useAppSelector((state) => state.auth);
+
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOwner, setSelectedOwner] = useState("");
-  const [selectedStage, setSelectedStage] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [tempAssociatedLead, setTempAssociatedLead] = useState("");
-  const searchParams = useSearchParams();
-  const openModal = searchParams.get("openModal");
-  const leadName = searchParams.get("leadName");
-  const leadId = searchParams.get("leadId");
-  const itemsPerPage = 10;
-  useEffect(() => {
-    const stored = localStorage.getItem("deals");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const normalized = parsed.map((d: any) => ({
-        ...d,
-        owner: Array.isArray(d.owner) ? d.owner : [d.owner].filter(Boolean),
-      }));
-      setDeals(normalized);
-    }
+  const [showModal, setShowModal] = useState(false);
+  const [editData, setEditData] = useState<any>(null);
 
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "deals") {
-        const updated = e.newValue ? JSON.parse(e.newValue) : [];
-        setDeals(
-          updated.map((d: any) => ({
-            ...d,
-            owner: Array.isArray(d.owner) ? d.owner : [d.owner].filter(Boolean),
-          }))
-        );
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  const [users, setUsers] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+
   
   useEffect(() => {
-    if (openModal === "true") {
-      setTempAssociatedLead(leadName || "");
-      setModalMode("create");
-      setSelectedDeal(null);
-      setIsModalOpen(true);
-    }
-  }, [openModal, leadName]);
-  
-  const handleSaveDeal = (dealData: Omit<Deal, "id">) => {
-    let updatedDeals: Deal[];
+    dispatch(fetchDeals());
+  }, [dispatch]);
 
-    const newDeal: Deal = {
-      id: Date.now(),
-      ...dealData,
-      associatedLead: tempAssociatedLead || dealData.associatedLead || "",
-    };
 
-    if (modalMode === "edit" && selectedDeal) {
-      updatedDeals = deals.map((d) =>
-        d.id === selectedDeal.id ? { ...d, ...dealData } : d
-      );
-    } else {
-      updatedDeals = [newDeal, ...deals];
-    }
+  useEffect(() => {
+    if (!token) return;
 
-    setDeals(updatedDeals);
-    localStorage.setItem("deals", JSON.stringify(updatedDeals));
-    window.dispatchEvent(new Event("storage"));
-    if (leadId || newDeal.associatedLead) {
-      const storedLeads = localStorage.getItem("leads");
-      if (storedLeads) {
-        const leads = JSON.parse(storedLeads);
-        const updatedLeads = leads.map((l: any) => {
-          const fullName = `${l.firstName} ${l.lastName}`;
-          if (
-            String(l.id) === String(leadId) ||
-            fullName === newDeal.associatedLead
-          ) {
-            return { ...l, converted: true };
-          }
-          return l;
+    const fetchUsers = async () => {
+      setUsersLoading(true);
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/users`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        localStorage.setItem("leads", JSON.stringify(updatedLeads));
-        window.dispatchEvent(new Event("storage"));
+        const data = await res.json();
+        const formatted = Array.isArray(data.data ? data.data : data)
+          ? (data.data ? data.data : data).map((u: any) => ({
+              id: u.id,
+              name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
+            }))
+          : [];
+        setUsers(formatted);
+      } catch {
+        notify("Failed to fetch users", "error");
+      } finally {
+        setUsersLoading(false);
       }
-    }
-    setIsModalOpen(false);
-    setSelectedDeal(null);
-    setModalMode("create");
-    setTempAssociatedLead("");
-  };
+    };
+    fetchUsers();
+  }, [token]);
 
-  const handleEdit = (deal: Deal) => {
-    setModalMode("edit");
-    setSelectedDeal(deal);
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (deal: Deal) => {
-    const updated = deals.filter((d) => d.id !== deal.id);
-    setDeals(updated);
-    localStorage.setItem("deals", JSON.stringify(updated));
-    window.dispatchEvent(new Event("storage"));
-  };
-
-  const handleCreate = () => {
-    setTempAssociatedLead("");
-    setModalMode("create");
-    setSelectedDeal(null);
-    setIsModalOpen(true);
-  };
   
-  const filteredDeals = deals.filter((deal) => {
-    const matchesSearch =
-      deal.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deal.owner.some((o) =>
-        o.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    const matchesOwner = selectedOwner
-      ? deal.owner.includes(selectedOwner)
-      : true;
-    const matchesStage = selectedStage ? deal.stage === selectedStage : true;
-    const dealDisplayDate = formatDisplayDateOnly(deal.closeDate);
-    const matchesDate = selectedDate ? dealDisplayDate === selectedDate : true;
-    return matchesSearch && matchesOwner && matchesStage && matchesDate;
-  });
-    useEffect(() => {
-    const calculatedTotalPages = Math.ceil(filteredDeals.length / itemsPerPage);
-    setTotalPages(calculatedTotalPages > 0 ? calculatedTotalPages : 1);
-    if (currentPage > calculatedTotalPages) {
-      setCurrentPage(1);
-    }
-  }, [filteredDeals.length, currentPage]);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentPageDeals = filteredDeals.slice(startIndex, endIndex);
+  useEffect(() => {
+    if (!token) return;
 
-  const columns = [
-    { key: "checkbox", label: "" },
-    { key: "name", label: "DEAL NAME" },
-    { key: "stage", label: "DEAL STAGE" },
-    { key: "closeDate", label: "CLOSE DATE" },
-    { key: "owner", label: "DEAL OWNER" },
-    { key: "amount", label: "AMOUNT" },
-     { key: "associatedlead",label:"Associated Lead"},
-    { key: "actions", label: "ACTIONS" },
-     ];
+    const fetchLeads = async () => {
+      setLeadsLoading(true);
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/lead`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setLeads(Array.isArray(data.data ? data.data : data) ? (data.data ? data.data : data) : []);
+      } catch {
+        notify("Failed to fetch leads", "error");
+      } finally {
+        setLeadsLoading(false);
+      }
+    };
+    fetchLeads();
+  }, [token]);
+
+  
+  const handleFilterChange = (name: string, value: string) => {
+    setActiveFilters((prev) => ({ ...prev, [name]: value }));
+    setCurrentPage(1);
+  };
+
+  
+  const filteredDeals = deals.filter((deal: any) => {
+    const search = searchTerm.toLowerCase();
+    const matchesSearch =
+      (deal.name || "").toLowerCase().includes(search) ||
+      (deal.owner || []).some((o: string) => o.toLowerCase().includes(search)) ||
+      (deal.associatedLead || "").toLowerCase().includes(search) ||
+      (deal.stage || "").toLowerCase().includes(search) ||
+      (deal.amount || "").toLowerCase().includes(search);
+
+    const ownerFilter = activeFilters["Deal Owner"] || "";
+    const stageFilter = activeFilters["Deal Stage"] || "";
+    const closeDateFilter = activeFilters["Close Date"] || "";
+    const createdDateFilter = activeFilters["Created Date"] || "";
+
+    const matchesOwner = ownerFilter ? (deal.owner || []).includes(ownerFilter) : true;
+    const matchesStage = stageFilter ? deal.stage === stageFilter : true;
+    const matchesCloseDate = closeDateFilter
+      ? deal.closeDate?.slice(0, 10) === closeDateFilter
+      : true;
+    const matchesCreatedDate = createdDateFilter
+      ? deal.createdDate?.slice(0, 10) === createdDateFilter
+      : true;
+
+    return matchesSearch && matchesOwner && matchesStage && matchesCloseDate && matchesCreatedDate;
+  });
+
+  
+  const totalPages = Math.max(1, Math.ceil(filteredDeals.length / ITEMS_PER_PAGE));
+  const currentPageDeals = filteredDeals.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  
+  const ownerFilterOptions = Array.from(new Set(deals.flatMap((d) => d.owner || []).concat(users.map((u) => u.name)))).filter(Boolean).sort();
+  const stageFilterOptions = ["Presentation Scheduled","Qualified to Buy","Contract Sent","Closed Won","Appointment Scheduled","Decision Maker Bought In","Closed Lost","Negotiation"];
+  const dealFilters = [
+    { label: "Deal Owner", options: ownerFilterOptions },
+    { label: "Deal Stage", options: stageFilterOptions },
+  ];
+
+  
+ 
+const handleSaveDeal = async (form: any) => {
+  const payload = {
+    name: form.name,
+    stage: form.stage,
+    amount: form.amount,
+    priority: form.priority,
+    closeDate: form.closeDate,
+
+    
+    ownerIds: Array.isArray(form.owner) ? form.owner : [form.owner], 
+    leadId: form.associatedLead, 
+  };
+
+  const res: any = await dispatch(createDeal(payload));
+
+  if (res.meta.requestStatus === "fulfilled") {
+    notify("Deal created successfully", "success");
+    dispatch(fetchDeals());
+    return true;
+  }
+  notify("Failed to create deal", "error");
+  return false;
+};
+
+const handleUpdateDeal = async (form: any) => {
+  const payload = {
+    id: editData.id,
+    name: form.name,
+    stage: form.stage,
+    amount: form.amount,
+    priority: form.priority,
+    closeDate: form.closeDate,
+    ownerIds: Array.isArray(form.owner) ? form.owner : [form.owner],
+    leadId: form.associatedLead,
+  };
+
+  const res: any = await dispatch(updateDeal(payload));
+
+  if (res.meta.requestStatus === "fulfilled") {
+    notify("Deal updated successfully", "success");
+    dispatch(fetchDeals());
+    return true;
+  }
+  notify("Failed to update deal", "error");
+  return false;
+};
+  const handleDelete = async (deal: any) => {
+    const res: any = await dispatch(deleteDeal(deal.id));
+    if (res.meta.requestStatus === "fulfilled") {
+      notify("Deal deleted successfully", "success");
+      dispatch(fetchDeals());
+    } else {
+      notify("Failed to delete deal", "error");
+    }
+  };
 
   return (
-    <div className="bg-white m-2 rounded-md overflow-hidden">
+    <div className="bg-white m-2 rounded-md h-full overflow-auto">
       <HeaderBar
         title="Deals"
-        searchPlaceholder="Search phone,name,city"
-        onSearch={setSearchTerm}
+        searchPlaceholder="Search deals, owners, leads, stages..."
+        onSearch={(v) => { setSearchTerm(v); setCurrentPage(1); }}
         filters={dealFilters}
-        onFilterChange={(name, val) => {
-          if (name === "Deal Owner") setSelectedOwner(val);
-          else if (name === "Deal Stage") setSelectedStage(val);
-        }}
-        onDateChange={setSelectedDate}
+        onFilterChange={handleFilterChange}
+        onDateChange={handleFilterChange} 
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
-        onCreate={handleCreate}
-        activeFilters={{
-          "Deal Owner": selectedOwner,
-          "Deal Stage": selectedStage,
-          Date: selectedDate,
-        }}
+        activeFilters={activeFilters}
+        onCreate={() => { setEditData(null); setShowModal(true); }}
         isDealPage={true}
       />
-      <CreateDeal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedDeal(null);
-          setModalMode("create");
-          setTempAssociatedLead("");
-        }}
-        onSave={handleSaveDeal}
-        initialData={
-          modalMode === "edit" ? selectedDeal || undefined : undefined
-        }
-        mode={modalMode}
-        associatedLead={tempAssociatedLead}
-      />
-      <div className="px-4">
-        <TableLayout columns={columns}>
-          {currentPageDeals.length > 0 ? (
-            currentPageDeals.map((deal) => (
-              <TableRow key={deal.id}>
-                <TableCell isCheckbox>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                  />
-                </TableCell>
 
-                <TableCell>
-                  <Link
-                    href={`/dashboard/modules/deals/${deal.id}`}
-                    onClick={() =>
-                      localStorage.setItem("deals", JSON.stringify(deals))
-                    }
-                    className="hover:underline cursor-pointer"
-                  >
-                    {deal.name}
-                  </Link>
-                </TableCell>
+      {(usersLoading || leadsLoading) && (
+        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
+          <span className="text-sm text-blue-600">
+            {usersLoading && "Loading users..."} {leadsLoading && "Loading leads..."}
+          </span>
+        </div>
+      )}
 
-                <TableCell>{deal.stage}</TableCell>
-                <TableCell>{formatDisplayDateOnly(deal.closeDate)}</TableCell>
-                <TableCell>{deal.owner.join(", ")}</TableCell>
-                <TableCell>{deal.amount}</TableCell>
-                <TableCell>{deal.associatedLead || "-"}</TableCell>
-                <TableCell>
-                  <ActionButtons
-                    item={deal}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                  />
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length}>
-                <div className="py-4 text-gray-500 text-center">
-                  No deals found
-                </div>
+      <div className="p-2">
+        <TableLayout
+          columns={[
+            { key: "checkbox", label: "" },
+            { key: "name", label: "DEAL NAME" },
+            { key: "stage", label: "DEAL STAGE" },
+            { key: "closeDate", label: "CLOSE DATE" },
+            { key: "owner", label: "DEAL OWNER" },
+            { key: "amount", label: "AMOUNT" },
+            { key: "associatedlead", label: "ASSOCIATED LEAD" },
+            { key: "actions", label: "ACTIONS" },
+          ]}
+        >
+          {currentPageDeals.map((deal: any) => (
+            <TableRow key={deal.id}>
+              <TableCell isCheckbox><input type="checkbox" className="h-4 w-4" /></TableCell>
+              <TableCell>
+                <Link href={`/dashboard/modules/deals/${deal.id}`} className="hover:underline">{deal.name}</Link>
+              </TableCell>
+              <TableCell>{deal.stage}</TableCell>
+              <TableCell>{formatDisplayDateOnly(deal.closeDate)}</TableCell>
+              <TableCell>{(deal.owner || []).join(", ")}</TableCell>
+              <TableCell>{deal.amount}</TableCell>
+              <TableCell>{deal.associatedLead || "-"}</TableCell>
+              <TableCell>
+                <ActionButtons item={deal} onEdit={() => { setEditData(deal); setShowModal(true); }} onDelete={() => handleDelete(deal)} />
               </TableCell>
             </TableRow>
-          )}
+          ))}
         </TableLayout>
       </div>
+
+      <CreateDeal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); setEditData(null); }}
+        onSave={editData ? handleUpdateDeal : handleSaveDeal}
+        initialData={editData}
+        mode={editData ? "edit" : "create"}
+        leads={leads}
+        users={users}
+      />
     </div>
   );
 }
+
+
