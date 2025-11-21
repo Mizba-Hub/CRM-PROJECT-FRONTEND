@@ -1,6 +1,7 @@
 export function cn(...classes: (string | undefined | false)[]) {
   return classes.filter(Boolean).join(" ");
 }
+
 export const calculateDuration = (start: string, end: string): string => {
   if (!start || !end) return "-";
 
@@ -21,16 +22,20 @@ export const calculateDuration = (start: string, end: string): string => {
   return `${hrs} hr${hrs > 1 ? "s" : ""} ${mins} mins`;
 };
 
-export const getAttendeeCount = (
-  attendees: string[],
-  ownerCount: number = 1
+export const calculateTotalCount = (
+  organizers: string[] = [],
+  attendees: string[] = []
 ): number => {
-  const attendeeCount = Array.isArray(attendees) ? attendees.length : 0;
+  const uniqueIds = new Set();
 
-  return attendeeCount + ownerCount;
+  organizers.forEach((org) => uniqueIds.add(org));
+
+  attendees.forEach((attendee) => uniqueIds.add(attendee));
+
+  uniqueIds.add("linkedModule");
+
+  return uniqueIds.size;
 };
-
-
 
 export function getEntityEmail(
   entityType: string,

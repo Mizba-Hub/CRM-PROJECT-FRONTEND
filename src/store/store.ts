@@ -10,7 +10,7 @@ import dealsReducer from "./slices/dealSlice";
 import emailsReducer from "./slices/activity/emailSlice";
 import attachmentsReducer from"./slices/activity/attachmentSlice";
 import companyReducer from "./slices/companySlice";
-
+import meetingReducer from "./slices/activity/meetingSlice"
 
 import ticketsReducer from "./slices/ticketsSlice";
 
