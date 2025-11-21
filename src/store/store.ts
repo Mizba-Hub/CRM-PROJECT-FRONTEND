@@ -6,7 +6,8 @@ import leadReducer from "./slices/leadSlice";
 import notesReducer from "./slices/activity/notesSlice";
 import callsReducer from "./slices/activity/callSlice";
 import tasksReducer from "./slices/activity/taskSlice";
-import dealsReducer from "./slices/dealSlice"
+import dealsReducer from "./slices/dealSlice";
+import emailsReducer from "./slices/activity/emailSlice";
 import attachmentsReducer from"./slices/activity/attachmentSlice";
 import companyReducer from "./slices/companySlice";
 
@@ -24,9 +25,11 @@ export const store = configureStore({
     calls: callsReducer,
     tasks: tasksReducer,
     attachments: attachmentsReducer,
+    emails: emailsReducer,
     companies: companyReducer,
-    tickets: ticketsReducer,
-     deals: dealsReducer,
+      meetings: meetingReducer,
+     tickets: ticketsReducer,
+     deals:dealsReducer
 
   },
 });
