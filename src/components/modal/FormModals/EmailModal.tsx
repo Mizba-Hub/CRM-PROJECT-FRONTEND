@@ -415,10 +415,22 @@ export default function EmailModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    if (connectedPerson) {
-      const [type, id] = connectedPerson.split(":");
-      const email = getEntityEmail(type, id);
-      if (email) setToList([email]);
+    if (!connectedPerson) return;
+
+    if (connectedPerson.startsWith("email:")) {
+      const directEmail = connectedPerson.slice("email:".length).trim();
+      if (directEmail) {
+        setToList([directEmail]);
+      }
+      return;
+    }
+
+    const [type, id] = connectedPerson.includes(":")
+      ? connectedPerson.split(":")
+      : [connectedPerson, ""];
+    const email = getEntityEmail(type, id);
+    if (email) {
+      setToList([email]);
     }
   }, [isOpen, connectedPerson]);
 

@@ -37,14 +37,25 @@ export const { handlers, auth } = NextAuth({
 });
 export const getCurrentUserName = (): string => {
   try {
+    const authUser = localStorage.getItem("auth_user");
+    if (authUser) {
+      const user = JSON.parse(authUser);
+      if (user?.firstName) {
+        return user.firstName;
+      }
+    }
+
     const authToken = localStorage.getItem("auth_token");
-    if (!authToken) return "User";
-    
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u: any) => u.email === authToken);
-    return user ? user.firstName : "User";
+    if (authToken) {
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      const user = users.find((u: any) => u.email === authToken);
+      if (user?.firstName) {
+        return user.firstName;
+      }
+    }
+
+    return "User";
   } catch {
     return "User";
   }
 };
-

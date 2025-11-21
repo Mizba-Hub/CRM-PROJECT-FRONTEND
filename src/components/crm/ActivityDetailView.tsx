@@ -6,7 +6,10 @@ import { CalendarIcon } from "@heroicons/react/24/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Inputs } from "@/components/ui/Inputs";
-import { formatDurationFromSeconds } from "@/app/lib/utils"; 
+
+import { formatDurationFromSeconds } from "@/app/lib/utils";
+
+
 
 export type ActivityType =
   | "note"
@@ -66,6 +69,24 @@ const ActivityDetailView: React.FC<Props> = ({
     (byMonth[label] ??= []).push(a);
   });
 
+  function getDisplayName(email: string) {
+    try {
+      const leads = JSON.parse(localStorage.getItem("leads") || "[]");
+      const lead = leads.find((l: any) => l.email === email);
+
+      if (lead) {
+        const fullName = `${lead.firstName || ""} ${
+          lead.lastName || ""
+        }`.trim();
+        if (fullName.length > 0) return fullName;
+      }
+
+      return email.split("@")[0];
+    } catch {
+      return email.split("@")[0];
+    }
+  }
+
   const getPreviewText = (a: Activity) => {
     if (!a.content) return "";
 
@@ -110,12 +131,10 @@ const ActivityDetailView: React.FC<Props> = ({
 
     if (isEmail) {
       const parts = a.title.split("–");
-      boldPart = parts[0]?.trim() || "";
-      if (parts[1]) {
-        const afterDash = parts[1].split("by");
-        subjectPart = afterDash[0]?.trim() || "";
-        restPart = `by ${afterDash[1]?.trim() || ""}`;
-      }
+
+      boldPart = (parts[0] || "").trim(); 
+      subjectPart = (parts[1] || "").trim(); 
+      restPart = (parts[2] || "").trim(); 
     } else {
       const words = a.title.split(" ");
       boldPart = words[0];
@@ -169,7 +188,13 @@ const ActivityDetailView: React.FC<Props> = ({
                 <span className="font-bold text-gray-900 flex-shrink-0 mr-1">
                   Task assigned to
                 </span>
+
+                <span className="truncate text-gray-800">
+                  {a.extra?.assignedTo?.name || a.author}
+                </span>
+
                 <span className="truncate text-gray-800">{a.extra?.assignedTo?.name || a.author}</span>
+
               </div>
             ) : (
               <div
@@ -210,7 +235,17 @@ const ActivityDetailView: React.FC<Props> = ({
                     }
                   }}
                 />
+
+                <span
+                  className={
+                    a.extra?.status === "completed"
+                      ? "line-through text-gray-500"
+                      : ""
+                  }
+                >
+
                 <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
+
                   {a.extra?.taskName || "Untitled Task"}
                 </span>
               </div>
@@ -243,7 +278,10 @@ const ActivityDetailView: React.FC<Props> = ({
                   )}
                   <div>
                     <p className="text-m text-gray-500 mb-1">
-                      To {a.extra?.recipients || a.author}
+                      To{" "}
+                      {Array.isArray(a.extra?.recipients)
+                        ? getDisplayName(a.extra.recipients[0])
+                        : a.author}
                     </p>
                     {a.content && (
                       <div
@@ -268,7 +306,17 @@ const ActivityDetailView: React.FC<Props> = ({
                         }
                       }}
                     />
+
+                    <span
+                      className={
+                        a.extra?.status === "completed"
+                          ? "line-through text-gray-500"
+                          : ""
+                      }
+                    >
+
                     <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
+
                       {a.extra?.taskName}
                     </span>
                   </div>
@@ -297,7 +345,15 @@ const ActivityDetailView: React.FC<Props> = ({
                   {a.content && (
                     <span
                       dangerouslySetInnerHTML={{ __html: a.content }}
+
+                      className={
+                        a.extra?.status === "completed"
+                          ? "line-through text-gray-500"
+                          : ""
+                      }
+
                       className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}
+
                     ></span>
                   )}
                 </>
@@ -338,7 +394,12 @@ const ActivityDetailView: React.FC<Props> = ({
                           </>
                         }
                         value={
+
+                          a.extra?.duration !== null &&
+                          a.extra?.duration !== undefined
+
                           a.extra?.duration !== null && a.extra?.duration !== undefined
+
                             ? formatDurationFromSeconds(
                                 typeof a.extra.duration === "number"
                                   ? a.extra.duration
