@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { Inputs } from "@/components/ui/Inputs";
 import ModalWrapper from "@/components/modal/ModalWrapper";
 import { notify } from "@/components/ui/toast/Notify";
-import { useLocalStorage } from "@/app/lib/useLocalStorage"; 
 
 interface DealData {
   name: string;
@@ -24,9 +23,17 @@ interface CreateDealProps {
   mode?: "create" | "edit";
   initialData?: DealData;
   associatedLead?: string;
+  users?: { id: number; name: string }[];
+  leads?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    status?: string;
+    leadStatus?: string;
+  }[];
 }
 
-const getCurrentDate = (): string => new Date().toISOString().split("T")[0];
+const getCurrentDate = () => new Date().toISOString().split("T")[0];
 
 const CreateDeal: React.FC<CreateDealProps> = ({
   isOpen,
@@ -35,9 +42,9 @@ const CreateDeal: React.FC<CreateDealProps> = ({
   mode = "create",
   initialData,
   associatedLead = "",
+  users = [],
+  leads = [],
 }) => {
-  const { getItem } = useLocalStorage(); // ✅ use the custom hook
-
   const [formData, setFormData] = useState<DealData>({
     name: "",
     stage: "",
@@ -45,16 +52,22 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     owner: [],
     amount: "",
     priority: "",
-    createdDate: "",
-    associatedLead: "",
+    createdDate: getCurrentDate(),
+    associatedLead: associatedLead || "",
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [qualifiedLeads, setQualifiedLeads] = useState<
-    { label: string; value: string }[]
-  >([]);
 
   useEffect(() => {
-    const resetForm = () => {
+    if (!isOpen) return;
+
+   if (mode === "edit" && initialData) {
+  setFormData({
+    ...initialData,
+    associatedLead: String(initialData.associatedLead ?? ""),
+    owner: initialData.owner?.map((id) => String(id)) ?? [],
+    amount: String(initialData.amount ?? ""),
+  });
+}
+ else {
       setFormData({
         name: "",
         stage: "",
@@ -62,397 +75,196 @@ const CreateDeal: React.FC<CreateDealProps> = ({
         owner: [],
         amount: "",
         priority: "",
-        createdDate: "",
-        associatedLead: "",
-      });
-      setErrors({});
-    };
-
-    if (!isOpen) {
-      resetForm();
-      return;
-    }
-
-    // ✅ Use the custom hook here instead of raw localStorage
-    const leadsData = getItem<any[]>("leads", []);
-    const qualified = leadsData
-      .filter((lead) => lead.status === "Qualified" && !lead.converted)
-      .map((lead) => ({
-        label: `${lead.firstName} ${lead.lastName}`,
-        value: `${lead.firstName} ${lead.lastName}`,
-      }));
-
-    if (mode === "edit" && initialData?.associatedLead) {
-      const exists = qualified.some(
-        (q) => q.value === initialData.associatedLead
-      );
-      if (!exists) {
-        qualified.unshift({
-          label: initialData.associatedLead,
-          value: initialData.associatedLead,
-        });
-      }
-    }
-
-    setQualifiedLeads(qualified);
-
-    if (mode === "edit" && initialData) {
-      setFormData(initialData);
-    } else {
-      const today = getCurrentDate();
-      setFormData({
-        name: "",
-        stage: "",
-        closeDate: "",
-        owner: [],
-        amount: "",
-        priority: "",
-        createdDate: today,
-        associatedLead:
-          typeof window !== "undefined" &&
-          associatedLead &&
-          window.location.search.includes("openModal=true")
-            ? associatedLead
-            : "",
+        createdDate: getCurrentDate(),
+        associatedLead: associatedLead || "",
       });
     }
-
-    setErrors({});
-  }, [isOpen, mode, initialData, associatedLead, getItem]);
+  }, [isOpen, mode, initialData, associatedLead]);
 
   const handleChange = (field: keyof DealData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+
+  
+  const qualifiedLeads = leads.filter(
+    (lead) =>
+      (lead.status || lead.leadStatus || "").toUpperCase() === "QUALIFIED"
+  );
+
+  const leadOptions = qualifiedLeads.map((lead) => ({
+    label: `${lead.firstName} ${lead.lastName}`,
+    value: String(lead.id),
+  }));
+
+  const ownerOptions = users.map((user) => ({
+    label: user.name,
+    value: String(user.id),
+  }));
+
+  
+  const handleAmountChange = (e: any) => {
+    const val = e.target.value;
+    if (/^\d*$/.test(val)) {
+      handleChange("amount", val);
     }
   };
 
-  const stageOptions = [
-    { label: "Presentation Scheduled", value: "Presentation Scheduled" },
-    { label: "Qualified to Buy", value: "Qualified to Buy" },
-    { label: "Contract Sent", value: "Contract Sent" },
-    { label: "Closed Won", value: "Closed Won" },
-    { label: "Appointment Scheduled", value: "Appointment Scheduled" },
-    { label: "Decision Maker Bought In", value: "Decision Maker Bought In" },
-    { label: "Closed Lost", value: "Closed Lost" },
-    { label:"Negotiation",value:"Negotiation"}
-  ];
-
-  const ownerOptions = [
-    { label: "Shaima", value: "Shaima" },
-    { label: "Mizba", value: "Mizba" },
-    { label: "Shifa", value: "Shifa" },
-    { label: "Sabira", value: "Sabira" },
-    { label: "Greesma", value: "Greesma" },
-    { label: "Maria Johnson", value: "Maria Johnson" },
-  ];
-
-  const priorityOptions = [
-    { label: "Low", value: "Low" },
-    { label: "Medium", value: "Medium" },
-    { label: "High", value: "High" },
-    { label: "Critical", value: "Critical" },
-  ];
-
-  const RequiredLabel: React.FC<{ children: React.ReactNode }> = ({
-    children,
-  }) => (
-    <span className="flex items-center gap-1">
-      {children}
-      <span className="text-red-500">*</span>
-    </span>
-  );
-
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.name.trim()) {
-      newErrors.name = "Deal Name is required";
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = "Deal Name must be at least 2 characters long";
-    } else if (formData.name.trim().length > 100) {
-      newErrors.name = "Deal Name must be less than 100 characters";
-    }
-    if (!formData.stage.trim()) {
-      newErrors.stage = "Please choose a deal stage";
-    }
-    if (!formData.owner.length) {
-      newErrors.owner = "Please select at least one deal owner";
-    }
-    if (!formData.amount.trim()) {
-      newErrors.amount = "Please enter a deal amount";
-    } else {
-      const cleanAmount = formData.amount.replace(/[$,]/g, "").trim();
-      const amountValue = parseFloat(cleanAmount);
-      if (isNaN(amountValue)) {
-        newErrors.amount = "Amount must be a valid number";
-      } else if (amountValue <= 0) {
-        newErrors.amount = "Amount must be greater than 0";
-      } else if (amountValue > 1000000000) {
-        newErrors.amount = "Amount must be less than 1 billion";
-      } else if (!/^\d*\.?\d{0,2}$/.test(cleanAmount)) {
-        newErrors.amount = "Amount can have up to 2 decimal places";
-      }
-    }
-    if (!formData.closeDate.trim()) {
-      newErrors.closeDate = "Please select a close date";
-    } else {
-      const closeDate = new Date(formData.closeDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (closeDate < today) {
-        newErrors.closeDate = "Close date cannot be in the past";
-      }
-    }
-    if (!formData.priority.trim()) {
-      newErrors.priority = "Please select a priority";
-    }
-
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      notify("⚠ Please correct the highlighted fields.", "error");
+  
+  const validate = () => {
+    if (!formData.associatedLead) {
+      notify("Associated Lead is required", "error");
       return false;
     }
 
-    const dealDataToSave = { ...formData };
-    if (dealDataToSave.amount) {
-      const cleanAmount = dealDataToSave.amount.replace(/[$,]/g, "").trim();
-      const amountValue = parseFloat(cleanAmount);
-      dealDataToSave.amount = `$${amountValue.toFixed(2)}`;
-    }
-    if (mode === "create" && !dealDataToSave.createdDate) {
-      dealDataToSave.createdDate = getCurrentDate();
-    }
-
-    onSave(dealDataToSave);
-    notify(
-      mode === "edit"
-        ? "Deal updated successfully!"
-        : "Deal created successfully!",
-      "success"
-    );
-
-    try {
-      if (formData.associatedLead) {
-        const urlParams = new URLSearchParams(
-          typeof window !== "undefined" ? window.location.search : ""
-        );
-        const leadId = urlParams.get("leadId");
-
-        if (leadId) {
-          const leads = JSON.parse(
-            localStorage.getItem("leads") || "[]"
-          );
-          const updatedLeads = leads.map((l: any) =>
-            String(l.id) === String(leadId)
-              ? { ...l, status: "Converted", converted: true }
-              : l
-          );
-          localStorage.setItem("leads", JSON.stringify(updatedLeads));
-
-          const convertedLeads = JSON.parse(
-            localStorage.getItem("convertedLeads") || "[]"
-          );
-          if (!convertedLeads.includes(Number(leadId))) {
-            convertedLeads.push(Number(leadId));
-            localStorage.setItem(
-              "convertedLeads",
-              JSON.stringify(convertedLeads)
-            );
-          }
-
-          localStorage.removeItem("pendingConversionId");
-        }
-      }
-    } catch (err) {
-      console.error("Error updating conversion status:", err);
+    if (
+      !formData.name ||
+      !formData.stage ||
+      !formData.owner.length ||
+      !formData.amount ||
+      !formData.closeDate ||
+      !formData.priority
+    ) {
+      notify("Please fill all required fields", "error");
+      return false;
     }
 
-    setFormData({
-      name: "",
-      stage: "",
-      closeDate: "",
-      owner: [],
-      amount: "",
-      priority: "",
-      createdDate: getCurrentDate(),
-      associatedLead: "",
+    onSave({
+      ...formData,
+      associatedLead: String(formData.associatedLead),
     });
-    setErrors({});
     return true;
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
-      handleChange("amount", value);
-    }
   };
 
   return (
     <ModalWrapper
       isOpen={isOpen}
       title={mode === "edit" ? "Edit Deal" : "Create Deal"}
-      onClose={() => {
-        onClose();
-        localStorage.removeItem("pendingConversionId"); 
-        setFormData({
-          name: "",
-          stage: "",
-          closeDate: "",
-          owner: [],
-          amount: "",
-          priority: "",
-          createdDate: "",
-          associatedLead: "",
-        });
-        setErrors({});
-      }}
+      onClose={onClose}
       onSave={validate}
     >
       <div className="flex flex-col gap-6">
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Associated Lead
+            Associated Lead *
           </label>
-          <Inputs
-            variant="select"
-            placeholder="Choose"
-            options={qualifiedLeads}
-            value={formData.associatedLead || ""}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              handleChange("associatedLead", e.target.value)
-            }
-            className="border-gray-300 focus:ring-2 focus:ring-blue-500"
-          />
+
+          {leadOptions.length > 0 ? (
+            <Inputs
+              variant="select"
+              placeholder="Choose"
+              options={leadOptions}
+              value={formData.associatedLead}
+              onChange={(e) =>
+                handleChange("associatedLead", e.target.value)
+              }
+            />
+          ) : (
+            <div className="text-sm text-gray-500 p-2 border rounded">
+              No qualified leads available.
+            </div>
+          )}
         </div>
+
+      
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            <RequiredLabel>Deal Name</RequiredLabel>
+            Deal Name *
           </label>
           <Inputs
             variant="input"
-            placeholder="Enter"
             value={formData.name}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              handleChange("name", e.target.value)
-            }
-            className={`${
-              errors.name
-                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
-            }`}
+            onChange={(e) => handleChange("name", e.target.value)}
+            placeholder="Enter"
           />
-          {errors.name && (
-            <p className="text-red-500 text-sm mt-1">{errors.name}</p>
-          )}
         </div>
+
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            <RequiredLabel>Deal Stage</RequiredLabel>
+            Deal Stage *
           </label>
           <Inputs
             variant="select"
             placeholder="Choose"
-            options={stageOptions}
+            options={[
+              "Presentation Scheduled",
+              "Qualified to Buy",
+              "Contract Sent",
+              "Closed Won",
+              "Appointment Scheduled",
+              "Decision Maker Bought In",
+              "Closed Lost",
+              "Negotiation",
+            ].map((s) => ({ label: s, value: s }))}
             value={formData.stage}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              handleChange("stage", e.target.value)
-            }
-            className={`${
-              errors.stage
-                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
-            }`}
+            onChange={(e) => handleChange("stage", e.target.value)}
           />
-          {errors.stage && (
-            <p className="text-red-500 text-sm mt-1">{errors.stage}</p>
-          )}
         </div>
+
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            <RequiredLabel>Deal Owner</RequiredLabel>
+            Deal Owner *
           </label>
-          <Inputs
-            variant="multiselect"
-            placeholder="Choose"
-            options={ownerOptions}
-            value={formData.owner}
-            onChange={(values: string[]) => handleChange("owner", values)}
-            className={`${
-              errors.owner
-                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
-            }`}
-          />
-          {errors.owner && (
-            <p className="text-red-500 text-sm mt-1">{errors.owner}</p>
+
+          {ownerOptions.length > 0 ? (
+            <Inputs
+              variant="multiselect"
+              options={ownerOptions}
+              value={formData.owner}
+              onChange={(values: string[]) => handleChange("owner", values)}
+              placeholder="Choose"
+            />
+          ) : (
+            <div className="text-sm text-gray-500 p-2 border rounded">
+              No users available.
+            </div>
           )}
         </div>
+
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            <RequiredLabel>Amount</RequiredLabel>
+            Amount *
           </label>
           <Inputs
             variant="input"
-            placeholder="Enter"
             value={formData.amount}
             onChange={handleAmountChange}
-            className={`${
-              errors.amount
-                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-2 focus:ring-blue-500"
-            }`}
+            placeholder="Enter"
           />
-          {errors.amount && (
-            <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
-          )}
         </div>
+
         <div className="grid grid-cols-2 gap-4">
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              <RequiredLabel>Close Date</RequiredLabel>
+              Close Date *
             </label>
             <Inputs
-              variant="input"
-              type="date"
+              variant="date"
+              placeholder="Choose"
               value={formData.closeDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                handleChange("closeDate", e.target.value)
-              }
-              min={getCurrentDate()}
-              className={`${
-                errors.closeDate
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-2 focus:ring-blue-500"
-              }`}
+              onChange={(value) => handleChange("closeDate", value)}
             />
-            {errors.closeDate && (
-              <p className="text-red-500 text-sm mt-1">{errors.closeDate}</p>
-            )}
           </div>
 
+         
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              <RequiredLabel>Priority</RequiredLabel>
+              Priority *
             </label>
             <Inputs
               variant="select"
               placeholder="Choose"
-              options={priorityOptions}
+              options={["Low", "Medium", "High", "Critical"].map((p) => ({
+                label: p,
+                value: p,
+              }))}
               value={formData.priority}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                handleChange("priority", e.target.value)
-              }
-              className={`${
-                errors.priority
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-2 focus:ring-blue-500"
-              }`}
+              onChange={(e) => handleChange("priority", e.target.value)}
             />
-            {errors.priority && (
-              <p className="text-red-500 text-sm mt-1">{errors.priority}</p>
-            )}
           </div>
         </div>
       </div>

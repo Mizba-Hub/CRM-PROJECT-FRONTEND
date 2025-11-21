@@ -6,10 +6,10 @@ import leadReducer from "./slices/leadSlice";
 import notesReducer from "./slices/activity/notesSlice";
 import callsReducer from "./slices/activity/callSlice";
 import tasksReducer from "./slices/activity/taskSlice";
+import dealsReducer from "./slices/dealSlice";
 import emailsReducer from "./slices/activity/emailSlice";
 import attachmentsReducer from"./slices/activity/attachmentSlice";
 import companyReducer from "./slices/companySlice";
-import meetingReducer from "./slices/activity/meetingSlice";
 
 
 import ticketsReducer from "./slices/ticketsSlice";
@@ -29,7 +29,7 @@ export const store = configureStore({
     companies: companyReducer,
       meetings: meetingReducer,
      tickets: ticketsReducer,
-     
+     deals:dealsReducer
 
   },
 });
