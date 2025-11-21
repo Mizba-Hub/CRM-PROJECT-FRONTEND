@@ -21,6 +21,9 @@ import { notify } from "@/components/ui/toast/Notify";
 import { formatDisplayDate } from "@/app/lib/date";
 import Link from "next/link";
 
+import CSVImportModal from "@/app/dashboard/components/CsvImportButton";
+import { Button } from "@mui/material";
+
 const ITEMS_PER_PAGE = 10;
 
 export default function LeadsPage() {
@@ -30,6 +33,8 @@ export default function LeadsPage() {
   const size = useAppSelector((state) => state.leads.size);
   const [users, setUsers] = useState<{ label: string; value: string }[]>([]);
   const token = useAppSelector((s) => s.auth.token);
+
+  const [openImport, setOpenImport] = useState(false);
 
   const reduxUser = useAppSelector((s) => s.auth.user);
 
@@ -51,6 +56,8 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState<any>(null);
+
+  useEffect(() => {}, [openImport]);
 
   useEffect(() => {
     dispatch(fetchLeads({ page: currentPage, size: ITEMS_PER_PAGE }));
@@ -132,7 +139,7 @@ export default function LeadsPage() {
       phoneNumber: form.phone,
       jobTitle: form.jobTitle,
       city: form.city,
-      leadStatus: form.status.toUpperCase().replace(" ", "_"),
+      leadStatus: form.status,
       userIds: userIds,
     };
 
@@ -160,7 +167,7 @@ export default function LeadsPage() {
         phoneNumber: form.phone,
         jobTitle: form.jobTitle,
         city: form.city,
-        leadStatus: form.status?.toUpperCase().replace(/ /g, "_"),
+        leadStatus: form.status,
         userIds,
       },
     };
@@ -225,6 +232,24 @@ export default function LeadsPage() {
           setEditData(null);
           setShowModal(true);
         }}
+        extraButtons={
+          <Button
+            variant="outlined"
+            onClick={() => setOpenImport(true)}
+            sx={{
+              borderColor: "#4f46e5",
+              color: "#4338ca",
+              textTransform: "none",
+              "&:hover": {
+                borderColor: "#3730a3",
+                color: "#3730a3",
+                backgroundColor: "rgba(67, 56, 202, 0.04)",
+              },
+            }}
+          >
+            Import
+          </Button>
+        }
       />
 
       <div className="p-2">
@@ -300,6 +325,15 @@ export default function LeadsPage() {
           ))}
         </TableLayout>
       </div>
+
+      <CSVImportModal
+        open={openImport}
+        setOpen={setOpenImport}
+        module="lead"
+        onImportComplete={() => {
+          dispatch(fetchLeads({ page: 1, size: ITEMS_PER_PAGE }));
+        }}
+      />
 
       <LeadModal
         isOpen={showModal}

@@ -34,6 +34,7 @@ import MeetingModal from "@/components/modal/FormModals/MeetingModal";
 
 import { formatActivityDate, formatDisplayDate } from "@/app/lib/date";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
+import { toUiStatus } from "@/store/slices/leadSlice";
 
 type ActivityType = "activity" | "note" | "call" | "task" | "email" | "meeting";
 
@@ -51,6 +52,7 @@ type Activity = {
 
 export default function LeadDetailPage() {
   const { id } = useParams();
+  const leadId = Array.isArray(id) ? id[0] : id;
   const dispatch = useAppDispatch();
 
   const token = useAppSelector((s) => s.auth.token);
@@ -60,6 +62,9 @@ export default function LeadDetailPage() {
   const notesLoading = useAppSelector((s) => s.notes.loading);
   const tasks = useAppSelector((s) => s.tasks.items);
   const taskLoading = useAppSelector((s) => s.tasks.loading);
+
+  const [emails, setEmails] = useState([]);
+  const [openEmail, setOpenEmail] = useState(false);
 
   const [editableLead, setEditableLead] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -74,6 +79,18 @@ export default function LeadDetailPage() {
     { label: string; value: string }[]
   >([]);
   const [infoCardKey, setInfoCardKey] = useState(0);
+
+  const [loggedUser, setLoggedUser] = useState<any>(null);
+  const [loggedUserName, setLoggedUserName] = useState("");
+
+  const loadEmails = async () => {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/emails?linkedTo=${leadId}&type=lead`
+    );
+
+    const data = await res.json();
+    if (data.success) setEmails(data.data);
+  };
 
   const [showModal, setShowModal] = useState<Record<ActivityType, boolean>>({
     activity: false,
@@ -153,6 +170,20 @@ export default function LeadDetailPage() {
 
     if (token) loadUsers();
   }, [token]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      setLoggedUser(user);
+      setLoggedUserName(
+        `${user.firstName || ""} ${user.lastName || ""}`.trim()
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    loadEmails();
+  }, []);
 
   useEffect(() => {
     let allActivities: Activity[] = [];
@@ -253,13 +284,40 @@ export default function LeadDetailPage() {
       allActivities.push(...mappedTasks);
     }
 
-    setActivities((prev) => {
-      const localItems = prev.filter(
-        (a) => a.type === "email" || a.type === "call" || a.type === "meeting"
-      );
-      return [...allActivities, ...localItems];
-    });
-  }, [notes, tasks, notesLoading, taskLoading, dispatch, lead?.id]);
+    if (Array.isArray(emails) && emails.length > 0) {
+      const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+      const mappedEmails = (emails as any[]).map((e: any) => {
+        const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+        const authorName =
+          e.owner && loggedUser?.id === e.owner?.id
+            ? `${loggedUser.firstName} ${loggedUser.lastName}`
+            : e.owner
+            ? `${e.owner.firstName} ${e.owner.lastName}`
+            : "Unknown";
+
+        return {
+          id: e.id,
+          type: "email" as ActivityType,
+          title: `Logged Email – ${e.subject} – by ${authorName}`,
+          author: authorName,
+          date: e.sentAt
+            ? formatActivityDate(new Date(e.sentAt))
+            : formatActivityDate(new Date()),
+          content: e.body,
+          extra: {
+            recipients: e.recipients,
+            attachments: e.attachments,
+          },
+        };
+      });
+
+      allActivities.push(...mappedEmails);
+    }
+
+    setActivities(allActivities);
+  }, [notes, tasks, emails, notesLoading, taskLoading, dispatch, lead?.id]);
 
   const handleCreateNote = async (content: string) => {
     try {
@@ -313,34 +371,40 @@ export default function LeadDetailPage() {
         phoneNumber: editableLead.phone,
         city: editableLead.city,
         jobTitle: editableLead.jobTitle,
-        leadStatus: editableLead.status?.toUpperCase().replace(" ", "_"),
+        leadStatus: editableLead.status,
       },
     };
 
-    const res: any = await dispatch(updateLeadAPI(payload));
+    try {
+      const res: any = await dispatch(updateLeadAPI(payload));
 
-    if (res?.meta?.requestStatus === "fulfilled") {
-      notify("Lead updated successfully", "success");
+      if (res?.meta?.requestStatus === "fulfilled") {
+        notify("Lead updated successfully", "success");
 
-      setEditableLead((prev: any) => ({
-        ...prev,
-        email: res.payload.updates.email ?? prev.email,
-        firstName: res.payload.updates.firstName ?? prev.firstName,
-        lastName: res.payload.updates.lastName ?? prev.lastName,
-        phone: res.payload.updates.phoneNumber ?? prev.phone,
-        city: res.payload.updates.city ?? prev.city,
-        jobTitle: res.payload.updates.jobTitle ?? prev.jobTitle,
-        status: res.payload.updates.leadStatus
-          ? res.payload.updates.leadStatus.replace(/_/g, " ").toLowerCase()
-          : prev.status,
-      }));
+        setEditableLead((prev: any) => ({
+          ...prev,
+          email: res.payload.updates.email ?? prev.email,
+          firstName: res.payload.updates.firstName ?? prev.firstName,
+          lastName: res.payload.updates.lastName ?? prev.lastName,
+          phone: res.payload.updates.phoneNumber ?? prev.phone,
+          city: res.payload.updates.city ?? prev.city,
+          jobTitle: res.payload.updates.jobTitle ?? prev.jobTitle,
+          status: toUiStatus(
+            res.payload.updates.leadStatus || res.payload.updates.status
+          ),
+        }));
 
-      setIsEditing(false);
+        setIsEditing(false);
 
-      dispatch(fetchLeadById(lead.id));
+        setInfoCardKey((k) => k + 1);
 
-      setInfoCardKey((k) => k + 1);
-    } else {
+        dispatch(fetchLeadById(lead.id));
+
+        setInfoCardKey((k) => k + 1);
+      } else {
+        notify("Failed to update lead", "error");
+      }
+    } catch (error) {
       notify("Failed to update lead", "error");
     }
   };
@@ -418,7 +482,22 @@ export default function LeadDetailPage() {
           subtitle={lead.jobTitle}
           email={lead.email}
           onNoteClick={() => toggleModal("note", true)}
-          onEmailClick={() => toggleModal("email", true)}
+          onEmailClick={() => {
+            if (lead) {
+              localStorage.setItem(
+                "leads",
+                JSON.stringify([
+                  {
+                    id: lead.id,
+                    email: lead.email,
+                    firstName: lead.firstName,
+                    lastName: lead.lastName,
+                  },
+                ])
+              );
+            }
+            toggleModal("email", true);
+          }}
           onCallClick={() => toggleModal("call", true)}
           onTaskClick={() => toggleModal("task", true)}
           onMeetingClick={() => toggleModal("meeting", true)}
@@ -606,23 +685,6 @@ export default function LeadDetailPage() {
       <EmailModal
         isOpen={showModal.email}
         onClose={() => toggleModal("email", false)}
-        onSend={(data) => {
-          setActivities((prev) => [
-            {
-              id: Date.now(),
-              type: "email",
-              title: `Logged Email – ${data?.subject || "No Subject"} by You`,
-              author: "You",
-              date: formatActivityDate(new Date()),
-              content: data?.body,
-              extra: { recipients: `${lead.firstName} ${lead.lastName}` },
-            },
-            ...prev,
-          ]);
-          toggleModal("email", false);
-          notify("Email logged", "success");
-          return true;
-        }}
         connectedPerson={`lead:${lead.id}`}
         recordAttachments={attachments.map((a) => ({
           id: a.id,
@@ -630,10 +692,56 @@ export default function LeadDetailPage() {
           url: a.frontendUrl || a.fileUrl,
         }))}
         onAttachToRecord={() => {
-          notify(
-            "This file is already available in the Attachments section.",
-            "info"
-          );
+          notify("This file is already in the attachments list.", "info");
+        }}
+        onSend={async (emailData) => {
+          try {
+            const formData = new FormData();
+
+            formData.append(
+              "data",
+              JSON.stringify({
+                subject: emailData.subject,
+                body: emailData.body,
+                userId: JSON.parse(localStorage.getItem("user") || "{}")?.id,
+                recipients: emailData.to.split(",").map((e) => e.trim()),
+                cc: emailData.cc
+                  ? emailData.cc.split(",").map((e) => e.trim())
+                  : [],
+                bcc: emailData.bcc
+                  ? emailData.bcc.split(",").map((e) => e.trim())
+                  : [],
+                linkedTo: { type: "lead", id: lead.id },
+                attachmentIds: attachments.map((a) => a.id),
+              })
+            );
+
+            for (const file of emailData.attachments || []) {
+              const blob = await fetch(file.url).then((r) => r.blob());
+              const realFile = new File([blob], file.name);
+              formData.append("attachments", realFile);
+            }
+
+            const res = await fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/emails`,
+              {
+                method: "POST",
+                body: formData,
+              }
+            );
+
+            const result = await res.json();
+
+            if (!result.success) return false;
+
+            await loadEmails();
+            toggleModal("email", false);
+
+            return true;
+          } catch (err) {
+            notify("Error sending email", "error");
+            return false;
+          }
         }}
       />
 
@@ -679,7 +787,7 @@ export default function LeadDetailPage() {
                   date: formatActivityDate(new Date(backendCall.startedAt)),
                   content: data.note,
                   extra: {
-                    outcome: backendCall.result,
+                    outcome: data.outcome,
                     duration: backendCall.durationSeconds,
                     target: backendCall.target,
                     startedAt: backendCall.startedAt,
