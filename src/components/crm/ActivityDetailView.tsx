@@ -6,6 +6,7 @@ import { CalendarIcon } from "@heroicons/react/24/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Inputs } from "@/components/ui/Inputs";
+import { formatDurationFromSeconds } from "@/app/lib/utils";
 
 export type ActivityType =
   | "note"
@@ -44,7 +45,6 @@ const ActivityDetailView: React.FC<Props> = ({
 }) => {
   const [openId, setOpenId] = useState<number | null>(null);
   const [selectedOutcome, setSelectedOutcome] = useState("");
-  const [selectedDuration, setSelectedDuration] = useState("");
 
   useEffect(() => {
     if (openId) {
@@ -65,6 +65,24 @@ const ActivityDetailView: React.FC<Props> = ({
       : parsed.toLocaleString("default", { month: "long", year: "numeric" });
     (byMonth[label] ??= []).push(a);
   });
+
+  function getDisplayName(email: string) {
+    try {
+      const leads = JSON.parse(localStorage.getItem("leads") || "[]");
+      const lead = leads.find((l: any) => l.email === email);
+
+      if (lead) {
+        const fullName = `${lead.firstName || ""} ${
+          lead.lastName || ""
+        }`.trim();
+        if (fullName.length > 0) return fullName;
+      }
+
+      return email.split("@")[0];
+    } catch {
+      return email.split("@")[0];
+    }
+  }
 
   const getPreviewText = (a: Activity) => {
     if (!a.content) return "";
@@ -110,12 +128,10 @@ const ActivityDetailView: React.FC<Props> = ({
 
     if (isEmail) {
       const parts = a.title.split("–");
-      boldPart = parts[0]?.trim() || "";
-      if (parts[1]) {
-        const afterDash = parts[1].split("by");
-        subjectPart = afterDash[0]?.trim() || "";
-        restPart = `by ${afterDash[1]?.trim() || ""}`;
-      }
+
+      boldPart = (parts[0] || "").trim(); 
+      subjectPart = (parts[1] || "").trim(); 
+      restPart = (parts[2] || "").trim(); 
     } else {
       const words = a.title.split(" ");
       boldPart = words[0];
@@ -161,6 +177,18 @@ const ActivityDetailView: React.FC<Props> = ({
               <p className="font-bold text-gray-900 truncate" title={a.title}>
                 {a.title}
               </p>
+            ) : a.type === "task" ? (
+              <div
+                className="flex items-center min-w-0 overflow-hidden"
+                title={a.title}
+              >
+                <span className="font-bold text-gray-900 flex-shrink-0 mr-1">
+                  Task assigned to
+                </span>
+                <span className="truncate text-gray-800">
+                  {a.extra?.assignedTo?.name || a.author}
+                </span>
+              </div>
             ) : (
               <div
                 className="flex items-center min-w-0 overflow-hidden"
@@ -193,8 +221,22 @@ const ActivityDetailView: React.FC<Props> = ({
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded-full border-2 border-gray-400 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                  checked={a.extra?.status === "completed"}
+                  onChange={(e) => {
+                    if (e.target.checked && a.extra?.onComplete) {
+                      a.extra.onComplete();
+                    }
+                  }}
                 />
-                <span>{a.extra?.taskName || "Untitled Task"}</span>
+                <span
+                  className={
+                    a.extra?.status === "completed"
+                      ? "line-through text-gray-500"
+                      : ""
+                  }
+                >
+                  {a.extra?.taskName || "Untitled Task"}
+                </span>
               </div>
             ) : a.type === "meeting" ? (
               <span className="px-3">
@@ -225,7 +267,10 @@ const ActivityDetailView: React.FC<Props> = ({
                   )}
                   <div>
                     <p className="text-m text-gray-500 mb-1">
-                      To {a.extra?.recipients || a.author}
+                      To{" "}
+                      {Array.isArray(a.extra?.recipients)
+                        ? getDisplayName(a.extra.recipients[0])
+                        : a.author}
                     </p>
                     {a.content && (
                       <div
@@ -243,8 +288,22 @@ const ActivityDetailView: React.FC<Props> = ({
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded-full border-2 border-gray-400 accent-indigo-600 appearance-none checked:bg-indigo-600 cursor-pointer"
+                      checked={a.extra?.status === "completed"}
+                      onChange={(e) => {
+                        if (e.target.checked && a.extra?.onComplete) {
+                          a.extra.onComplete();
+                        }
+                      }}
                     />
-                    {a.extra?.taskName}
+                    <span
+                      className={
+                        a.extra?.status === "completed"
+                          ? "line-through text-gray-500"
+                          : ""
+                      }
+                    >
+                      {a.extra?.taskName}
+                    </span>
                   </div>
                   <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4 bg-gray-200 p-3 rounded mb-3">
                     <div>
@@ -271,6 +330,11 @@ const ActivityDetailView: React.FC<Props> = ({
                   {a.content && (
                     <span
                       dangerouslySetInnerHTML={{ __html: a.content }}
+                      className={
+                        a.extra?.status === "completed"
+                          ? "line-through text-gray-500"
+                          : ""
+                      }
                     ></span>
                   )}
                 </>
@@ -302,24 +366,26 @@ const ActivityDetailView: React.FC<Props> = ({
                     </div>
                     <div className="relative">
                       <Inputs
-                        variant="select"
+                        variant="input"
+                        type="text"
                         name="duration"
                         label={
                           <>
                             Duration <span className="text-red-500">*</span>
                           </>
                         }
-                        placeholder="Choose"
-                        value={selectedDuration}
-                        onChange={(e) => setSelectedDuration(e.target.value)}
-                        options={[
-                          { label: "5 mins", value: "5" },
-                          { label: "15 mins", value: "15" },
-                          { label: "30 mins", value: "30" },
-                          { label: "1 hr", value: "60" },
-                        ]}
-                        showChevron={false}
-                        className="appearance-none pr-9 pl-3 text-sm text-gray-700 border border-gray-300 rounded h-[36px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={
+                          a.extra?.duration !== null &&
+                          a.extra?.duration !== undefined
+                            ? formatDurationFromSeconds(
+                                typeof a.extra.duration === "number"
+                                  ? a.extra.duration
+                                  : parseInt(String(a.extra.duration), 10) || 0
+                              )
+                            : "-"
+                        }
+                        disabled
+                        className="text-gray-700 bg-gray-100 pr-9"
                       />
                       <ClockIcon className="w-4 h-4 text-gray-500 absolute right-3 top-[70%] -translate-y-1/2 pointer-events-none transition-colors duration-150" />
                     </div>
