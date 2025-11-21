@@ -29,7 +29,8 @@ export default function NoteModal({ isOpen, onClose, onSave }: NoteModalProps) {
       return false;
     }
 
-    const isValid = await onSave(note);  
+    const cleanText = note.replace(/<[^>]*>/g, "").trim();
+const isValid = await onSave(cleanText);
 
     if (!isValid) {
       notify("Failed to save note", "error");
