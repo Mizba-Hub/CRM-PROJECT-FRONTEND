@@ -77,8 +77,8 @@ export default function LeadModal({
         ...rest,
         phone: editData.fullPhone || editData.phone || "",
         contactOwner: Array.isArray(rest.contactOwner)
-          ? rest.contactOwner
-          : [rest.contactOwner],
+          ? rest.contactOwner.map((id) => String(id))
+          : [String(rest.contactOwner)],
       });
     } else {
       setFormData({

@@ -4,9 +4,12 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-const toApiStatus = (status: string) => status.toUpperCase().replace(" ", "_");
+const toApiStatus = (status: string) =>
+  status.toUpperCase() === "IN PROGRESS"
+    ? "IN PROGRESS"
+    : status.toUpperCase().replace(/ /g, "_");
 
-const toUiStatus = (status: any) => {
+export const toUiStatus = (status: any) => {
   if (!status) return "New";
   const s = status.toString().trim().toUpperCase().replace(/_/g, " ");
   switch (s) {
@@ -15,6 +18,7 @@ const toUiStatus = (status: any) => {
     case "NEW":
       return "New";
     case "IN PROGRESS":
+    case "IN_PROGRESS":
       return "In Progress";
     case "CONTACT":
       return "Contact";
@@ -84,37 +88,18 @@ export const fetchLeads = createAsyncThunk(
     }
   }
 );
-
-export const createLeadAPI = createAsyncThunk(
-  "leads/create",
-  async (payload: any, { rejectWithValue, getState }) => {
-    try {
-      const token = (getState() as any).auth.token;
-
-      const res = await fetch(`${BASE_URL}/api/v1/lead`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) return rejectWithValue(data.message);
-
-      return data;
-    } catch (err: any) {
-      return rejectWithValue(err.message);
-    }
-  }
-);
-
 export const updateLeadAPI = createAsyncThunk(
   "leads/update",
   async ({ id, updates }: any, { rejectWithValue, getState }) => {
     try {
       const token = (getState() as any).auth.token;
+
+      const apiUpdates = {
+        ...updates,
+        leadStatus: updates.leadStatus
+          ? toApiStatus(updates.leadStatus)
+          : "NEW",
+      };
 
       const res = await fetch(`${BASE_URL}/api/v1/lead/${id}`, {
         method: "PUT",
@@ -122,13 +107,51 @@ export const updateLeadAPI = createAsyncThunk(
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(apiUpdates),
       });
 
       const json = await res.json();
       if (!res.ok) return rejectWithValue(json.message);
 
-      return { id, updates: json.data };
+      return {
+        id,
+        updates: {
+          ...json.data,
+          leadStatus: json.data.leadStatus || json.data.status,
+        },
+      };
+    } catch (err: any) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
+export const createLeadAPI = createAsyncThunk(
+  "leads/create",
+  async (payload: any, { rejectWithValue, getState }) => {
+    try {
+      const token = (getState() as any).auth.token;
+
+      const apiPayload = {
+        ...payload,
+        leadStatus: payload.leadStatus
+          ? toApiStatus(payload.leadStatus)
+          : "NEW",
+      };
+
+      const res = await fetch(`${BASE_URL}/api/v1/lead`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(apiPayload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) return rejectWithValue(data.message);
+
+      return data;
     } catch (err: any) {
       return rejectWithValue(err.message);
     }
@@ -189,7 +212,7 @@ const leadSlice = createSlice({
         phone: l.phoneNumber,
         jobTitle: l.jobTitle,
         city: l.city,
-        status: toUiStatus(l.leadStatus),
+        status: toUiStatus(l.leadStatus || l.status),
         contactOwner: l.userIds ?? [],
         createdDate: l.createdAt,
       };
@@ -204,7 +227,7 @@ const leadSlice = createSlice({
         phone: l.phoneNumber,
         jobTitle: l.jobTitle,
         city: l.city,
-        status: toUiStatus(l.leadStatus),
+        status: toUiStatus(l.leadStatus || l.status),
         contactOwner:
           l.Users?.map((u: any) => `${u.firstName} ${u.lastName}`) ?? [],
         createdDate: l.createdAt,
@@ -232,7 +255,7 @@ const leadSlice = createSlice({
               phone: updates.phoneNumber,
               city: updates.city,
               jobTitle: updates.jobTitle,
-              status: toUiStatus(updates.leadStatus),
+              status: toUiStatus(updates.leadStatus || updates.status),
             }
           : lead
       );
@@ -246,7 +269,7 @@ const leadSlice = createSlice({
           phone: updates.phoneNumber,
           city: updates.city,
           jobTitle: updates.jobTitle,
-          status: toUiStatus(updates.leadStatus),
+          status: toUiStatus(updates.leadStatus || updates.status),
         };
       }
     });
