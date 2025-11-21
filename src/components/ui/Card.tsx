@@ -95,7 +95,7 @@ const InfoCard: React.FC<InfoCardProps> = ({
   const renderDropdown = (type: "status" | "stage") => {
     const options =
       type === "status"
-        ? ["New", "Open", "In Progress", "Waiting on us", "Waiting on contact", "Closed"]
+        ? ["New", "Waiting on us", "Waiting on Contact", "Closed"]
         : [
             "Appointment Scheduled",
             "Presentation Scheduled",

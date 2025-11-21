@@ -6,7 +6,10 @@ import { CalendarIcon } from "@heroicons/react/24/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Inputs } from "@/components/ui/Inputs";
+
 import { formatDurationFromSeconds } from "@/app/lib/utils";
+
+
 
 export type ActivityType =
   | "note"
@@ -185,9 +188,13 @@ const ActivityDetailView: React.FC<Props> = ({
                 <span className="font-bold text-gray-900 flex-shrink-0 mr-1">
                   Task assigned to
                 </span>
+
                 <span className="truncate text-gray-800">
                   {a.extra?.assignedTo?.name || a.author}
                 </span>
+
+                <span className="truncate text-gray-800">{a.extra?.assignedTo?.name || a.author}</span>
+
               </div>
             ) : (
               <div
@@ -228,6 +235,7 @@ const ActivityDetailView: React.FC<Props> = ({
                     }
                   }}
                 />
+
                 <span
                   className={
                     a.extra?.status === "completed"
@@ -235,6 +243,9 @@ const ActivityDetailView: React.FC<Props> = ({
                       : ""
                   }
                 >
+
+                <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
+
                   {a.extra?.taskName || "Untitled Task"}
                 </span>
               </div>
@@ -295,6 +306,7 @@ const ActivityDetailView: React.FC<Props> = ({
                         }
                       }}
                     />
+
                     <span
                       className={
                         a.extra?.status === "completed"
@@ -302,6 +314,9 @@ const ActivityDetailView: React.FC<Props> = ({
                           : ""
                       }
                     >
+
+                    <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
+
                       {a.extra?.taskName}
                     </span>
                   </div>
@@ -330,11 +345,15 @@ const ActivityDetailView: React.FC<Props> = ({
                   {a.content && (
                     <span
                       dangerouslySetInnerHTML={{ __html: a.content }}
+
                       className={
                         a.extra?.status === "completed"
                           ? "line-through text-gray-500"
                           : ""
                       }
+
+                      className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}
+
                     ></span>
                   )}
                 </>
@@ -375,8 +394,12 @@ const ActivityDetailView: React.FC<Props> = ({
                           </>
                         }
                         value={
+
                           a.extra?.duration !== null &&
                           a.extra?.duration !== undefined
+
+                          a.extra?.duration !== null && a.extra?.duration !== undefined
+
                             ? formatDurationFromSeconds(
                                 typeof a.extra.duration === "number"
                                   ? a.extra.duration

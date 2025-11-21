@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "@/store/store";
 
 import InfoCard from "@/components/ui/Card";
 import EntityInfoCard from "@/components/crm/EntityInfoCard";
@@ -19,10 +21,20 @@ import MeetingModal from "@/components/modal/FormModals/MeetingModal";
 
 import { notify } from "@/components/ui/toast/Notify";
 import { formatActivityDate, formatDisplayDate } from "@/app/lib/date";
-
+import { getEntityEmail } from "@/app/lib/utils";
 import { getCurrentUserName } from "@/app/lib/auth";
 import { calculateDuration } from "@/app/lib/utils";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
+
+// Import meeting slice
+import {
+  fetchCompanyMeetings,
+  createMeeting,
+  updateMeeting,
+  deleteMeeting,
+  Meeting as ReduxMeeting,
+  CreateMeetingData,
+} from "@/store/slices/activity/meetingSlice";
 
 type ActivityType = "note" | "call" | "task" | "email" | "meeting" | "activity";
 
@@ -37,9 +49,25 @@ type Activity = {
   isTicket?: boolean;
 };
 
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token found. Please log in.");
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 export default function CompanyDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
+
+  // Get meetings from Redux store
+  const { meetings, loading: meetingsLoading, error: meetingsError } = useSelector(
+    (state: RootState) => state.meetings
+  );
 
   const [company, setCompany] = useState<any>(null);
   const [editableCompany, setEditableCompany] = useState<any>(null);
@@ -48,6 +76,7 @@ export default function CompanyDetailPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activeTab, setActiveTab] = useState<ActivityType>("activity");
   const [searchValue, setSearchValue] = useState("");
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState<
     Record<Exclude<ActivityType, "activity">, boolean>
   >({
@@ -57,6 +86,7 @@ export default function CompanyDetailPage() {
     email: false,
     meeting: false,
   });
+  const [showCallPopup, setShowCallPopup] = useState(false);
 
   const companyOwnerList = [
     "Maria Johnson",
@@ -68,64 +98,143 @@ export default function CompanyDetailPage() {
   ];
   const currentUserName = getCurrentUserName();
 
-  
+  // Fetch company details from backend API
   useEffect(() => {
-    const companyId = Number(id);
-    const storedSelected = localStorage.getItem("selectedCompany");
-    const storedCompanies = localStorage.getItem("companies");
+    const fetchCompanyDetails = async () => {
+      try {
+        setLoading(true);
+        const companyId = Number(id);
+        
+        console.log("🔍 [COMPANY DETAIL] Fetching company details for ID:", companyId);
+        
+        const headers = getAuthHeaders();
+        const response = await fetch(`http://localhost:5000/api/v1/companies/${companyId}`, {
+          headers,
+        });
 
-    let loadedCompany: any = null;
-    if (storedSelected) {
-      const parsed = JSON.parse(storedSelected);
-      if (parsed && parsed.id === companyId) loadedCompany = parsed;
-    } else if (storedCompanies) {
-      const all = JSON.parse(storedCompanies);
-      loadedCompany = all.find((c: any) => c.id === companyId);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch company: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log("🔍 [COMPANY DETAIL] API Response:", result);
+        
+        if (result.success && result.data) {
+          const companyData = result.data;
+          
+          // Transform the API data to match your frontend structure
+          const transformedCompany = {
+            id: companyData.id,
+            companyName: companyData.companyName || "",
+            industry: companyData.industryType || "",
+            phone: companyData.phoneNumber || "",
+            companyOwner: companyData.Owners ? companyData.Owners.map((owner: any) => 
+              `${owner.firstName || ''} ${owner.lastName || ''}`.trim()
+            ) : [],
+            domain: companyData.domainName || "",
+            city: companyData.city || "",
+            country: companyData.country || "",
+            employees: companyData.noOfEmployees?.toString() || "",
+            revenue: companyData.annualRevenue ? `$${companyData.annualRevenue}` : "",
+            createdDate: companyData.createdDate || companyData.createdAt || new Date().toISOString(),
+            // Include raw data for updating
+            rawData: companyData
+          };
+
+          console.log("🔍 [COMPANY DETAIL] Transformed company:", transformedCompany);
+          
+          setCompany(transformedCompany);
+          setEditableCompany(transformedCompany);
+          
+          // Fetch meetings for this company
+          dispatch(fetchCompanyMeetings({ companyId: companyData.id }));
+        } else {
+          throw new Error("Invalid response format");
+        }
+      } catch (error) {
+        console.error("🔍 [COMPANY DETAIL] Error fetching company:", error);
+        notify("Failed to load company details", "error");
+        
+        // Fallback to localStorage if API fails
+        const storedSelected = localStorage.getItem("selectedCompany");
+        if (storedSelected) {
+          const parsed = JSON.parse(storedSelected);
+          if (parsed && parsed.id === Number(id)) {
+            setCompany(parsed);
+            setEditableCompany(parsed);
+            dispatch(fetchCompanyMeetings({ companyId: parsed.id }));
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchCompanyDetails();
     }
+  }, [id, dispatch]);
 
-    if (!loadedCompany) {
-      loadedCompany = {
-        id: companyId,
-        companyName: "Acme Corporation",
-        industry: "Manufacturing",
-        phone: "+971 4 123 4567",
-        companyOwner: companyOwnerList,
-        domain: "acme.com",
-        city: "Paris",
-        country: "France",
-        employees: "120",
-        revenue: "$3M",
-        createdDate: new Date().toISOString(),
+  // Transform meetings to activities for display
+  const meetingActivities: Activity[] = meetings.map((meeting: ReduxMeeting) => ({
+    id: meeting.id,
+    type: "meeting" as const,
+    title: meeting.title,
+    author: meeting.organizers.map(org => `${org.firstName} ${org.lastName}`).join(", "),
+    date: formatActivityDate(new Date(meeting.startDate + " " + meeting.startTime)),
+    content: meeting.note || `Meeting scheduled for ${meeting.startDate} at ${meeting.startTime}`,
+    extra: {
+      duration: meeting.duration,
+      location: meeting.location,
+      attendees: meeting.totalcount,
+      organizer: meeting.organizers.map(org => `${org.firstName} ${org.lastName}`).join(", "),
+    },
+    isTicket: false,
+  }));
+
+  // Combine existing activities with meeting activities
+  const allActivities = [...activities, ...meetingActivities];
+
+  // Handle meeting creation
+  const handleCreateMeeting = async (meetingData: any): Promise<boolean> => {
+    try {
+      if (!company) return false;
+
+      const createData: CreateMeetingData = {
+        title: meetingData.title,
+        startDate: meetingData.startDate,
+        startTime: meetingData.startTime,
+        endTime: meetingData.endTime,
+        location: meetingData.location,
+        reminder: meetingData.reminder,
+        note: meetingData.note,
+        organizerIds: meetingData.organizerIds || [1], // Default organizer ID, replace with actual user ID
+        attendeeIds: meetingData.attendeeIds || [],
+        linkedModule: "company" as const,
+        linkedModuleId: company.id,
       };
-    }
 
-    setCompany(loadedCompany);
-    setEditableCompany(loadedCompany);
-
-    if (activities.length === 0) {
-      const hardcodedTickets: Activity[] = [
-        {
-          id: 101,
-          type: "note",
-          isTicket: true,
-          title: "Ticket 1",
-          author: "Support Agent",
-          date: new Date().toISOString(),
-          content: `${currentUserName} created Ticket 1`,
-        },
-        {
-          id: 102,
-          type: "note",
-          isTicket: true,
-          title: "Ticket Activity",
-          author: "Support Agent",
-          date: new Date().toISOString(),
-          content: `${currentUserName} created Ticket Activity`,
-        },
-      ];
-      setActivities(hardcodedTickets);
+      const result = await dispatch(createMeeting(createData)).unwrap();
+      notify("Meeting created successfully", "success");
+      toggleModal("meeting", false);
+      return true;
+    } catch (error) {
+      console.error("Failed to create meeting:", error);
+      notify("Failed to create meeting", "error");
+      return false;
     }
-  }, [id]);
+  };
+
+  // Handle meeting deletion
+  const handleDeleteMeeting = async (meetingId: number) => {
+    try {
+      await dispatch(deleteMeeting(meetingId)).unwrap();
+      notify("Meeting deleted successfully", "success");
+    } catch (error) {
+      console.error("Failed to delete meeting:", error);
+      notify("Failed to delete meeting", "error");
+    }
+  };
 
   const ownerOptions = [
     "Maria Johnson",
@@ -136,11 +245,13 @@ export default function CompanyDetailPage() {
     "Greeshma",
   ];
   const industryOptions = [
-    "Manufacturing",
-    "IT",
+    "Technology",
+    "Education", 
     "Finance",
     "Healthcare",
-    "Education",
+    "Retail",
+    "Manufacturing",
+    "IT",
   ];
 
   const toggleModal = (
@@ -179,7 +290,6 @@ export default function CompanyDetailPage() {
     setEditableCompany((prev: any) => ({ ...prev, [key]: val }));
   };
 
-  
   useEffect(() => {
     if (editableCompany) {
       setCompany((prev: any) => ({
@@ -189,21 +299,62 @@ export default function CompanyDetailPage() {
     }
   }, [editableCompany?.companyOwner]);
 
-  const handleSave = () => {
-    setCompany(editableCompany);
-    setIsEditing(false);
+  // Update company in backend
+  const updateCompanyInBackend = async (companyData: any) => {
+    try {
+      const headers = getAuthHeaders();
+      const companyId = Number(id);
+      
+      // Transform data back to backend format
+      const updateData = {
+        companyName: companyData.companyName,
+        domainName: companyData.domain,
+        industryType: companyData.industry,
+        phoneNumber: companyData.phone,
+        city: companyData.city,
+        country: companyData.country,
+        noOfEmployees: parseInt(companyData.employees) || 0,
+        annualRevenue: parseFloat(companyData.revenue?.replace('$', '')) || 0,
+      };
 
-    localStorage.setItem("selectedCompany", JSON.stringify(editableCompany));
-    const storedCompanies = localStorage.getItem("companies");
-    if (storedCompanies) {
-      const allCompanies = JSON.parse(storedCompanies);
-      const updatedCompanies = allCompanies.map((c: any) =>
-        c.id === editableCompany.id ? editableCompany : c
-      );
-      localStorage.setItem("companies", JSON.stringify(updatedCompanies));
+      console.log("🔍 [COMPANY UPDATE] Sending update:", updateData);
+
+      const response = await fetch(`http://localhost:5000/api/v1/companies/${companyId}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update company: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("🔍 [COMPANY UPDATE] Update response:", result);
+      
+      return result.success;
+    } catch (error) {
+      console.error("🔍 [COMPANY UPDATE] Error updating company:", error);
+      throw error;
     }
+  };
 
-    notify("Company details updated successfully", "success");
+  const handleSave = async () => {
+    try {
+      // Update in backend
+      await updateCompanyInBackend(editableCompany);
+      
+      // Update local state
+      setCompany(editableCompany);
+      setIsEditing(false);
+
+      // Optional: Keep localStorage as fallback
+      localStorage.setItem("selectedCompany", JSON.stringify(editableCompany));
+
+      notify("Company details updated successfully", "success");
+    } catch (error) {
+      notify("Failed to update company details", "error");
+    }
   };
 
   const handleCancel = () => {
@@ -215,99 +366,79 @@ export default function CompanyDetailPage() {
     setSearchValue(e.target.value);
   };
 
-  const handleSaveActivity = (
-    type: Exclude<ActivityType, "activity">,
-    data: any
-  ): boolean => {
-    if (!company) return false;
+ // Sync function for non-meeting activities
+const handleSaveSyncActivity = (
+  type: Exclude<ActivityType, "meeting" | "activity">,
+  data: any
+): boolean => {
+  if (!company) return false;
 
-    const currentUser = getCurrentUserName() || "Unknown";
+  const currentUser = getCurrentUserName() || "Unknown";
 
-    let title = "";
-    let content = "";
-    let extra: Record<string, any> | undefined = undefined;
+  let title = "";
+  let content = "";
+  let extra: Record<string, any> | undefined = undefined;
 
-    switch (type) {
-      case "note":
-        title = `Note by ${currentUser}`;
-        content = data;
-        break;
-      case "email":
-        title = `Logged Email – ${
-          data?.subject || "No Subject"
-        } by ${currentUser}`;
-        content = data?.body || "Email sent successfully";
-        break;
-      case "call":
-        title = `Call with ${currentUser}`;
-        content = data?.summary || "Call logged";
-        break;
-      case "task":
-        const assignedTo = data?.assignedTo || company.companyOwner[0];
-        title = `Task assigned to ${assignedTo}`;
-        content = data?.description || "Task created";
-        extra = {
-          priority: data?.priority || "-",
-          taskType: data?.type || "-",
-          dueDate: data?.dueDate || null,
-          assignedTo,
-        };
-        break;
-   case "meeting": {
-  const companyName = editableCompany?.companyName || "Client";
-  const attendees: string[] = Array.isArray(data?.attendees)
-    ? data.attendees
-    : [];
-  const owners: string[] = Array.isArray(editableCompany?.companyOwner)
-    ? editableCompany.companyOwner
-    : [];
+  switch (type) {
+    case "note":
+      title = `Note by ${currentUser}`;
+      content = data;
+      break;
+    case "email":
+      title = `Logged Email – ${data?.subject || "No Subject"} by ${currentUser}`;
+      content = data?.body || "Email sent successfully";
+      break;
+    case "call":
+      title = `Call with ${currentUser}`;
+      content = data?.summary || "Call logged";
+      break;
+    case "task":
+      const assignedTo = data?.assignedTo || company.companyOwner[0];
+      title = `Task assigned to ${assignedTo}`;
+      content = data?.description || "Task created";
+      extra = {
+        priority: data?.priority || "-",
+        taskType: data?.type || "-",
+        taskName: data?.name || "-",
+        dueDate: data?.dueDate || null,
+        assignedTo,
+      };
+      break;
+  }
 
-  const currentUser = getCurrentUserName() || "You";
+  const newActivity: Activity = {
+    id: Date.now(),
+    type,
+    title,
+    author: currentUser,
+    date: formatActivityDate(new Date()),
+    content,
+    extra,
+    isTicket: false,
+  };
 
-  
-  title = `Meeting ${currentUser} and ${companyName}`;
-
- 
-  const normalize = (n: string) => n.trim().toLowerCase();
-  const allParticipants = [currentUser, ...owners, ...attendees];
-  const uniqueParticipants = Array.from(
-    new Set(allParticipants.map(normalize))
+  setActivities((prev) => [newActivity, ...prev]);
+  toggleModal(type, false);
+  notify(
+    `${type.charAt(0).toUpperCase() + type.slice(1)} added successfully`,
+    "success"
   );
-  const totalCount = uniqueParticipants.length;
+  return true;
+};
 
-  content = data?.note || "";
+// Async function only for meetings
+const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
+  return await handleCreateMeeting(data);
+};
 
-  extra = {
-    duration:
-      data?.duration || calculateDuration(data.startTime, data.endTime),
-    attendees: totalCount,
-    attendeeNames: attendees.join(" and "),
-    organizer: currentUser,
-  };
-  break;
-}
-
-    }
-
-    const newActivity: Activity = {
-      id: Date.now(),
-      type,
-      title,
-      author: currentUser,
-      date: formatActivityDate(new Date()),
-      content,
-      extra,
-      isTicket: false,
-    };
-
-    setActivities((prev) => [newActivity, ...prev]);
-    toggleModal(type, false);
-    notify(
-      `${type.charAt(0).toUpperCase() + type.slice(1)} added successfully`,
-      "success"
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-gray-600">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-2">Loading company details...</p>
+      </div>
     );
-    return true;
-  };
+  }
 
   if (!company) {
     return (
@@ -317,7 +448,7 @@ export default function CompanyDetailPage() {
           onClick={() => router.push("/dashboard/modules/companies")}
           className="mt-4 text-indigo-600 hover:underline"
         >
-          ← Loading
+          ← Back to Companies
         </button>
       </div>
     );
@@ -330,7 +461,7 @@ export default function CompanyDetailPage() {
       isEditable: true,
       onChange: (val: string | string[]) =>
         handleFieldChange("Company Domain Name", val),
-       className: "text-gray-900",
+      className: "text-gray-900",
     },
     {
       label: "Company Name",
@@ -338,7 +469,7 @@ export default function CompanyDetailPage() {
       isEditable: true,
       onChange: (val: string | string[]) =>
         handleFieldChange("Company Name", val),
-     className: "text-gray-900",
+      className: "text-gray-900",
     },
     {
       label: "Industry",
@@ -356,7 +487,7 @@ export default function CompanyDetailPage() {
       isEditable: true,
       onChange: (val: string | string[]) =>
         handleFieldChange("Phone number", val),
-       className: "text-gray-900",
+      className: "text-gray-900",
     },
     {
       label: "Company Owner",
@@ -406,11 +537,11 @@ export default function CompanyDetailPage() {
       className: "text-black",
     },
   ];
-  
 
   return (
-    <div className="m-2 bg-white rounded-md  flex flex-col lg:flex-row gap-6 overflow-hidden">
-      <div className="w-[320px] space-y-4 ml-0 mt-2">
+    <div className="m-2 bg-white rounded-md flex flex-col lg:flex-row gap-6 overflow-hidden">
+      {/* Left Sidebar */}
+      <div className="w-[320px] space-y-4 ml-0 mt-2">
         <InfoCard
           module="companies"
           id={company.id}
@@ -434,12 +565,13 @@ export default function CompanyDetailPage() {
         />
       </div>
 
-  
+      {/* Main Content */}
       <div className="flex-1 bg-white rounded-lg flex flex-col">
         <DetailHeader
           searchValue={searchValue}
           onSearchChange={handleSearchChange}
         />
+
         <div className="mt-4 flex-1 overflow-auto">
           <CRMTabHeader
             value={activeTab}
@@ -447,95 +579,159 @@ export default function CompanyDetailPage() {
             renderPanel={(tab, label) => {
               const filtered =
                 tab === "activity"
-                  ? [...activities]
-                  : activities.filter((a) => a.type === tab && !a.isTicket);
+                  ? [...allActivities]
+                  : allActivities.filter((a) => a.type === tab && !a.isTicket);
 
               const sorted = filtered.sort(
                 (a, b) => (a.isTicket ? 0 : 1) - (b.isTicket ? 0 : 1)
               );
 
+              const buttonLabel =
+                tab === "call" ? "Make a Phone Call" : `Create ${label.slice(0, -1)}`;
+
+              const handleCreate = () => {
+                if (tab === "call") setShowCallPopup(true);
+                else toggleModal(tab as Exclude<ActivityType, "activity">, true);
+              };
+
               return tab === "activity" ? (
-                <ActivitySummaryView heading="Upcoming" activities={sorted} />
+                <ActivitySummaryView 
+                  heading="Upcoming" 
+                  activities={sorted}
+                />
               ) : (
                 <ActivityDetailView
                   sectionTitle={label}
-                  buttonLabel={`Create ${label.slice(0, -1)}`}
+                  buttonLabel={buttonLabel}
                   activities={sorted}
-                  onCreate={() =>
-                    toggleModal(tab as Exclude<ActivityType, "activity">, true)
-                  }
+                  onCreate={handleCreate}
                 />
               );
             }}
           />
         </div>
+
+        {/* CALL POPUP */}
+        {showCallPopup && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white shadow-lg rounded-lg p-6 w-[320px] text-center">
+              <h3 className="text-lg font-semibold text-gray-800">Connecting to Agent</h3>
+              <p className="text-sm text-gray-500 mt-2">Simulating call connection</p>
+
+              <div className="flex justify-center gap-3 mt-5">
+                <button
+                  onClick={() => {
+                    setShowCallPopup(false);
+                    notify("Call cancelled", "error");
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setShowCallPopup(false)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  Connect
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-    
+      {/* Right Sidebar */}
       <div className="w-[280px] space-y-4">
         <AISummaryCard
           type="company"
           subjectTitle={company.companyName}
-          message="There are no activities associated with this company and further details are needed to provide a comprehensive summary."
+          message={`There are ${meetings.length} meetings and ${activities.length} other activities associated with this company.`}
           className="w-full text-sm"
         />
         <AttachmentView
           attachments={attachments}
-          onAdd={() => {
-            const fileInput = document.createElement("input");
-            fileInput.type = "file";
-            fileInput.accept = ".pdf,image/*";
-            fileInput.onchange = (e: any) => {
-              const file = e.target.files[0];
-              if (!file) return;
-              setAttachments((prev) => [
-                ...prev,
-                {
-                  id: Date.now(),
-                  name: file.name,
-                  uploadedAt: new Date().toLocaleString(),
-                  type: file.type.startsWith("image/") ? "image" : "pdf",
-                },
-              ]);
+          onAdd={(file, previewUrl) => {
+            if (attachments.some((a) => a.name === file.name)) {
+              notify(`${file.name} already exists in attachments`, "info");
+              return;
+            }
+
+            const newAttachment = {
+              id: Date.now(),
+              name: file.name,
+              uploadedAt: new Date().toLocaleString(),
+              previewUrl,
+              type: file.type,
             };
-            fileInput.click();
+
+            setAttachments((prev) => [...prev, newAttachment]);
           }}
-          onRemove={(aid) =>
-            setAttachments((prev) => prev.filter((a) => a.id !== aid))
-          }
+          onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
         />
       </div>
+{/* Modals - Use sync functions for non-meeting modals */}
+<NoteModal
+  isOpen={showModal.note}
+  onClose={() => toggleModal("note", false)}
+  onSave={(data) => handleSaveSyncActivity("note", data)}
+/>
 
-      
-      <NoteModal
-        isOpen={showModal.note}
-        onClose={() => toggleModal("note", false)}
-        onSave={(data) => handleSaveActivity("note", data)}
-      />
-      <EmailModal
-        isOpen={showModal.email}
-        onClose={() => toggleModal("email", false)}
-        onSend={(data) => {
-          handleSaveActivity("email", data);
-          return true;
-        }}
-      />
-      <CallModal
-        isOpen={showModal.call}
-        onClose={() => toggleModal("call", false)}
-        connectedPerson={company.companyOwner}
-        onSave={(data) => handleSaveActivity("call", data)}
-      />
-      <TaskModal
-        isOpen={showModal.task}
-        onClose={() => toggleModal("task", false)}
-        onSave={(data) => handleSaveActivity("task", data)}
-      />
-      <MeetingModal
-        isOpen={showModal.meeting}
-        onClose={() => toggleModal("meeting", false)}
-        onSave={(data) => handleSaveActivity("meeting", data)}
-      />
+<CallModal
+  isOpen={showModal.call}
+  onClose={() => toggleModal("call", false)}
+  connectedPerson={company?.companyOwner || []}
+  onSave={(data) => handleSaveSyncActivity("call", data)}
+/>
+
+<TaskModal
+  isOpen={showModal.task}
+  onClose={() => toggleModal("task", false)}
+  onSave={(data) => handleSaveSyncActivity("task", data)}
+/>
+
+<EmailModal
+  isOpen={showModal.email}
+  onClose={() => toggleModal("email", false)}
+  onSend={(data) => handleSaveSyncActivity("email", data)}
+  connectedPerson={(() => {
+    const leadEmail = getEntityEmail("company", String(company.id));
+    return leadEmail ? `lead:${leadEmail}` : undefined;
+  })()}
+  recordAttachments={attachments.map((a) => ({
+    id: a.id,
+    name: a.name,
+    url: a.previewUrl,
+  }))}
+  onAttachToRecord={(file) => {
+    const isImage =
+      file.type?.startsWith("image/") ||
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
+
+    setAttachments((prev) => {
+      const exists = prev.some((a) => a.name === file.name);
+      if (exists) return prev;
+
+      const previewUrl = isImage ? file.url : undefined;
+      const newAttachment = {
+        id: Date.now(),
+        name: file.name,
+        uploadedAt: new Date().toLocaleString(),
+        previewUrl,
+        type: file.type || (isImage ? "image/png" : "application/octet-stream"),
+      };
+      return [...prev, newAttachment];
+    });
+  }}
+/>
+
+{/* Only MeetingModal uses async function */}
+<MeetingModal
+  isOpen={showModal.meeting}
+  onClose={() => toggleModal("meeting", false)}
+  onSave={handleSaveMeetingActivity}
+  linkedModule="company"
+  linkedModuleId={company.id}
+/>
     </div>
   );
 }

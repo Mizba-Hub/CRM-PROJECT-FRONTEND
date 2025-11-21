@@ -16,6 +16,7 @@ type Form = {
   country: string;
   password: string;
   confirm: string;
+  role: string;
 };
 
 const initial: Form = {
@@ -28,6 +29,7 @@ const initial: Form = {
   country: "",
   password: "",
   confirm: "",
+  role: "",
 };
 
 export default function RegisterPage() {
@@ -36,6 +38,7 @@ export default function RegisterPage() {
   const { error, loading } = useAppSelector((state) => state.auth);
 
   const [form, setForm] = useState<Form>(initial);
+  const [errors, setErrors] = useState<Partial<Form>>({});
   const [ok, setOk] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -43,34 +46,40 @@ export default function RegisterPage() {
   function onChange(e: any) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+
+    setErrors((prev) => ({ ...prev, [name]: "" }));
     setOk(false);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    
 
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-      alert("First name, last name, and email are required");
-      return;
+    const newErrors: Partial<Form> = {};
+
+    if (!form.firstName.trim()) newErrors.firstName = "First name is required";
+    if (!form.lastName.trim()) newErrors.lastName = "Last name is required";
+
+    if (!form.email.trim()) newErrors.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      newErrors.email = "Enter a valid email";
+
+    if (form.phone.trim()) {
+      if (!/^[0-9]{10}$/.test(form.phone))
+        newErrors.phone = "Phone number must be 10 digits";
     }
 
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
-    if (!emailOk) {
-      alert("Enter a valid email");
-      return;
-    }
+    if (!form.password.trim()) newErrors.password = "Password is required";
+    if (!form.confirm.trim())
+      newErrors.confirm = "Confirm password is required";
 
-    if (!form.password.trim() || !form.confirm.trim()) {
-      alert("Password and confirm password are required");
-      return;
-    }
-    
+    if (form.password !== form.confirm)
+      newErrors.confirm = "Passwords do not match";
 
-    if (form.password.trim() !== form.confirm.trim()) {
-      alert("Passwords do not match");
-      return;
-    }
+    if (!form.role.trim()) newErrors.role = "Role is required";
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) return;
 
     const result = await dispatch(
       registerUser({
@@ -78,14 +87,12 @@ export default function RegisterPage() {
         lastName: form.lastName,
         email: form.email,
         phone: form.phone,
-
         companyName: form.company,
         industryType: form.industry,
-
         country: form.country,
-
         password: form.password,
         confirmPassword: form.confirm,
+        role: form.role,
       })
     );
 
@@ -113,10 +120,12 @@ export default function RegisterPage() {
               type="text"
               value={form.firstName}
               onChange={onChange}
+              className={`ui-input ${errors.firstName ? "border-red-500" : ""}`}
               placeholder="Enter your first name"
-              className="ui-input"
-              required
             />
+            {errors.firstName && (
+              <p className="text-red-600 text-xs mt-1">{errors.firstName}</p>
+            )}
           </Field>
 
           <Field label="Last Name">
@@ -125,10 +134,12 @@ export default function RegisterPage() {
               type="text"
               value={form.lastName}
               onChange={onChange}
+              className={`ui-input ${errors.lastName ? "border-red-500" : ""}`}
               placeholder="Enter your last name"
-              className="ui-input"
-              required
             />
+            {errors.lastName && (
+              <p className="text-red-600 text-xs mt-1">{errors.lastName}</p>
+            )}
           </Field>
 
           <Field label="Email">
@@ -137,10 +148,12 @@ export default function RegisterPage() {
               type="email"
               value={form.email}
               onChange={onChange}
+              className={`ui-input ${errors.email ? "border-red-500" : ""}`}
               placeholder="Enter your email"
-              className="ui-input"
-              required
             />
+            {errors.email && (
+              <p className="text-red-600 text-xs mt-1">{errors.email}</p>
+            )}
           </Field>
 
           <Field label="Phone Number">
@@ -149,9 +162,12 @@ export default function RegisterPage() {
               type="tel"
               value={form.phone}
               onChange={onChange}
+              className={`ui-input ${errors.phone ? "border-red-500" : ""}`}
               placeholder="Enter your phone number"
-              className="ui-input"
             />
+            {errors.phone && (
+              <p className="text-red-600 text-xs mt-1">{errors.phone}</p>
+            )}
           </Field>
 
           <Field label="Company Name">
@@ -160,9 +176,27 @@ export default function RegisterPage() {
               type="text"
               value={form.company}
               onChange={onChange}
-              placeholder="Enter your company name"
               className="ui-input"
+              placeholder="Enter your company name"
             />
+          </Field>
+
+          <Field label="Role">
+            <select
+              name="role"
+              value={form.role}
+              onChange={onChange}
+              className={`ui-input ${errors.role ? "border-red-500" : ""}`}
+            >
+              <option value="" disabled>
+                Choose
+              </option>
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
+            </select>
+            {errors.role && (
+              <p className="text-red-600 text-xs mt-1">{errors.role}</p>
+            )}
           </Field>
 
           <Field label="Industry Type">
@@ -172,7 +206,9 @@ export default function RegisterPage() {
               onChange={onChange}
               className="ui-input"
             >
-              <option value="">Choose</option>
+              <option value="" disabled>
+                Choose
+              </option>
               <option value="Software">Software</option>
               <option value="Finance">Finance</option>
               <option value="Healthcare">Healthcare</option>
@@ -186,8 +222,8 @@ export default function RegisterPage() {
               type="text"
               value={form.country}
               onChange={onChange}
-              placeholder="Enter your country or region"
               className="ui-input"
+              placeholder="Enter your country or region"
             />
           </Field>
 
@@ -198,9 +234,10 @@ export default function RegisterPage() {
                 type={showPwd ? "text" : "password"}
                 value={form.password}
                 onChange={onChange}
+                className={`ui-input pr-10 ${
+                  errors.password ? "border-red-500" : ""
+                }`}
                 placeholder="Create a password"
-                className="ui-input pr-10"
-                required
               />
               <button
                 type="button"
@@ -214,6 +251,9 @@ export default function RegisterPage() {
                 )}
               </button>
             </div>
+            {errors.password && (
+              <p className="text-red-600 text-xs mt-1">{errors.password}</p>
+            )}
           </Field>
 
           <Field label="Confirm Password">
@@ -223,9 +263,10 @@ export default function RegisterPage() {
                 type={showConfirm ? "text" : "password"}
                 value={form.confirm}
                 onChange={onChange}
+                className={`ui-input pr-10 ${
+                  errors.confirm ? "border-red-500" : ""
+                }`}
                 placeholder="Re-enter your password"
-                className="ui-input pr-10"
-                required
               />
               <button
                 type="button"
@@ -239,10 +280,14 @@ export default function RegisterPage() {
                 )}
               </button>
             </div>
+            {errors.confirm && (
+              <p className="text-red-600 text-xs mt-1">{errors.confirm}</p>
+            )}
           </Field>
         </div>
 
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+
         {ok && (
           <p className="mt-3 text-sm text-emerald-700">
             Registration successful. Redirecting to login...

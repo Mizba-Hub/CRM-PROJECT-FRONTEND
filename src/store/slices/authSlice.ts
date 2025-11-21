@@ -2,6 +2,9 @@ import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+const savedToken =
+  typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
 type User = {
   id?: number;
   email: string;
@@ -11,6 +14,7 @@ type User = {
 
 type AuthState = {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   error: string | null;
   loading: boolean;
@@ -18,11 +22,11 @@ type AuthState = {
 
 const initialState: AuthState = {
   user: null,
-  isAuthenticated: false,
+  token: savedToken,
+  isAuthenticated: !!savedToken,
   error: null,
   loading: false,
 };
-
 
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
@@ -41,6 +45,8 @@ export const loginUser = createAsyncThunk(
       if (!res.ok) return rejectWithValue(data.message);
 
       localStorage.setItem("token", data.token);
+
+      localStorage.setItem("user", JSON.stringify(data.user));
 
       return {
         token: data.token,
@@ -78,10 +84,14 @@ const slice = createSlice({
   reducers: {
     logout(state) {
       state.user = null;
+      state.token = null;
       state.isAuthenticated = false;
+
       localStorage.removeItem("token");
+      localStorage.removeItem("user");
     },
   },
+
   extraReducers: (b) => {
     b.addCase(loginUser.pending, (s) => {
       s.loading = true;
@@ -92,6 +102,7 @@ const slice = createSlice({
         (s, a: PayloadAction<{ token: string; user: User }>) => {
           s.loading = false;
           s.user = a.payload.user;
+          s.token = a.payload.token;
           s.isAuthenticated = true;
         }
       )

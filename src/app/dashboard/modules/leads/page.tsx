@@ -1,266 +1,303 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  fetchLeads,
+  createLeadAPI,
+  updateLeadAPI,
+  deleteLeadAPI,
+} from "@/store/slices/leadSlice";
+
 import HeaderBar from "@/components/crm/EntityList";
 import TableLayout, {
   TableRow,
   TableCell,
 } from "@/components/crm/table/TableLayout";
 import ActionButtons from "@/components/crm/table/EntityDetailHeader";
+import LeadModal from "./components/CreateLeadButton";
 import { Inputs } from "@/components/ui/Inputs";
 import { notify } from "@/components/ui/toast/Notify";
-import LeadModal from "./components/CreateLeadButton";
 import { formatDisplayDate } from "@/app/lib/date";
 import Link from "next/link";
 
 const ITEMS_PER_PAGE = 10;
 
-interface Lead {
-  id: number;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  fullPhone?: string;
-  city: string;
-  jobTitle: string;
-  contactOwner: string[];
-  status: "Open" | "New" | "In Progress" | "Qualified" | "Closed" | "Converted";
-  createdDate: string;
-}
-
-const leadFilters = [
-  {
-    label: "Lead Status",
-    options: ["Open", "New", "In Progress", "Qualified", "Closed", "Converted"],
-  },
-];
-
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const dispatch = useAppDispatch();
+  const leads = useAppSelector((state) => state.leads.leads);
+  const total = useAppSelector((state) => state.leads.total);
+  const size = useAppSelector((state) => state.leads.size);
+  const [users, setUsers] = useState<{ label: string; value: string }[]>([]);
+  const token = useAppSelector((s) => s.auth.token);
+
+  const reduxUser = useAppSelector((s) => s.auth.user);
+
+  const storedUser =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("user") || "null")
+      : null;
+
+  const currentUser = reduxUser || storedUser;
+
+  const isAdmin = currentUser?.role === "admin";
+  const currentUserId = currentUser?.id?.toString();
+
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>(
     {}
   );
+
   const [currentPage, setCurrentPage] = useState(1);
-
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editData, setEditData] = useState<Lead | null>(null);
+  const [editData, setEditData] = useState<any>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("leads");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const fixed = parsed.map((l: any) => ({
-        ...l,
-        contactOwner: Array.isArray(l.contactOwner)
-          ? l.contactOwner
-          : [l.contactOwner].filter(Boolean),
-      }));
-      setLeads(fixed);
-      localStorage.setItem("leads", JSON.stringify(fixed));
-    } else {
-      setLeads([]);
-      localStorage.setItem("leads", JSON.stringify([]));
-    }
-  }, []);
+    dispatch(fetchLeads({ page: currentPage, size: ITEMS_PER_PAGE }));
+  }, [dispatch, currentPage]);
 
   useEffect(() => {
-    const reloadOnStorageChange = () => {
-      const stored = localStorage.getItem("leads");
-      if (stored) setLeads(JSON.parse(stored));
+    const loadUsers = async () => {
+      try {
+        if (!isAdmin) {
+          setUsers([]);
+          return;
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/users`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch users: ${res.status}`);
+        }
+
+        const data: any[] = await res.json();
+
+        const formatted = data.map((u) => ({
+          label: `${u.firstName} ${u.lastName}`,
+          value: u.id.toString(),
+        }));
+
+        setUsers(formatted);
+      } catch (err) {
+        notify("Failed to load users", "error");
+      }
     };
-    window.addEventListener("storage", reloadOnStorageChange);
-    return () => window.removeEventListener("storage", reloadOnStorageChange);
-  }, []);
 
-  const updateLocalStorage = (updatedLeads: Lead[]) => {
-    setLeads(updatedLeads);
-    localStorage.setItem("leads", JSON.stringify(updatedLeads));
-  };
+    if (token && isAdmin) {
+      loadUsers();
+    }
+  }, [token, isAdmin]);
 
   const filteredLeads = leads.filter((lead) => {
-    const matchesSearch =
-      `${lead.firstName} ${lead.lastName}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.phone.includes(searchTerm);
+    const search = searchTerm.toLowerCase();
 
-    const matchesStatus = selectedStatus
-      ? lead.status === selectedStatus
+    const matchesSearch =
+      `${lead.firstName} ${lead.lastName}`.toLowerCase().includes(search) ||
+      lead.email.toLowerCase().includes(search) ||
+      lead.city?.toLowerCase().includes(search) ||
+      lead.phone?.includes(search);
+
+    const statusFilter = activeFilters["Lead Status"] || "";
+    const dateFilter = activeFilters["Date"] || "";
+
+    const matchesStatus = statusFilter
+      ? lead.status.toLowerCase() === statusFilter.toLowerCase()
       : true;
 
-    const matchesDate = selectedDate
-      ? new Date(lead.createdDate).toISOString().slice(0, 10) === selectedDate
+    const matchesDate = dateFilter
+      ? new Date(lead.createdDate).toISOString().slice(0, 10) === dateFilter
       : true;
 
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  const handleSaveLead = (data: Omit<Lead, "id" | "createdDate">) => {
-    if (!data.firstName || !data.lastName || !data.email || !data.status) {
-      notify("Please fill all required fields", "error");
-      return false;
-    }
-    const cleanPhone = data.phone.trim().replace(/\D/g, "").slice(-10);
-    const newLead: Lead = {
-      id: Date.now(),
-      createdDate: new Date().toISOString(),
-      ...data,
-      phone: cleanPhone,
-      fullPhone: data.phone,
+  const totalPages = Math.max(1, Math.ceil(total / size));
+
+  const handleSaveLead = async (form: any) => {
+    const userIds = isAdmin
+      ? (form.contactOwner || []).map((id: string) => Number(id))
+      : [Number(currentUserId)].filter(Boolean);
+
+    const payload = {
+      email: form.email,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      phoneNumber: form.phone,
+      jobTitle: form.jobTitle,
+      city: form.city,
+      leadStatus: form.status.toUpperCase().replace(" ", "_"),
+      userIds: userIds,
     };
-    const updated = [newLead, ...leads];
-    updateLocalStorage(updated);
-    notify("Lead created successfully", "success");
-    setShowModal(false);
-    return true;
-  };
 
-  const handleEdit = (lead: Lead) => {
-    const storedLeads = localStorage.getItem("leads");
-    if (storedLeads) {
-      const parsed = JSON.parse(storedLeads);
-      const latest = parsed.find((l: any) => l.id === lead.id);
-      setEditData(latest || lead);
-    } else {
-      setEditData(lead);
+    const res: any = await dispatch(createLeadAPI(payload));
+    if (res.meta.requestStatus === "fulfilled") {
+      notify("Lead created successfully", "success");
+      dispatch(fetchLeads({ page: 1, size: ITEMS_PER_PAGE }));
+      return true;
     }
-    setShowModal(true);
+    notify("Failed to create lead", "error");
+    return false;
   };
 
-  const handleUpdateLead = (updated: Omit<Lead, "id" | "createdDate">) => {
-    if (!editData) return false;
-    const updatedLead: Lead = {
-      ...editData,
-      ...updated,
-      phone: updated.phone.replace(/\D/g, "").slice(-10),
-      fullPhone: updated.phone,
+  const handleUpdateLead = async (form: any) => {
+    const userIds = isAdmin
+      ? (form.contactOwner || []).map((id: any) => Number(id)).filter(Boolean)
+      : [Number(currentUserId)];
+
+    const payload = {
+      id: editData.id,
+      updates: {
+        email: form.email,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        phoneNumber: form.phone,
+        jobTitle: form.jobTitle,
+        city: form.city,
+        leadStatus: form.status?.toUpperCase().replace(/ /g, "_"),
+        userIds,
+      },
     };
-    const updatedLeads = leads.map((l) =>
-      l.id === editData.id ? updatedLead : l
-    );
-    updateLocalStorage(updatedLeads);
-    setEditData(null);
-    setShowModal(false);
-    notify("Lead updated successfully", "success");
-    return true;
+
+    const res: any = await dispatch(updateLeadAPI(payload));
+
+    if (res.meta.requestStatus === "fulfilled") {
+      notify("Lead updated successfully", "success");
+      dispatch(fetchLeads({ page: currentPage, size: ITEMS_PER_PAGE }));
+      return true;
+    }
+
+    notify("Failed to update lead", "error");
+    return false;
   };
 
-  const handleDelete = (lead: Lead) => {
-    const updated = leads.filter((l) => l.id !== lead.id);
-    updateLocalStorage(updated);
-    notify("Lead deleted successfully", "success");
+  const handleDelete = async (lead: any) => {
+    const res: any = await dispatch(deleteLeadAPI(lead.id));
+
+    if (res.meta.requestStatus === "fulfilled") {
+      notify("Lead deleted successfully", "success");
+      dispatch(fetchLeads({ page: currentPage, size: ITEMS_PER_PAGE }));
+    } else notify("Failed to delete lead", "error");
   };
-
-  const columns = [
-    { key: "checkbox", label: "" },
-    { key: "name", label: "NAME" },
-    { key: "email", label: "EMAIL" },
-    { key: "phone", label: "PHONE NUMBER" },
-    { key: "city", label: "CITY" },
-    { key: "createdDate", label: "CREATED DATE" },
-    { key: "status", label: "LEAD STATUS" },
-    { key: "actions", label: "ACTIONS" },
-  ];
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredLeads.length / ITEMS_PER_PAGE)
-  );
-
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, activeFilters]);
 
   return (
-    <div className="bg-white m-2 rounded-md h-full overflow-hidden">
+    <div className="bg-white m-2 rounded-md h-full overflow-auto">
       <HeaderBar
         title="Leads"
         searchPlaceholder="Search phone, name, email"
-        onSearch={(val) => setSearchTerm(val)}
-        filters={leadFilters}
-        activeFilters={activeFilters}
+        onSearch={(v) => {
+          setSearchTerm(v);
+          setCurrentPage(1);
+        }}
+        filters={[
+          {
+            label: "Lead Status",
+            options: [
+              "Open",
+              "New",
+              "In Progress",
+              "Contact",
+              "Qualified",
+              "Closed",
+              "Converted",
+            ],
+          },
+        ]}
         onFilterChange={(name, val) => {
           setActiveFilters((prev) => ({ ...prev, [name]: val }));
-          setSelectedStatus(val);
+          setCurrentPage(1);
         }}
-        onDateChange={(date) => setSelectedDate(date)}
+        onDateChange={(date) => {
+          setActiveFilters((prev) => ({ ...prev, Date: date }));
+          setCurrentPage(1);
+        }}
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
+        activeFilters={activeFilters}
         onCreate={() => {
           setEditData(null);
           setShowModal(true);
         }}
       />
 
-      <div className="bg-white p-4">
-        <TableLayout columns={columns}>
-          {paginatedLeads.length > 0 ? (
-            paginatedLeads.map((lead) => (
-              <TableRow key={lead.id}>
-                <TableCell isCheckbox>
-                  <Inputs type="checkbox" variant="input" />
-                </TableCell>
+      <div className="p-2">
+        <TableLayout
+          columns={[
+            { key: "checkbox", label: "" },
+            { key: "name", label: "NAME" },
+            { key: "email", label: "EMAIL" },
+            { key: "phone", label: "PHONE" },
+            { key: "city", label: "CITY" },
+            { key: "createdDate", label: "CREATED DATE" },
+            { key: "status", label: "STATUS" },
+            { key: "actions", label: "ACTIONS" },
+          ]}
+        >
+          {filteredLeads.map((lead) => (
+            <TableRow key={lead.id}>
+              <TableCell isCheckbox>
+                <Inputs type="checkbox" variant="input" />
+              </TableCell>
 
-                <TableCell>
-                  <Link
-                    href={`/dashboard/modules/leads/${lead.id}`}
-                    onClick={() =>
-                      localStorage.setItem("leads", JSON.stringify(leads))
-                    }
-                    className="hover:underline"
-                  >
-                    {lead.firstName} {lead.lastName}
-                  </Link>
-                </TableCell>
+              <TableCell>
+                <Link
+                  href={`/dashboard/modules/leads/${lead.id}`}
+                  className="hover:underline"
+                >
+                  {lead.firstName} {lead.lastName}
+                </Link>
+              </TableCell>
 
-                <TableCell>{lead.email}</TableCell>
-                <TableCell>{lead.phone}</TableCell>
-                <TableCell>{lead.city || "-"}</TableCell>
+              <TableCell>{lead.email}</TableCell>
+              <TableCell>{lead.phone}</TableCell>
+              <TableCell>{lead.city || "-"}</TableCell>
+              <TableCell>{formatDisplayDate(lead.createdDate)}</TableCell>
 
-                <TableCell>{formatDisplayDate(lead.createdDate)}</TableCell>
+              <TableCell>
+                <span
+                  className={`px-2 py-1 text-xs rounded font-medium
+      ${
+        lead.status === "New"
+          ? "bg-blue-100 text-blue-600"
+          : lead.status === "Open"
+          ? "bg-green-100 text-green-600"
+          : lead.status === "In Progress"
+          ? "bg-yellow-100 text-yellow-700"
+          : lead.status === "Contact"
+          ? "bg-purple-100 text-purple-600"
+          : lead.status === "Qualified"
+          ? "bg-indigo-100 text-indigo-600"
+          : lead.status === "Closed"
+          ? "bg-red-100 text-red-600"
+          : lead.status === "Converted"
+          ? "bg-teal-100 text-teal-600"
+          : "bg-gray-100 text-gray-600"
+      }
+    `}
+                >
+                  {lead.status}
+                </span>
+              </TableCell>
 
-                <TableCell>
-                  <span
-                    className={`px-2 py-1 text-xs rounded ${
-                      lead.status === "Open"
-                        ? "bg-green-100 text-green-700"
-                        : lead.status === "New"
-                        ? "bg-blue-100 text-blue-700"
-                        : lead.status === "In Progress"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-gray-200 text-gray-700"
-                    }`}
-                  >
-                    {lead.status}
-                  </span>
-                </TableCell>
-
-                <TableCell>
-                  <ActionButtons
-                    item={lead}
-                    onEdit={() => handleEdit(lead)}
-                    onDelete={() => handleDelete(lead)}
-                  />
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length}>
-                <p className="text-gray-500 text-center py-4">No leads found</p>
+              <TableCell>
+                <ActionButtons
+                  item={lead}
+                  onEdit={() => {
+                    setEditData(lead);
+                    setShowModal(true);
+                  }}
+                  onDelete={() => handleDelete(lead)}
+                />
               </TableCell>
             </TableRow>
-          )}
+          ))}
         </TableLayout>
       </div>
 
@@ -270,8 +307,16 @@ export default function LeadsPage() {
           setShowModal(false);
           setEditData(null);
         }}
-        onSave={editData ? handleUpdateLead : handleSaveLead}
         editData={editData}
+        onSave={editData ? handleUpdateLead : handleSaveLead}
+        users={users}
+        isAdmin={isAdmin}
+        currentUserId={currentUserId}
+        currentUserName={
+          `${currentUser?.firstName || ""} ${
+            currentUser?.lastName || ""
+          }`.trim() || "You"
+        }
       />
     </div>
   );
