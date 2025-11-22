@@ -9,8 +9,6 @@ import { Inputs } from "@/components/ui/Inputs";
 
 import { formatDurationFromSeconds } from "@/app/lib/utils";
 
-
-
 export type ActivityType =
   | "note"
   | "call"
@@ -133,9 +131,9 @@ const ActivityDetailView: React.FC<Props> = ({
     if (isEmail) {
       const parts = a.title.split("–");
 
-      boldPart = (parts[0] || "").trim(); 
-      subjectPart = (parts[1] || "").trim(); 
-      restPart = (parts[2] || "").trim(); 
+      boldPart = (parts[0] || "").trim();
+      subjectPart = (parts[1] || "").trim();
+      restPart = (parts[2] || "").trim();
     } else {
       const words = a.title.split(" ");
       boldPart = words[0];
@@ -242,8 +240,10 @@ const ActivityDetailView: React.FC<Props> = ({
                   {a.extra?.taskName || "Untitled Task"}
                 </span>
               </div>
-           ) : a.type === "meeting" ? (
-              <span className="px-3">{a.extra?.originalTitle || "Meeting scheduled"}</span>
+            ) : a.type === "meeting" ? (
+              <span className="px-3">
+                {a.extra?.originalTitle || "Meeting scheduled"}
+              </span>
             ) : (
               previewText
             )}
@@ -271,14 +271,18 @@ const ActivityDetailView: React.FC<Props> = ({
                     <p className="text-m text-gray-500 mb-1">
                       To{" "}
                       {(() => {
-                        // Check for leadName in both lowercase and capital L (handle case variations)
-                        const leadName = a.extra?.leadName || (a.extra as any)?.LeadName || null;
-                        return leadName || 
-                         (Array.isArray(a.extra?.recipients)
-                          ? getDisplayName(a.extra.recipients[0])
-                          : typeof a.extra?.recipients === "string"
-                          ? getDisplayName(a.extra.recipients)
-                          : a.author);
+                        const leadName =
+                          a.extra?.leadName ||
+                          (a.extra as any)?.LeadName ||
+                          null;
+                        return (
+                          leadName ||
+                          (Array.isArray(a.extra?.recipients)
+                            ? getDisplayName(a.extra.recipients[0])
+                            : typeof a.extra?.recipients === "string"
+                            ? getDisplayName(a.extra.recipients)
+                            : a.author)
+                        );
                       })()}
                     </p>
                     {a.content && (
@@ -304,15 +308,15 @@ const ActivityDetailView: React.FC<Props> = ({
                         }
                       }}
                     />
-                  <span
-                    className={
-                      a.extra?.status === "completed"
-                        ? "line-through text-gray-500"
-                        : ""
-                    }
-                  >
-                    {a.extra?.taskName || "Untitled Task"}
-                  </span>
+                    <span
+                      className={
+                        a.extra?.status === "completed"
+                          ? "line-through text-gray-500"
+                          : ""
+                      }
+                    >
+                      {a.extra?.taskName || "Untitled Task"}
+                    </span>
                   </div>
                   <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4 bg-gray-200 p-3 rounded mb-3">
                     <div>
