@@ -23,10 +23,8 @@ import { notify } from "@/components/ui/toast/Notify";
 import { formatActivityDate, formatDisplayDate } from "@/app/lib/date";
 import { getEntityEmail } from "@/app/lib/utils";
 import { getCurrentUserName } from "@/app/lib/auth";
-import { calculateDuration } from "@/app/lib/utils";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 
-// Import meeting slice
 import {
   fetchCompanyMeetings,
   createMeeting,
@@ -49,7 +47,7 @@ type Activity = {
   isTicket?: boolean;
 };
 
-// Helper function to get auth headers
+
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("No token found. Please log in.");
@@ -64,11 +62,10 @@ export default function CompanyDetailPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
-  // Get meetings from Redux store
   const { meetings, loading: meetingsLoading, error: meetingsError } = useSelector(
     (state: RootState) => state.meetings
   );
-
+  const [availableAttendees, setAvailableAttendees] = useState<any[]>([]);
   const [company, setCompany] = useState<any>(null);
   const [editableCompany, setEditableCompany] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -87,6 +84,17 @@ export default function CompanyDetailPage() {
     meeting: false,
   });
   const [showCallPopup, setShowCallPopup] = useState(false);
+ 
+ 
+  useEffect(() => {
+    const fetchCompanyDetails = async () => {
+
+    };
+
+    if (id) {
+      fetchCompanyDetails();
+    }
+  }, [id, dispatch]);
 
   const companyOwnerList = [
     "Maria Johnson",
@@ -98,14 +106,14 @@ export default function CompanyDetailPage() {
   ];
   const currentUserName = getCurrentUserName();
 
-  // Fetch company details from backend API
+
   useEffect(() => {
     const fetchCompanyDetails = async () => {
       try {
         setLoading(true);
         const companyId = Number(id);
         
-        console.log("🔍 [COMPANY DETAIL] Fetching company details for ID:", companyId);
+       
         
         const headers = getAuthHeaders();
         const response = await fetch(`http://localhost:5000/api/v1/companies/${companyId}`, {
@@ -122,7 +130,7 @@ export default function CompanyDetailPage() {
         if (result.success && result.data) {
           const companyData = result.data;
           
-          // Transform the API data to match your frontend structure
+          
           const transformedCompany = {
             id: companyData.id,
             companyName: companyData.companyName || "",
@@ -137,7 +145,7 @@ export default function CompanyDetailPage() {
             employees: companyData.noOfEmployees?.toString() || "",
             revenue: companyData.annualRevenue ? `$${companyData.annualRevenue}` : "",
             createdDate: companyData.createdDate || companyData.createdAt || new Date().toISOString(),
-            // Include raw data for updating
+         
             rawData: companyData
           };
 
@@ -146,7 +154,7 @@ export default function CompanyDetailPage() {
           setCompany(transformedCompany);
           setEditableCompany(transformedCompany);
           
-          // Fetch meetings for this company
+        
           dispatch(fetchCompanyMeetings({ companyId: companyData.id }));
         } else {
           throw new Error("Invalid response format");
@@ -155,7 +163,7 @@ export default function CompanyDetailPage() {
         console.error("🔍 [COMPANY DETAIL] Error fetching company:", error);
         notify("Failed to load company details", "error");
         
-        // Fallback to localStorage if API fails
+       
         const storedSelected = localStorage.getItem("selectedCompany");
         if (storedSelected) {
           const parsed = JSON.parse(storedSelected);
@@ -175,57 +183,111 @@ export default function CompanyDetailPage() {
     }
   }, [id, dispatch]);
 
-  // Transform meetings to activities for display
-  const meetingActivities: Activity[] = meetings.map((meeting: ReduxMeeting) => ({
+
+const meetingActivities: Activity[] = meetings.map((meeting: ReduxMeeting) => {
+  const organizerName = meeting.organizers?.map(org => `${org.firstName} ${org.lastName}`).join(", ") || "Unknown Organizer";
+  
+ 
+  const currentUser = getCurrentUserName() || "User";
+  
+
+  const customTitle = company 
+    ? `Meeting ${currentUser} and ${company.companyName}`
+    : `Meeting ${currentUser}`; 
+  
+  console.log("🔍 TRANSFORMING:", {
+    from: meeting.title,
+    to: customTitle,
+    currentUser: currentUser,
+    companyName: company?.companyName
+  });
+
+  return {
     id: meeting.id,
     type: "meeting" as const,
-    title: meeting.title,
-    author: meeting.organizers.map(org => `${org.firstName} ${org.lastName}`).join(", "),
-    date: formatActivityDate(new Date(meeting.startDate + " " + meeting.startTime)),
+    title: customTitle,
+    author: organizerName,
+    date: formatActivityDate(new Date(`${meeting.startDate} ${meeting.startTime}`)),
     content: meeting.note || `Meeting scheduled for ${meeting.startDate} at ${meeting.startTime}`,
     extra: {
       duration: meeting.duration,
       location: meeting.location,
       attendees: meeting.totalcount,
-      organizer: meeting.organizers.map(org => `${org.firstName} ${org.lastName}`).join(", "),
+      organizer: organizerName,
+      originalTitle: meeting.title,
     },
     isTicket: false,
-  }));
-
-  // Combine existing activities with meeting activities
+  };
+});
   const allActivities = [...activities, ...meetingActivities];
 
-  // Handle meeting creation
-  const handleCreateMeeting = async (meetingData: any): Promise<boolean> => {
-    try {
-      if (!company) return false;
 
-      const createData: CreateMeetingData = {
-        title: meetingData.title,
-        startDate: meetingData.startDate,
-        startTime: meetingData.startTime,
-        endTime: meetingData.endTime,
-        location: meetingData.location,
-        reminder: meetingData.reminder,
-        note: meetingData.note,
-        organizerIds: meetingData.organizerIds || [1], // Default organizer ID, replace with actual user ID
-        attendeeIds: meetingData.attendeeIds || [],
-        linkedModule: "company" as const,
-        linkedModuleId: company.id,
-      };
-
-      const result = await dispatch(createMeeting(createData)).unwrap();
-      notify("Meeting created successfully", "success");
-      toggleModal("meeting", false);
-      return true;
-    } catch (error) {
-      console.error("Failed to create meeting:", error);
-      notify("Failed to create meeting", "error");
+const handleCreateMeeting = async (meetingData: any): Promise<boolean> => {
+  try {
+    if (!company) {
+      notify("No company selected", "error");
       return false;
     }
-  };
 
-  // Handle meeting deletion
+    console.log("📤 [MEETING CREATE] Starting meeting creation...");
+    console.log("📤 [MEETING CREATE] Meeting data received:", meetingData);
+    console.log("📤 [MEETING CREATE] Attendees in meetingData:", meetingData.attendees);
+
+   
+    const attendeeIds = meetingData.attendees.map((attendee: any) => attendee.id);
+    
+    console.log("📤 [MEETING CREATE] Extracted attendee IDs:", attendeeIds);
+
+    const createData: CreateMeetingData = {
+      title: meetingData.title,
+      startDate: meetingData.startDate,
+      startTime: meetingData.startTime,
+      endTime: meetingData.endTime,
+      location: meetingData.location,
+      reminder: meetingData.reminder,
+      note: meetingData.note,
+      organizerIds: [1],
+      attendeeIds, 
+      linkedModule: "company" as const,
+      linkedModuleId: company.id,
+    };
+
+    console.log("📤 [MEETING CREATE] Final create data:", createData);
+
+    const result = await dispatch(createMeeting(createData)).unwrap();
+    
+    console.log("✅ [MEETING CREATE] Success! Result:", result);
+    notify("Meeting created successfully", "success");
+    toggleModal("meeting", false);
+    
+  
+    dispatch(fetchCompanyMeetings({ companyId: company.id }));
+    
+    return true;
+    
+  } catch (error: any) {
+    console.error("❌ [MEETING CREATE] Error details:", {
+      error,
+      type: typeof error,
+      payload: error?.payload,
+      message: error?.message
+    });
+    
+    let errorMessage = "Failed to create meeting";
+    
+    if (error?.payload) {
+      errorMessage = error.payload;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+    
+    notify(errorMessage, "error");
+    return false;
+  }
+};
+ 
   const handleDeleteMeeting = async (meetingId: number) => {
     try {
       await dispatch(deleteMeeting(meetingId)).unwrap();
@@ -244,6 +306,7 @@ export default function CompanyDetailPage() {
     "Shaima",
     "Greeshma",
   ];
+  
   const industryOptions = [
     "Technology",
     "Education", 
@@ -299,13 +362,13 @@ export default function CompanyDetailPage() {
     }
   }, [editableCompany?.companyOwner]);
 
-  // Update company in backend
+  
   const updateCompanyInBackend = async (companyData: any) => {
     try {
       const headers = getAuthHeaders();
       const companyId = Number(id);
       
-      // Transform data back to backend format
+      
       const updateData = {
         companyName: companyData.companyName,
         domainName: companyData.domain,
@@ -341,14 +404,14 @@ export default function CompanyDetailPage() {
 
   const handleSave = async () => {
     try {
-      // Update in backend
+   
       await updateCompanyInBackend(editableCompany);
       
-      // Update local state
+
       setCompany(editableCompany);
       setIsEditing(false);
 
-      // Optional: Keep localStorage as fallback
+    
       localStorage.setItem("selectedCompany", JSON.stringify(editableCompany));
 
       notify("Company details updated successfully", "success");
@@ -366,9 +429,9 @@ export default function CompanyDetailPage() {
     setSearchValue(e.target.value);
   };
 
- // Sync function for non-meeting activities
+
 const handleSaveSyncActivity = (
-  type: Exclude<ActivityType, "meeting" | "activity">,
+  type: ActivityType,  
   data: any
 ): boolean => {
   if (!company) return false;
@@ -393,7 +456,10 @@ const handleSaveSyncActivity = (
       content = data?.summary || "Call logged";
       break;
     case "task":
-      const assignedTo = data?.assignedTo || company.companyOwner[0];
+      const assignedTo =
+        data?.assignedTo ||
+        (company.companyOwner && company.companyOwner[0]) ||
+        "Unassigned";
       title = `Task assigned to ${assignedTo}`;
       content = data?.description || "Task created";
       extra = {
@@ -404,6 +470,30 @@ const handleSaveSyncActivity = (
         assignedTo,
       };
       break;
+
+    case "meeting":
+     
+      title = `Meeting: ${currentUser} with ${company.companyName}`;
+      
+ 
+      content = data?.note || `Meeting scheduled for ${data?.startDate} at ${data?.startTime}`;
+      
+  
+      extra = {
+        startDate: data.startDate,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        location: data.location,
+        attendees: data.attendees?.length || 0,
+        organizerIds: data.organizerIds,
+      
+      };
+      break;
+
+    default:
+   
+      console.warn("Unhandled activity type:", type);
+      return false;
   }
 
   const newActivity: Activity = {
@@ -411,7 +501,7 @@ const handleSaveSyncActivity = (
     type,
     title,
     author: currentUser,
-    date: formatActivityDate(new Date()),
+    date: formatActivityDate(new Date()), 
     content,
     extra,
     isTicket: false,
@@ -425,12 +515,6 @@ const handleSaveSyncActivity = (
   );
   return true;
 };
-
-// Async function only for meetings
-const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
-  return await handleCreateMeeting(data);
-};
-
   if (loading) {
     return (
       <div className="p-8 text-center text-gray-600">
@@ -540,7 +624,7 @@ const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
 
   return (
     <div className="m-2 bg-white rounded-md flex flex-col lg:flex-row gap-6 overflow-hidden">
-      {/* Left Sidebar */}
+    
       <div className="w-[320px] space-y-4 ml-0 mt-2">
         <InfoCard
           module="companies"
@@ -565,7 +649,7 @@ const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
         />
       </div>
 
-      {/* Main Content */}
+   
       <div className="flex-1 bg-white rounded-lg flex flex-col">
         <DetailHeader
           searchValue={searchValue}
@@ -577,14 +661,26 @@ const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
             value={activeTab}
             onChange={(tab) => setActiveTab(tab as ActivityType)}
             renderPanel={(tab, label) => {
-              const filtered =
-                tab === "activity"
-                  ? [...allActivities]
-                  : allActivities.filter((a) => a.type === tab && !a.isTicket);
+             
+              let filteredActivities = [];
+              
+              if (tab === "activity") {
+              
+                filteredActivities = [...allActivities];
+              } else {
+                
+                filteredActivities = allActivities.filter((a) => a.type === tab);
+              }
 
-              const sorted = filtered.sort(
-                (a, b) => (a.isTicket ? 0 : 1) - (b.isTicket ? 0 : 1)
-              );
+        
+              const sorted = filteredActivities.sort((a, b) => {
+            
+                if (a.isTicket && !b.isTicket) return -1;
+                if (!a.isTicket && b.isTicket) return 1;
+                
+              
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
+              });
 
               const buttonLabel =
                 tab === "call" ? "Make a Phone Call" : `Create ${label.slice(0, -1)}`;
@@ -605,13 +701,14 @@ const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
                   buttonLabel={buttonLabel}
                   activities={sorted}
                   onCreate={handleCreate}
+                  onDelete={tab === "meeting" ? handleDeleteMeeting : undefined}
                 />
               );
             }}
           />
         </div>
 
-        {/* CALL POPUP */}
+     
         {showCallPopup && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
             <div className="bg-white shadow-lg rounded-lg p-6 w-[320px] text-center">
@@ -640,7 +737,7 @@ const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
         )}
       </div>
 
-      {/* Right Sidebar */}
+  
       <div className="w-[280px] space-y-4">
         <AISummaryCard
           type="company"
@@ -669,69 +766,71 @@ const handleSaveMeetingActivity = async (data: any): Promise<boolean> => {
           onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
         />
       </div>
-{/* Modals - Use sync functions for non-meeting modals */}
-<NoteModal
-  isOpen={showModal.note}
-  onClose={() => toggleModal("note", false)}
-  onSave={(data) => handleSaveSyncActivity("note", data)}
-/>
 
-<CallModal
-  isOpen={showModal.call}
-  onClose={() => toggleModal("call", false)}
-  connectedPerson={company?.companyOwner || []}
-  onSave={(data) => handleSaveSyncActivity("call", data)}
-/>
+    
+      <NoteModal
+        isOpen={showModal.note}
+        onClose={() => toggleModal("note", false)}
+        onSave={(data) => handleSaveSyncActivity("note", data)}
+      />
 
-<TaskModal
-  isOpen={showModal.task}
-  onClose={() => toggleModal("task", false)}
-  onSave={(data) => handleSaveSyncActivity("task", data)}
-/>
+      <CallModal
+        isOpen={showModal.call}
+        onClose={() => toggleModal("call", false)}
+        connectedPerson={company?.companyOwner || []}
+        onSave={(data) => handleSaveSyncActivity("call", data)}
+      />
 
-<EmailModal
-  isOpen={showModal.email}
-  onClose={() => toggleModal("email", false)}
-  onSend={(data) => handleSaveSyncActivity("email", data)}
-  connectedPerson={(() => {
-    const leadEmail = getEntityEmail("company", String(company.id));
-    return leadEmail ? `lead:${leadEmail}` : undefined;
-  })()}
-  recordAttachments={attachments.map((a) => ({
-    id: a.id,
-    name: a.name,
-    url: a.previewUrl,
-  }))}
-  onAttachToRecord={(file) => {
-    const isImage =
-      file.type?.startsWith("image/") ||
-      /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
+      <TaskModal
+        isOpen={showModal.task}
+        onClose={() => toggleModal("task", false)}
+        onSave={(data) => handleSaveSyncActivity("task", data)}
+      />
 
-    setAttachments((prev) => {
-      const exists = prev.some((a) => a.name === file.name);
-      if (exists) return prev;
+      <EmailModal
+        isOpen={showModal.email}
+        onClose={() => toggleModal("email", false)}
+        onSend={(data) => handleSaveSyncActivity("email", data)}
+        connectedPerson={(() => {
+          const leadEmail = getEntityEmail("company", String(company.id));
+          return leadEmail ? `lead:${leadEmail}` : undefined;
+        })()}
+        recordAttachments={attachments.map((a) => ({
+          id: a.id,
+          name: a.name,
+          url: a.previewUrl,
+        }))}
+        onAttachToRecord={(file) => {
+          const isImage =
+            file.type?.startsWith("image/") ||
+            /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
 
-      const previewUrl = isImage ? file.url : undefined;
-      const newAttachment = {
-        id: Date.now(),
-        name: file.name,
-        uploadedAt: new Date().toLocaleString(),
-        previewUrl,
-        type: file.type || (isImage ? "image/png" : "application/octet-stream"),
-      };
-      return [...prev, newAttachment];
-    });
-  }}
-/>
+          setAttachments((prev) => {
+            const exists = prev.some((a) => a.name === file.name);
+            if (exists) return prev;
 
-{/* Only MeetingModal uses async function */}
-<MeetingModal
-  isOpen={showModal.meeting}
-  onClose={() => toggleModal("meeting", false)}
-  onSave={handleSaveMeetingActivity}
-  linkedModule="company"
-  linkedModuleId={company.id}
-/>
+            const previewUrl = isImage ? file.url : undefined;
+            const newAttachment = {
+              id: Date.now(),
+              name: file.name,
+              uploadedAt: new Date().toLocaleString(),
+              previewUrl,
+              type: file.type || (isImage ? "image/png" : "application/octet-stream"),
+            };
+            return [...prev, newAttachment];
+          });
+        }}
+      />
+
+     
+      <MeetingModal
+        isOpen={showModal.meeting}
+        onClose={() => toggleModal("meeting", false)}
+        onSave={handleCreateMeeting}
+        linkedModule="company"
+        linkedModuleId={company.id}
+
+      />
     </div>
   );
 }

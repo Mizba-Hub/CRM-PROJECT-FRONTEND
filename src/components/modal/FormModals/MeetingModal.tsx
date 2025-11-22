@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import ModalWrapper from "../ModalWrapper";
 import { notify } from "@/components/ui/toast/Notify";
 import { Inputs } from "@/components/ui/Inputs";
-import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 
 export type Meeting = {
@@ -13,44 +12,54 @@ export type Meeting = {
   startDate: string;
   startTime: string;
   endTime: string;
-  attendees: string[];
+  attendees: { id: number; firstName: string; lastName: string }[];
   location: string;
   reminder: string;
   note: string;
   duration?: string;
-  attendeeCount?: number;
+  totalcount?: number;
+  linkedModule?: string;
+  linkedModuleId?: string | number;
+  organizerIds?: number[];
+  attendeeIds?: number[];
 };
 
 interface MeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (meeting: Meeting) => boolean;
+  onSave: (meeting: Meeting) => Promise<boolean>;
+  linkedModule?: string;
+  linkedModuleId?: string | number;
 }
 
 export default function MeetingModal({
   isOpen,
   onClose,
   onSave,
+  linkedModule = "company",
+  linkedModuleId,
 }: MeetingModalProps) {
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [attendees, setAttendees] = useState<string[]>([]);
+
+  const [selectedAttendees, setSelectedAttendees] = useState<
+    { id: number; firstName: string; lastName: string }[]
+  >([]);
   const [location, setLocation] = useState("");
   const [reminder, setReminder] = useState("");
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [availableAttendees, setAvailableAttendees] = useState<any[]>([]);
+  const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
 
-  const availableAttendees = [
-    "Maria Johnson",
-    "Shifa",
-    "Greeshma",
-    "Sabira",
-    "Sahimah",
-    "Mizba",
-  ];
-
+  const currentUser = {
+    id: 1,
+    firstName: "Current",
+    lastName: "User",
+    email: "user@company.com",
+  };
   const locationOptions = [
     { label: "Conference Room A", value: "Conference Room A" },
     { label: "Conference Room B", value: "Conference Room B" },
@@ -66,45 +75,33 @@ export default function MeetingModal({
     { label: "1 day before", value: "1d" },
   ];
 
-  const validate = () => {
-    const plainText = note.replace(/<[^>]*>/g, "").trim();
+  const fetchAvailableAttendees = async (): Promise<any[]> => {
+    try {
+      setIsLoadingAttendees(true);
+      const BASE_URL =
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (!token) throw new Error("Authentication required");
 
-    const newErrors: Record<string, string> = {};
-    if (!title) newErrors.title = "Title is required";
-    if (!startDate) newErrors.startDate = "Start date is required";
-    if (!startTime) newErrors.startTime = "Start time is required";
-    if (!endTime) newErrors.endTime = "End time is required";
-    if (attendees.length === 0)
-      newErrors.attendees = "Select at least one attendee";
-    if (!location) newErrors.location = "Location is required";
-    if (!reminder) newErrors.reminder = "Reminder is required";
-    if (!plainText) newErrors.note = "Note is required";
-
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      notify("⚠️ Please fill all required fields", "error");
-      return false;
+      const response = await fetch(`${BASE_URL}/api/auth/users`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token.startsWith("Bearer ")
+            ? token
+            : `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      const users = Array.isArray(data) ? data : data.data || data.users || [];
+      return users;
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      notify("Failed to load users list", "error");
+      return [];
+    } finally {
+      setIsLoadingAttendees(false);
     }
-
-    const newMeeting: Meeting = {
-      id: Date.now(),
-      title,
-      startDate,
-      startTime,
-      endTime,
-      attendees,
-      location,
-      reminder,
-      note,
-      duration: calculateDuration(startTime, endTime),
-      attendeeCount: getAttendeeCount(attendees),
-    };
-
-    const isValid = onSave(newMeeting);
-    if (!isValid) return false;
-
-    notify("Meeting scheduled successfully", "success");
-    return true;
   };
 
   useEffect(() => {
@@ -113,13 +110,73 @@ export default function MeetingModal({
       setStartDate("");
       setStartTime("");
       setEndTime("");
-      setAttendees([]);
+      setSelectedAttendees([]);
       setLocation("");
       setReminder("");
       setNote("");
       setErrors({});
+      fetchAvailableAttendees().then((users) => setAvailableAttendees(users));
     }
   }, [isOpen]);
+
+  const attendeeOptions = availableAttendees.map((user) => {
+    const name =
+      `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
+    return {
+      label: name,
+      value: String(user.id),
+      user,
+    };
+  });
+
+  const validate = async () => {
+    const plainNote = note.replace(/<[^>]*>/g, "").trim();
+    const newErrors: Record<string, string> = {};
+    if (!title) newErrors.title = "Title is required";
+    if (!startDate) newErrors.startDate = "Start date is required";
+    if (!startTime) newErrors.startTime = "Start time is required";
+    if (!endTime) newErrors.endTime = "End time is required";
+    if (selectedAttendees.length === 0)
+      newErrors.attendees = "Select at least one attendee";
+    if (!location) newErrors.location = "Location is required";
+    if (!reminder) newErrors.reminder = "Reminder is required";
+    if (!plainNote) newErrors.note = "Note is required";
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      notify("⚠️ Please fill all required fields", "error");
+      return false;
+    }
+
+    const attendeeIds = selectedAttendees.map((u) => u.id);
+
+    const meeting: Meeting = {
+      id: Date.now(),
+      title,
+      startDate,
+      startTime,
+      endTime,
+      attendees: selectedAttendees,
+      location,
+      reminder,
+      note,
+      linkedModule,
+      linkedModuleId,
+      organizerIds: [currentUser.id],
+      attendeeIds,
+    };
+
+    try {
+      const ok = await onSave(meeting);
+      if (!ok) return false;
+      notify("Meeting scheduled successfully", "success");
+      return true;
+    } catch (e) {
+      console.error("Error saving meeting:", e);
+      notify("Failed to save meeting", "error");
+      return false;
+    }
+  };
 
   return (
     <ModalWrapper
@@ -141,8 +198,11 @@ export default function MeetingModal({
           name="title"
           placeholder="Enter"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setTitle(e.target.value)
+          }
           className={errors.title ? "border-red-500" : ""}
+          suppressHydrationWarning
         />
         {errors.title && <p className="text-red-500 text-xs">{errors.title}</p>}
       </div>
@@ -156,11 +216,10 @@ export default function MeetingModal({
           name="startDate"
           placeholder="Choose"
           value={startDate}
-          onChange={(v) => setStartDate(v)}
+          onChange={(v: string) => setStartDate(v)}
           className={errors.startDate ? "border-red-500" : ""}
-          inputMode="numeric"
-          pattern="\d{4}-\d{2}-\d{2}"
           showCalendarIcon
+          suppressHydrationWarning
         />
         {errors.startDate && (
           <p className="text-red-500 text-xs">{errors.startDate}</p>
@@ -177,10 +236,9 @@ export default function MeetingModal({
             name="startTime"
             placeholder="Choose"
             value={startTime}
-            onChange={(v) => setStartTime(v)}
+            onChange={(v: string) => setStartTime(v)}
             className={errors.startTime ? "border-red-500" : ""}
-            inputMode="numeric"
-            pattern="\d{2}:\d{2}"
+            suppressHydrationWarning
           />
           {errors.startTime && (
             <p className="text-red-500 text-xs">{errors.startTime}</p>
@@ -196,10 +254,9 @@ export default function MeetingModal({
             name="endTime"
             placeholder="Choose"
             value={endTime}
-            onChange={(v) => setEndTime(v)}
+            onChange={(v: string) => setEndTime(v)}
             className={errors.endTime ? "border-red-500" : ""}
-            inputMode="numeric"
-            pattern="\d{2}:\d{2}"
+            suppressHydrationWarning
           />
           {errors.endTime && (
             <p className="text-red-500 text-xs">{errors.endTime}</p>
@@ -208,22 +265,25 @@ export default function MeetingModal({
       </div>
 
       <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Attendees <span className="text-red-500">*</span>
+        </label>
+
         <Inputs
           variant="multiselect"
-          label={
-            <>
-              Attendees <span className="text-red-500">*</span>
-            </>
-          }
+          name="Attendees"
           placeholder="Choose"
-          options={availableAttendees.map((a) => ({ label: a, value: a }))}
-          value={attendees}
-          onChange={setAttendees}
+          options={attendeeOptions}
+          value={selectedAttendees.map((u) => String(u.id))}
+          onChange={(vals: string[]) => {
+            const selectedUsers = availableAttendees.filter((user) =>
+              vals.includes(String(user.id))
+            );
+            setSelectedAttendees(selectedUsers);
+          }}
           className={errors.attendees ? "border-red-500" : ""}
+          suppressHydrationWarning
         />
-        {errors.attendees && (
-          <p className="text-red-500 text-xs">{errors.attendees}</p>
-        )}
       </div>
 
       <div className="mb-3">
@@ -238,6 +298,7 @@ export default function MeetingModal({
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           className={errors.location ? "border-red-500" : ""}
+          suppressHydrationWarning
         />
         {errors.location && (
           <p className="text-red-500 text-xs">{errors.location}</p>
@@ -256,6 +317,7 @@ export default function MeetingModal({
           value={reminder}
           onChange={(e) => setReminder(e.target.value)}
           className={errors.reminder ? "border-red-500" : ""}
+          suppressHydrationWarning
         />
         {errors.reminder && (
           <p className="text-red-500 text-xs">{errors.reminder}</p>
@@ -268,6 +330,7 @@ export default function MeetingModal({
         </label>
         <RichTextEditor
           value={note}
+          placeholder="Choose"
           onChange={(html) => setNote(html)}
           className={errors.note ? "ring-2 ring-red-400 border-red-400" : ""}
         />
