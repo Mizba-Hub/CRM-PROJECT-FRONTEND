@@ -9,8 +9,6 @@ import { Inputs } from "@/components/ui/Inputs";
 
 import { formatDurationFromSeconds } from "@/app/lib/utils";
 
-
-
 export type ActivityType =
   | "note"
   | "call"
@@ -132,9 +130,9 @@ const ActivityDetailView: React.FC<Props> = ({
     if (isEmail) {
       const parts = a.title.split("–");
 
-      boldPart = (parts[0] || "").trim(); 
-      subjectPart = (parts[1] || "").trim(); 
-      restPart = (parts[2] || "").trim(); 
+      boldPart = (parts[0] || "").trim();
+      subjectPart = (parts[1] || "").trim();
+      restPart = (parts[2] || "").trim();
     } else {
       const words = a.title.split(" ");
       boldPart = words[0];
@@ -188,13 +186,9 @@ const ActivityDetailView: React.FC<Props> = ({
                 <span className="font-bold text-gray-900 flex-shrink-0 mr-1">
                   Task assigned to
                 </span>
-
                 <span className="truncate text-gray-800">
                   {a.extra?.assignedTo?.name || a.author}
                 </span>
-
-                <span className="truncate text-gray-800">{a.extra?.assignedTo?.name || a.author}</span>
-
               </div>
             ) : (
               <div
@@ -235,7 +229,6 @@ const ActivityDetailView: React.FC<Props> = ({
                     }
                   }}
                 />
-
                 <span
                   className={
                     a.extra?.status === "completed"
@@ -243,16 +236,13 @@ const ActivityDetailView: React.FC<Props> = ({
                       : ""
                   }
                 >
-
-                <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
-
                   {a.extra?.taskName || "Untitled Task"}
                 </span>
               </div>
             ) : a.type === "meeting" ? (
-              <span className="px-3">
+              <div className="px-3">
                 {a.extra?.meetingTitle || "Untitled Meeting"}
-              </span>
+              </div>
             ) : (
               previewText
             )}
@@ -279,9 +269,20 @@ const ActivityDetailView: React.FC<Props> = ({
                   <div>
                     <p className="text-m text-gray-500 mb-1">
                       To{" "}
-                      {Array.isArray(a.extra?.recipients)
-                        ? getDisplayName(a.extra.recipients[0])
-                        : a.author}
+                      {(() => {
+                        const leadName =
+                          a.extra?.leadName ||
+                          (a.extra as any)?.LeadName ||
+                          null;
+                        return (
+                          leadName ||
+                          (Array.isArray(a.extra?.recipients)
+                            ? getDisplayName(a.extra.recipients[0])
+                            : typeof a.extra?.recipients === "string"
+                            ? getDisplayName(a.extra.recipients)
+                            : a.author)
+                        );
+                      })()}
                     </p>
                     {a.content && (
                       <div
@@ -306,7 +307,6 @@ const ActivityDetailView: React.FC<Props> = ({
                         }
                       }}
                     />
-
                     <span
                       className={
                         a.extra?.status === "completed"
@@ -314,10 +314,7 @@ const ActivityDetailView: React.FC<Props> = ({
                           : ""
                       }
                     >
-
-                    <span className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}>
-
-                      {a.extra?.taskName}
+                      {a.extra?.taskName || "Untitled Task"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4 bg-gray-200 p-3 rounded mb-3">
@@ -344,16 +341,12 @@ const ActivityDetailView: React.FC<Props> = ({
                   </div>
                   {a.content && (
                     <span
-                      dangerouslySetInnerHTML={{ __html: a.content }}
-
                       className={
                         a.extra?.status === "completed"
                           ? "line-through text-gray-500"
                           : ""
                       }
-
-                      className={a.extra?.status === "completed" ? "line-through text-gray-500" : ""}
-
+                      dangerouslySetInnerHTML={{ __html: a.content }}
                     ></span>
                   )}
                 </>
@@ -394,12 +387,8 @@ const ActivityDetailView: React.FC<Props> = ({
                           </>
                         }
                         value={
-
                           a.extra?.duration !== null &&
                           a.extra?.duration !== undefined
-
-                          a.extra?.duration !== null && a.extra?.duration !== undefined
-
                             ? formatDurationFromSeconds(
                                 typeof a.extra.duration === "number"
                                   ? a.extra.duration
