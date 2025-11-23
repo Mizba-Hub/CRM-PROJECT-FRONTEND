@@ -17,6 +17,7 @@ export interface Lead {
   contactOwner: string[];
   city: string;
   status:
+    | ""
     | "Open"
     | "New"
     | "In Progress"
@@ -63,7 +64,7 @@ export default function LeadModal({
     jobTitle: "",
     contactOwner: [],
     city: "",
-    status: "New",
+    status: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -89,7 +90,7 @@ export default function LeadModal({
         jobTitle: "",
         contactOwner: isAdmin ? [] : [currentUserId || ""],
         city: "",
-        status: "New",
+        status: "",
       });
     }
 
@@ -324,7 +325,7 @@ export default function LeadModal({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Contact Owner {!isAdmin && "(You)"}
+            Contact Owner
           </label>
           {isAdmin ? (
             <Inputs
