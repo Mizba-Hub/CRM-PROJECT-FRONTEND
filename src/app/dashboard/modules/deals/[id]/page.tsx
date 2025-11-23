@@ -1,33 +1,52 @@
 "use client";
-
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-
 import InfoCard from "@/components/ui/Card";
 import EntityInfoCard from "@/components/crm/EntityInfoCard";
 import CRMTabHeader from "@/components/crm/CRMTabHeader";
 import ActivityDetailView from "@/components/crm/ActivityDetailView";
 import AttachmentView from "@/components/crm/AttachmentView";
-
+import DetailHeader from "@/components/crm/DetailHeader";
 import NoteModal from "@/components/modal/FormModals/NoteModal";
 import EmailModal from "@/components/modal/FormModals/EmailModal";
 import CallModal from "@/components/modal/FormModals/CallModal";
 import TaskModal from "@/components/modal/FormModals/TaskModal";
 import MeetingModal from "@/components/modal/FormModals/MeetingModal";
-
 import { notify } from "@/components/ui/toast/Notify";
-import { formatDisplayDate } from "@/app/lib/date";
-import { getCurrentUserName } from "@/app/lib/auth";
-import { AISummaryCard } from "@/components/ai/AISummaryCard";
-import { calculateDuration, getAttendeeCount } from "@/app/lib/utils";
+import {
+  formatActivityDate,
+  formatDisplayDateTime,
+  formatDisplayDate,
+} from "@/app/lib/date";
 import ActivitySummaryView from "@/components/crm/ActivitySummaryView";
+import { AISummaryCard } from "@/components/ai/AISummaryCard";
+import { calculateDuration, getEntityEmail } from "@/app/lib/utils";
 import { ActivityItem } from "@/components/crm/ActivitySummaryView";
-import DetailHeader from "@/components/crm/DetailHeader";
+import { getCurrentUserName } from "@/app/lib/auth";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchNotes, createNote as createNoteThunk } from "@/store/slices/activity/notesSlice";
+import { initiateCall, fetchCallsByUser } from "@/store/slices/activity/callSlice";
+import { fetchTasks, createTask as createTaskThunk, completeTask } from "@/store/slices/activity/taskSlice";
+import { fetchEmails, createEmail as createEmailThunk } from "@/store/slices/activity/emailSlice";
+import { fetchDealById, updateDeal, fetchDeals, type Deal as ReduxDeal } from "@/store/slices/dealSlice";
+import { 
+  fetchAttachments, 
+  createAttachments, 
+  deleteAttachment 
+} from "@/store/slices/activity/attachmentSlice";
+import {
+  fetchMeetings,
+  createMeeting,
+  updateMeeting,
+  deleteMeeting,
+  Meeting as ReduxMeeting,
+  CreateMeetingPayload,
+} from "@/store/slices/activity/meetingSlice";
 
 type ActivityType = "note" | "call" | "task" | "email" | "meeting";
 
 type Activity = {
-  id: number;
+  id: string;
   type: ActivityType;
   title: string;
   author: string;
@@ -37,54 +56,25 @@ type Activity = {
   content?: string;
   overdue?: boolean;
   extra?: Record<string, any>;
-};
-
-interface Deal {
-  id: number;
-  name: string;
-  stage: string;
-  closeDate: string;
-  owner: string[];
-  amount: string;
-  priority: string;
-  createdDate: string;
-}
-
-const formatNoteDate = (date: Date): string => {
-  const month = date.toLocaleString("en-US", { month: "short" });
-  const day = date.getDate();
-  const year = date.getFullYear();
-  return `${month} ${day}, ${year}`;
-};
-
-const formatActivityDateTime = (date: Date): string => {
-  const optionsDate: Intl.DateTimeFormatOptions = {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  };
-  const optionsTime: Intl.DateTimeFormatOptions = {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  };
-  const datePart = new Intl.DateTimeFormat("en-US", optionsDate).format(date);
-  const timePart = new Intl.DateTimeFormat("en-US", optionsTime).format(date);
-  return `${datePart} at ${timePart}`;
+  isTicket?: boolean; // Added missing field
 };
 
 export default function DealDetailPage() {
   const { id } = useParams();
+  const dispatch = useAppDispatch();
+  const { items: notes, loading: notesLoading } = useAppSelector((s) => s.notes);
+  const { items: calls, loading: callsLoading } = useAppSelector((s) => s.calls);
+  const { items: tasks } = useAppSelector((s) => s.tasks);
+  const { items: emails, loading: emailsLoading } = useAppSelector((s) => s.emails);
+  const { items: attachmentsFromStore, loading: attachmentsLoading } = useAppSelector((s) => s.attachments);
+  const { items: meetings, loading: meetingsLoading, error: meetingsError } = useAppSelector((s) => s.meetings);
 
-  const [deal, setDeal] = useState<Deal | null>(null);
-  const [editableDeal, setEditableDeal] = useState<Deal | null>(null);
+  const [deal, setDeal] = useState<any>(null);
+  const [userOptions, setUserOptions] = useState<Array<{ label: string; value: string; id?: number }>>([]);
+  const [editableDeal, setEditableDeal] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [dealStage, setDealStage] = useState("");
-  const [attachments, setAttachments] = useState<any[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [activeTab, setActiveTab] = useState<ActivityType | "activity">(
-    "activity"
-  );
+  const [activeTab, setActiveTab] = useState<ActivityType | "activity">("activity");
   const [showModal, setShowModal] = useState<Record<ActivityType, boolean>>({
     note: false,
     call: false,
@@ -92,106 +82,727 @@ export default function DealDetailPage() {
     email: false,
     meeting: false,
   });
+  const [cardKey, setCardKey] = useState(0);
   const [searchValue, setSearchValue] = useState("");
+  const [showCallPopup, setShowCallPopup] = useState(false);
+  const [isInitiatingCall, setIsInitiatingCall] = useState(false);
+
+  // Get connected person name for CallModal display:
+  // 1. If deal has Lead → Return lead name
+  // 2. Otherwise → Return deal name
+  const getConnectedPerson = (): string | null => {
+    if (!deal) return null;
+
+    // Priority: If deal has lead → return lead name
+    if (deal.lead?.name) {
+      return deal.lead.name;
+    }
+    if (deal.leadName && deal.leadName.trim()) {
+      return deal.leadName.trim();
+    }
+
+    // Fallback: return deal name
+    return deal.name || deal.dealName || null;
+  };
+
+  // Get connected person for EmailModal (returns "type:id" format for email lookup):
+  // 1. If deal has Lead → Return "lead:id"
+  // 2. Otherwise → Return "deal:id"
+  const getConnectedPersonForEmail = (): string | null => {
+    if (!deal) return null;
+
+    // Prefer direct email if backend provided it
+    if (deal.lead?.email) {
+      return `email:${deal.lead.email}`;
+    }
+
+    // Priority: If deal has lead → return "lead:id"
+    if (deal.lead?.id) {
+      return `lead:${deal.lead.id}`;
+    }
+    if (deal.leadName && deal.leadName.trim()) {
+      // Try to find lead ID from localStorage
+      try {
+        const leads = JSON.parse(localStorage.getItem("leads") || "[]");
+        const lead = leads.find((l: any) => 
+          (l.leadName || l.name) && (l.leadName || l.name).trim() === deal.leadName.trim()
+        );
+        if (lead?.id) {
+          return `lead:${lead.id}`;
+        }
+      } catch (error) {
+        console.error("Error finding lead:", error);
+      }
+      // If ID not found, return lead name (EmailModal will handle it)
+      return deal.leadName.trim();
+    }
+
+    // Fallback: return deal ID
+    return deal.id ? `deal:${deal.id}` : null;
+  };
+
+  // Get the display name for call title based on deal's association
+  const getCallTargetName = (backendTargetName?: string | null): string => {
+    if (!deal) return backendTargetName || "Deal";
+
+    // If deal has a lead, prioritize lead name over deal name
+    if (deal.lead?.name) {
+      return deal.lead.name;
+    }
+    if (deal.leadName && deal.leadName.trim()) {
+      return deal.leadName.trim();
+    }
+
+    // If backend target name is available and it's not the deal name, use it
+    if (backendTargetName) {
+      const dealName = deal.name || deal.dealName || "";
+      if (backendTargetName !== dealName) {
+        return backendTargetName;
+      }
+    }
+
+    // Final fallback to deal name
+    return deal.name || deal.dealName || "Deal";
+  };
 
   const currentUserName = getCurrentUserName();
-  const ownerOptions = [
-    "Shaima",
-    "Shifa",
-    "Mizba",
-    "Sabira",
-    "Greeshma",
-    "Maria",
-  ];
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(e.target.value);
-  };
-
-  const getDealOwnerName = () => {
-    if (!deal?.owner) return "Unknown";
-    return Array.isArray(deal.owner) ? deal.owner.join(", ") : deal.owner;
-  };
-
-  const getFormattedOwners = () => {
-    if (!editableDeal?.owner) return "";
-    return Array.isArray(editableDeal.owner)
-      ? editableDeal.owner.join(", ")
-      : editableDeal.owner;
-  };
-
-  const getAllMeetingParticipants = (attendees: string[] = []) => {
-    
-    const allParticipants = new Set<string>();
-    allParticipants.add(currentUserName);
-
-    return Array.from(allParticipants);
-  };
-
-  useEffect(() => {
-    const storedDeals = localStorage.getItem("deals");
-    if (storedDeals) {
-      const deals = JSON.parse(storedDeals);
-      const found = deals.find((d: Deal) => String(d.id) === String(id));
-      if (found) {
-        const dealWithArrayOwner = {
-          ...found,
-          owner: Array.isArray(found.owner)
-            ? found.owner
-            : [found.owner].filter(Boolean),
-        };
-        setDeal(dealWithArrayOwner);
-        setEditableDeal(dealWithArrayOwner);
-        setDealStage(found.stage);
-      }
+  // Helper function to format task due date/time
+  const formatTaskDueDateTime = (dueDate: string | null | undefined, dueTime: string | null | undefined): string => {
+    const date = dueDate ? new Date(dueDate) : null;
+    const time = dueTime || "";
+    if (date && time) {
+      return `${formatActivityDate(date)} ${time}`;
     }
-  }, [id]);
+    if (date) {
+      return formatActivityDate(date);
+    }
+    return "No due date";
+  };
 
+  // Fetch notes for this deal
   useEffect(() => {
-    if (deal?.owner && activities.length > 0) {
-      const updatedActivities = activities.map((activity) => {
-        if (activity.type === "meeting") {
-          const attendees = activity.extra?.attendeesRaw || [];
-          const allParticipants = getAllMeetingParticipants(attendees);
-          const participantNames = currentUserName;
+    if (!id) return;
+    dispatch(
+      fetchNotes({
+        type: "deal",
+        linkedTo: Number(id),
+        page: 1,
+        size: 50,
+      })
+    );
+  }, [dispatch, id]);
 
+  // Fetch emails for this deal
+  useEffect(() => {
+    if (!id) return;
+    dispatch(
+      fetchEmails({
+        type: "deal",
+        linkedTo: Number(id),
+        page: 1,
+        size: 50,
+      })
+    );
+  }, [dispatch, id]);
+
+  // Fetch tasks for this deal
+  useEffect(() => {
+    if (!id) return;
+    dispatch(
+      fetchTasks({
+        linkedModule: "deal",
+        linkedModuleId: String(id),
+        page: 1,
+        size: 50,
+      })
+    );
+  }, [dispatch, id]);
+
+  // Fetch attachments for this deal
+  useEffect(() => {
+    if (!id) return;
+    dispatch(
+      fetchAttachments({
+        linkedType: "deal",
+        linkedId: String(id),
+      })
+    );
+  }, [dispatch, id]);
+
+  // Fetch meetings for this deal
+  useEffect(() => {
+    if (!id) return;
+    
+    dispatch(
+      fetchMeetings({
+        linkedModule: "deal" as const,
+        linkedModuleId: Number(id),
+        page: 1,
+        size: 50,
+      })
+    );
+  }, [dispatch, id]);
+
+  // Fetch users for dropdown
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+        const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+        if (!BASE_URL || !token) return;
+
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+          Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+        };
+
+        const usersRes = await fetch(`${BASE_URL}/api/auth/users`, { headers });
+        if (usersRes.ok) {
+          const data = await usersRes.json();
+          const users = data.data || data || [];
+          if (Array.isArray(users) && users.length > 0) {
+            const options = users.map((user: any) => {
+              const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+              return {
+                label: fullName || user.email || `User ${user.id}`,
+                value: fullName || user.email || `User ${user.id}`,
+                id: user.id,
+              };
+            });
+            setUserOptions(options);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Fetch calls for current user (then filter for this deal)
+  useEffect(() => {
+    try {
+      const authUserRaw = localStorage.getItem("auth_user");
+      const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+      const userId = authUser?.id || authUser?.userId || authUser?.userID;
+      if (userId) {
+        dispatch(fetchCallsByUser(Number(userId)));
+      }
+    } catch (error) {
+      console.error("Error fetching calls:", error);
+    }
+  }, [dispatch]);
+
+  // Handle meeting errors
+  useEffect(() => {
+    if (meetingsError) {
+      notify(meetingsError, "error");
+    }
+  }, [meetingsError]);
+
+  // Map notes into activity list (note entries) - UPDATED with isTicket field
+  useEffect(() => {
+    if (!notes) return;
+    const uniqueNotes = Array.from(
+      new Map(notes.map((n) => [n.id, n])).values()
+    );
+    const mapped = uniqueNotes.map((n) => ({
+      id: `note-${n.id}`,
+      type: "note" as ActivityType,
+      title: `Note${n.owner?.name ? ` by ${n.owner.name}` : ""}`,
+      author: n.owner?.name || currentUserName,
+      date: formatActivityDate(n.createdAt ? new Date(n.createdAt) : new Date()),
+      description: n.content,
+      content: n.content,
+      extra: {},
+      isTicket: false, // Added missing field
+    }));
+    setActivities((prev) => {
+      const nonNote = prev.filter((a) => a.type !== "note");
+      const noteMap = new Map<string, Activity>();
+      
+      prev.filter((a) => a.type === "note").forEach((note) => {
+        noteMap.set(note.id, note);
+      });
+      
+      mapped.forEach((m) => {
+        noteMap.set(m.id, m);
+      });
+      
+      return [...Array.from(noteMap.values()), ...nonNote];
+    });
+  }, [notes, currentUserName]);
+
+  // Map calls into activity list (call entries) - UPDATED with isTicket field
+  useEffect(() => {
+    if (!calls || !id) return;
+    
+    const dealCalls = calls.filter((call) => {
+      return call.target?.type === "deal" && String(call.target.id) === String(id);
+    });
+
+    const uniqueCalls = Array.from(
+      new Map(dealCalls.map((call) => [call.callId, call])).values()
+    );
+
+    const mapped = uniqueCalls.map((call) => {
+      const callTargetName = getCallTargetName(call.target?.name);
+
+      return {
+        id: `call-${call.callId}`,
+        type: "call" as ActivityType,
+        title: `Call to ${callTargetName}`,
+        author: call.user?.name || currentUserName,
+        date: formatActivityDate(call.startedAt ? new Date(call.startedAt) : new Date()),
+        description: `Call ${call.result === "successful" ? "successful" : "unsuccessful"}`,
+        content: `Call ${call.result === "successful" ? "completed successfully" : "was unsuccessful"}`,
+        extra: {
+          outcome: call.result,
+          duration: call.durationSeconds,
+          phoneNumber: call.target?.phoneNumber,
+        },
+        isTicket: false, // Added missing field
+      };
+    });
+
+    setActivities((prev) => {
+      const nonCall = prev.filter((a) => a.type !== "call");
+      const callMap = new Map<string, Activity>();
+      
+      mapped.forEach((m) => {
+        callMap.set(m.id, m);
+      });
+      
+      const optimisticCalls = prev.filter(
+        (a) => a.type === "call" && a.id.startsWith("temp-call-")
+      );
+      const backendCallIds = new Set(mapped.map((c) => c.id));
+      const unmatchedOptimistic = optimisticCalls.filter(
+        (opt) => !backendCallIds.has(opt.id)
+      );
+      
+      unmatchedOptimistic.forEach((opt) => {
+        callMap.set(opt.id, opt);
+      });
+      
+      return [...nonCall, ...Array.from(callMap.values())];
+    });
+  }, [calls, id, deal, currentUserName]);
+
+  // Map tasks into activity list (task entries) - UPDATED with isTicket field and improved error handling
+  useEffect(() => {
+    if (!tasks || !id) return;
+
+    const dealTasks = tasks.filter((task) => {
+      return task.linkedModule === "deal" && String(task.linkedModuleId) === String(id);
+    });
+
+    const mapped = dealTasks.map((task) => {
+      const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+      const dueDateTime = formatTaskDueDateTime(task.dueDate, task.dueTime);
+
+      return {
+        id: `task-${task.id}`,
+        type: "task" as ActivityType,
+        title: `Task assigned to ${task.assignedTo?.name || currentUserName || "Unknown"}`,
+        author: task.assignedTo?.name || currentUserName,
+        date: formatActivityDate(task.createdAt ? new Date(task.createdAt) : new Date()),
+        dueDate: dueDateTime,
+        description: task.note || `Task: ${task.taskName}`,
+        content: task.note || `Task: ${task.taskName}`,
+        overdue: dueDate ? dueDate < new Date() && task.status !== "completed" : false,
+        extra: {
+          taskName: task.taskName,
+          taskType: task.taskType,
+          priority: task.priority,
+          status: task.status,
+          dueDate: task.dueDate,
+          dueTime: task.dueTime,
+          assignedTo: task.assignedTo,
+          completedAt: task.completedAt,
+          onComplete: async () => {
+            try {
+              console.log("Completing task:", task.id);
+              const result: any = await dispatch(completeTask({ 
+                taskId: task.id 
+              }));
+              
+              if (result?.meta?.requestStatus === "fulfilled") {
+                notify("Task completed successfully", "success");
+                
+                setActivities(prev => 
+                  prev.map(activity => 
+                    activity.id === `task-${task.id}` && activity.type === "task"
+                      ? {
+                          ...activity,
+                          extra: {
+                            ...activity.extra,
+                            status: "completed"
+                          }
+                        }
+                      : activity
+                  )
+                );
+
+                setTimeout(() => {
+                  dispatch(fetchTasks({ 
+                    linkedModule: "deal", 
+                    linkedModuleId: String(id),
+                    page: 1,
+                    size: 50,
+                  }));
+                }, 1000);
+                
+              } else {
+                const errorMsg = result?.payload || "Failed to complete task";
+                notify(String(errorMsg), "error");
+              }
+            } catch (error: any) {
+              notify(error?.message || "Failed to complete task", "error");
+            }
+          },
+        },
+        isTicket: false, // Added missing field
+      };
+    });
+
+    setActivities((prev) => {
+      const nonTask = prev.filter((a) => a.type !== "task");
+      const optimisticTasks = prev.filter(
+        (a) => a.type === "task" && a.id.startsWith("temp-task-")
+      );
+      const backendTaskIds = new Set(mapped.map((t) => t.id));
+      const unmatchedOptimistic = optimisticTasks.filter(
+        (opt) => !backendTaskIds.has(opt.id)
+      );
+      
+      const preservedTasks = mapped.map(newTask => {
+        if (newTask.extra?.status === "completed") {
+          return newTask;
+        }
+        const existing = prev.find(
+          a => a.id === newTask.id && a.type === "task" && a.extra?.status === "completed"
+        );
+        if (existing && existing.extra?.status === "completed") {
           return {
-            ...activity,
-            title: `Meeting by ${currentUserName}`,
-            description: `Meeting organized by ${currentUserName}`,
-            content:
-              activity.content || `Meeting organized by ${currentUserName}`,
+            ...newTask,
             extra: {
-              ...activity.extra,
-              attendees: getAttendeeCount(
-                allParticipants,
-                allParticipants.length
-              ),
-              organizer: currentUserName,
-              allParticipants: allParticipants,
-            },
+              ...newTask.extra,
+              status: "completed"
+            }
           };
         }
-        return activity;
+        return newTask;
       });
+      
+      return [...nonTask, ...preservedTasks, ...unmatchedOptimistic];
+    });
+  }, [tasks, id, currentUserName, dispatch]);
 
-      const hasChanges =
-        JSON.stringify(updatedActivities) !== JSON.stringify(activities);
-      if (hasChanges) {
-        setActivities(updatedActivities);
-      }
-    }
-  }, [deal?.owner, activities.length, currentUserName]);
+  // Map emails into activity list (email entries) - UPDATED with isTicket field
+  useEffect(() => {
+    if (!emails || !id) return;
 
-  const updateLocalStorageDeals = (updatedDeal: Deal) => {
-    const storedDeals = localStorage.getItem("deals");
-    if (!storedDeals) return;
-    const deals = JSON.parse(storedDeals);
-    const updatedDeals = deals.map((d: Deal) =>
-      String(d.id) === String(id) ? updatedDeal : d
+    const dealEmails = emails.filter((email) => {
+      return email.linkedTo?.type === "deal" && String(email.linkedTo.id) === String(id);
+    });
+
+    const uniqueEmails = Array.from(
+      new Map(dealEmails.map((e) => [e.id, e])).values()
     );
-    localStorage.setItem("deals", JSON.stringify(updatedDeals));
+
+    const mapped = uniqueEmails.map((email) => {
+      const recipients = Array.isArray(email.recipients) ? email.recipients : [];
+      const recipientsStr =
+        recipients.length > 0
+          ? recipients.join(", ")
+          : email.owner?.email || "Unknown recipient";
+      const authorName = email.owner?.name || currentUserName || "Unknown";
+      const subject = (email.subject || "No Subject").trim();
+
+      return {
+        id: `email-${email.id}`,
+        type: "email" as ActivityType,
+        title: `Logged Email – ${subject} by ${authorName}`,
+        author: authorName,
+        date: formatActivityDate(
+          email.sentAt
+            ? new Date(email.sentAt)
+            : new Date(email.createdAt || new Date())
+        ),
+        description: email.body || "",
+        content: email.body || "",
+        preview: subject,
+        extra: {
+          subject,
+          recipients: recipientsStr,
+          cc: email.cc,
+          bcc: email.bcc,
+          attachments: email.attachments,
+        },
+        isTicket: false, // Added missing field
+      };
+    });
+
+    setActivities((prev) => {
+      const nonEmail = prev.filter((a) => a.type !== "email");
+      const emailMap = new Map<string, Activity>();
+      
+      prev.filter((a) => a.type === "email").forEach((email) => {
+        emailMap.set(email.id, email);
+      });
+      
+      mapped.forEach((m) => {
+        emailMap.set(m.id, m);
+      });
+      
+      return [...Array.from(emailMap.values()), ...nonEmail];
+    });
+  }, [emails, id, currentUserName]);
+
+  // Map meetings into activity list (meeting entries) - UPDATED with isTicket field
+  useEffect(() => {
+    if (!meetings || !id) return;
+
+    const mapped = meetings.map((meeting: ReduxMeeting) => {
+      const currentUser = getCurrentUserName() || "User";
+      const dealName = deal?.name || deal?.dealName || "Deal";
+
+      const customTitle = `Meeting ${currentUser} and ${dealName}`;
+      const organizerName = meeting.organizers
+        ?.map((org) => `${org.firstName} ${org.lastName}`)
+        .join(", ") || "Unknown Organizer";
+
+      const attendeeNames = meeting.attendees
+        ?.map((att) => `${att.firstName} ${att.lastName}`)
+        .join(", ") || "";
+
+      return {
+        id: `meeting-${meeting.id}`,
+        type: "meeting" as ActivityType,
+        title: customTitle,
+        author: organizerName,
+        date: formatActivityDate(
+          new Date(`${meeting.startDate} ${meeting.startTime}`)
+        ),
+        description: meeting.note || `Meeting scheduled for ${meeting.startDate} at ${meeting.startTime}`,
+        content: meeting.note || `Meeting scheduled for ${meeting.startDate} at ${meeting.startTime}`,
+        extra: {
+          duration: meeting.duration,
+          location: meeting.location,
+          attendees: meeting.totalcount,
+          organizer: organizerName,
+          originalTitle: meeting.title,
+          attendeeNames: attendeeNames,
+        },
+        isTicket: false, // Added missing field
+      };
+    });
+
+    setActivities((prev) => {
+      const nonMeeting = prev.filter((a) => a.type !== "meeting");
+      const meetingMap = new Map<string, Activity>();
+      
+      mapped.forEach((m) => {
+        meetingMap.set(m.id, m);
+      });
+      
+      const optimisticMeetings = prev.filter(
+        (a) => a.type === "meeting" && a.id.startsWith("temp-meeting-")
+      );
+      const backendMeetingIds = new Set(mapped.map((m) => m.id));
+      const unmatchedOptimistic = optimisticMeetings.filter(
+        (opt) => !backendMeetingIds.has(opt.id)
+      );
+      
+      unmatchedOptimistic.forEach((opt) => {
+        meetingMap.set(opt.id, opt);
+      });
+      
+      return [...nonMeeting, ...Array.from(meetingMap.values())];
+    });
+  }, [meetings, id, deal, currentUserName]);
+
+  // Deduplicated activities to prevent duplicate date separators
+  const deduplicatedActivities = useMemo(() => {
+    const seen = new Set<string>();
+    const result: Activity[] = [];
+    
+    activities.forEach((activity) => {
+      const key = `${activity.type}-${activity.id}`;
+      
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(activity);
+      }
+    });
+    
+    return result;
+  }, [activities]);
+
+  // Handle meeting creation like CompanyDetailPage - UPDATED error handling
+  const handleCreateMeeting = async (meetingData: any): Promise<boolean> => {
+    try {
+      if (!deal?.id) {
+        notify("No deal selected", "error");
+        return false;
+      }
+
+      console.log("📤 [MEETING CREATE] Starting meeting creation...");
+
+      const authUserRaw = localStorage.getItem("auth_user");
+      const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+      const currentUserId = authUser?.id || authUser?.userId || authUser?.userID;
+
+      if (!currentUserId) {
+        notify("User not found. Please log in again.", "error");
+        return false;
+      }
+
+      console.log("📤 [MEETING CREATE] Current user ID:", currentUserId);
+
+      const attendeeIds: number[] = [];
+      if (meetingData.attendees && Array.isArray(meetingData.attendees)) {
+        for (const attendee of meetingData.attendees) {
+          if (typeof attendee === 'object' && attendee.id) {
+            attendeeIds.push(attendee.id);
+          } else {
+            const user = userOptions.find(
+              opt => opt.value === attendee || opt.label === attendee
+            );
+            if (user?.id) {
+              attendeeIds.push(user.id);
+            }
+          }
+        }
+      }
+
+      console.log("📤 [MEETING CREATE] Extracted attendee IDs:", attendeeIds);
+
+      const createData: CreateMeetingPayload = {
+        title: meetingData.title,
+        startDate: meetingData.startDate,
+        startTime: meetingData.startTime,
+        endTime: meetingData.endTime,
+        location: meetingData.location,
+        reminder: meetingData.reminder || "15 minutes",
+        note: meetingData.note || "",
+        organizerIds: [Number(currentUserId)],
+        attendeeIds,
+        linkedModule: "deal" as const,
+        linkedModuleId: deal.id,
+      };
+
+      console.log("📤 [MEETING CREATE] Final create data:", createData);
+
+      const result = await dispatch(createMeeting(createData)).unwrap();
+
+      console.log("✅ [MEETING CREATE] Success! Result:", result);
+      notify("Meeting created successfully", "success");
+      toggleModal("meeting", false);
+
+      dispatch(fetchMeetings({
+        linkedModule: "deal",
+        linkedModuleId: deal.id,
+        page: 1,
+        size: 50,
+      }));
+
+      return true;
+    } catch (error: any) {
+      console.error("❌ [MEETING CREATE] Error details:", error);
+      notify("Failed to create meeting", "error"); // Simplified error message
+      return false;
+    }
   };
+
+  // Handle meeting deletion like CompanyDetailPage
+  const handleDeleteMeeting = async (meetingId: number) => {
+    try {
+      await dispatch(deleteMeeting(meetingId)).unwrap();
+      notify("Meeting deleted successfully", "success");
+      
+      dispatch(fetchMeetings({
+        linkedModule: "deal",
+        linkedModuleId: Number(id),
+        page: 1,
+        size: 50,
+      }));
+    } catch (error) {
+      console.error("Failed to delete meeting:", error);
+      notify("Failed to delete meeting", "error");
+    }
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      const storedDeals = localStorage.getItem("deals");
+      if (storedDeals) {
+        const deals = JSON.parse(storedDeals);
+        const found = deals.find((d: any) => String(d.id) === String(id));
+        if (found) {
+          const editableData = {
+            ...found,
+            owner: Array.isArray(found.owner)
+              ? found.owner
+              : [found.owner].filter(Boolean),
+          };
+          setDeal(found);
+          setEditableDeal(editableData);
+  
+          try {
+            const key = `crm_deals_${found.id}`;
+            const existing = localStorage.getItem(key);
+            const data = existing ? JSON.parse(existing) : {};
+            if (data.status !== found.status) {
+              data.status = found.status;
+              localStorage.setItem(key, JSON.stringify(data));
+            }
+          } catch {}
+          return;
+        }
+      }
+      // Fallback: fetch from backend via Redux thunk
+      try {
+        const result = await dispatch(fetchDealById(String(id)));
+        if (fetchDealById.fulfilled.match(result)) {
+          const d = result.payload as ReduxDeal;
+          const normalized = {
+            ...d,
+            name: d.name || d.dealName,
+            owner: Array.isArray(d.owner) ? d.owner : d.owners?.map((o) => o.name) || [],
+            leadName: d.lead?.name || d.leadName || "",
+            lead: d.lead
+              ? {
+                  ...d.lead,
+                  email: d.lead.email || null,
+                }
+              : null,
+          } as any;
+          setDeal(normalized);
+          setEditableDeal(normalized);
+        }
+      } catch {}
+    };
+    load();
+  }, [id, dispatch]);
+
+  useEffect(() => {
+    if (deal?.status) {
+      setCardKey((prev) => prev + 1);
+
+      try {
+        const key = `crm_deals_${deal.id}`;
+        const existing = localStorage.getItem(key);
+        const data = existing ? JSON.parse(existing) : {};
+        if (data.status !== deal.status) {
+          data.status = deal.status;
+          localStorage.setItem(key, JSON.stringify(data));
+        }
+      } catch {}
+    }
+  }, [deal?.status]);
 
   const simpleActivities: ActivityItem[] = useMemo(() => {
     const now = new Date();
@@ -201,8 +812,8 @@ export default function DealDetailPage() {
 
     const allActivities = [
       {
-        id: 1,
-        type: "note" as const,
+        id: "deal-activity-1",
+        type: "deal" as const,
         title: "Deal activity",
         author: currentUserName,
         date: now.toLocaleString("en-US", {
@@ -213,25 +824,12 @@ export default function DealDetailPage() {
           minute: "2-digit",
           hour12: true,
         }),
-        description: `${currentUserName} moved deal to ${
-          dealStage || deal?.stage || "New"
-        }`,
-        content: `${currentUserName} moved deal to ${
-          dealStage || deal?.stage || "New"
-        }`,
-        dueDate: now.toLocaleString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
+        description: `${currentUserName} moved deal to ${deal?.status || "New"} status`,
       },
       {
-        id: 2,
-        type: "note" as const,
-        title: `The deal was created by ${currentUserName}`,
+        id: "deal-creation-2",
+        type: "deal" as const,
+        title: "",
         author: currentUserName,
         date: dealCreatedDate.toLocaleString("en-US", {
           month: "long",
@@ -241,32 +839,9 @@ export default function DealDetailPage() {
           minute: "2-digit",
           hour12: true,
         }),
-        description: dealCreatedDate.toLocaleString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-        content: dealCreatedDate.toLocaleString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-        dueDate: dealCreatedDate.toLocaleString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
+        description: `The deal was created by ${currentUserName}`,
       },
-      ...activities.map((activity) => ({
+      ...deduplicatedActivities.map((activity) => ({
         id: activity.id,
         type: activity.type,
         title: activity.title,
@@ -280,21 +855,106 @@ export default function DealDetailPage() {
     ];
 
     return allActivities.sort((a, b) => {
-      if (a.id === 1 && b.id === 2) return -1;
-      if (a.id === 2 && b.id === 1) return 1;
+      if (a.id === "deal-activity-1" && b.id === "deal-creation-2") return -1;
+      if (a.id === "deal-creation-2" && b.id === "deal-activity-1") return 1;
 
       const parseDate = (dateStr: string): number => {
         if (!dateStr || dateStr === "No Date") return 0;
+
         const parsed = new Date(dateStr);
-        return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+        if (!isNaN(parsed.getTime())) {
+          return parsed.getTime();
+        }
+
+        return 0;
       };
 
       return parseDate(b.date || "") - parseDate(a.date || "");
     });
-  }, [currentUserName, dealStage, deal?.stage, deal?.createdDate, activities]);
+  }, [currentUserName, deal?.status, deal?.createdDate, deduplicatedActivities]);
+
+  const priorityOptions = ["Low", "Medium", "High", "Critical"];
+  const stageOptions = ["Presentation Scheduled", "Qualified to Buy", "Contract Sent", "Closed Won", "Appointment Scheduled", "Decision Maker Bought In", "Closed Lost", "Negotiation"];
+
+  const ownerOptions = userOptions.map((opt) => opt.value || opt.label);
 
   const toggleModal = (type: ActivityType, open: boolean) => {
     setShowModal((prev) => ({ ...prev, [type]: open }));
+  };
+
+  // Handle initiating a call when user clicks "Connect" in the popup
+  const handleInitiateCall = async () => {
+    if (!deal?.id) {
+      notify("Deal not loaded", "error");
+      return;
+    }
+
+    setIsInitiatingCall(true);
+
+    try {
+      const authUserRaw = localStorage.getItem("auth_user");
+      const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+      const userId = authUser?.id || authUser?.userId || authUser?.userID;
+
+      if (!userId) {
+        notify("User not found. Please log in again.", "error");
+        setIsInitiatingCall(false);
+        return;
+      }
+
+      const callerPhone = authUser?.phoneNumber || authUser?.phone || prompt("Enter your phone number (e.g., +15551234567):");
+
+      if (!callerPhone) {
+        notify("Phone number is required to make a call", "error");
+        setIsInitiatingCall(false);
+        return;
+      }
+
+      const result = await dispatch(
+        initiateCall({
+          userId: Number(userId),
+          targetType: "deal",
+          targetId: String(deal.id),
+          callerPhone: String(callerPhone),
+        })
+      ).unwrap();
+
+      notify("Call initiated successfully", "success");
+      setShowCallPopup(false);
+      
+      const callTargetName = getCallTargetName(result.target?.name);
+
+      const newCallActivity: Activity = {
+        id: `temp-call-${Date.now()}`,
+        type: "call" as ActivityType,
+        title: `Call to ${callTargetName}`,
+        author: result.user?.name || currentUserName,
+        date: formatActivityDate(result.startedAt ? new Date(result.startedAt) : new Date()),
+        description: `Call ${result.result === "successful" ? "successful" : "unsuccessful"}`,
+        content: `Call ${result.result === "successful" ? "completed successfully" : "was unsuccessful"}`,
+        extra: {
+          outcome: result.result,
+          duration: result.durationSeconds || null,
+          phoneNumber: result.target?.phoneNumber || null,
+        },
+        isTicket: false, // Added missing field
+      };
+
+      setActivities((prev) => {
+        const nonCall = prev.filter((a) => a.type !== "call" || a.id !== newCallActivity.id);
+        return [...nonCall, newCallActivity];
+      });
+      setActiveTab("activity");
+
+      if (userId) {
+        dispatch(fetchCallsByUser(Number(userId)));
+      }
+    } catch (error: any) {
+      console.error("Error initiating call:", error);
+      notify(error?.message || "Failed to initiate call", "error");
+    } finally {
+      setIsInitiatingCall(false);
+    }
   };
 
   const handleSaveActivity = (type: ActivityType, data: any): boolean => {
@@ -306,63 +966,265 @@ export default function DealDetailPage() {
       case "note":
         title = `Note by ${currentUserName}`;
         content = data;
+        try {
+          const authUserRaw = localStorage.getItem("auth_user");
+          const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+          const currentUserId =
+            authUser?.id || authUser?.userId || authUser?.userID || undefined;
+          if (deal?.id && content) {
+            dispatch(
+              createNoteThunk({
+                content: String(content),
+                userId: currentUserId,
+                linkedTo: { type: "deal", id: Number(deal.id) },
+              })
+            ).then(() =>
+              dispatch(
+                fetchNotes({
+                  type: "deal",
+                  linkedTo: Number(deal.id),
+                  page: 1,
+                  size: 50,
+                })
+              )
+            );
+          }
+        } catch {}
         break;
+
       case "email":
-        title = `Logged Email – ${
-          data?.subject || "No Subject"
-        } by ${currentUserName}`;
+        title = `Logged Email – ${data?.subject || "No Subject"} by ${currentUserName}`;
         content = data?.body || "Email sent successfully";
+        try {
+          const authUserRaw = localStorage.getItem("auth_user");
+          const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+          const currentUserId =
+            authUser?.id || authUser?.userId || authUser?.userID || undefined;
+
+          if (!currentUserId) {
+            notify("User ID not found. Please log in again.", "error");
+            return false;
+          }
+
+          if (deal?.id && data?.to && data?.subject) {
+            const recipients = Array.isArray(data.to)
+              ? data.to
+              : data.to.split(/[,\s;]+/).map((s: string) => s.trim()).filter(Boolean);
+
+            const cc = data.cc
+              ? (Array.isArray(data.cc)
+                  ? data.cc
+                  : data.cc.split(/[,\s;]+/).map((s: string) => s.trim()).filter(Boolean))
+              : undefined;
+
+            const bcc = data.bcc
+              ? (Array.isArray(data.bcc)
+                  ? data.bcc
+                  : data.bcc.split(/[,\s;]+/).map((s: string) => s.trim()).filter(Boolean))
+              : undefined;
+
+            const attachmentIds = data.attachments
+              ? data.attachments.map((att: any) => att.id).filter((id: any) => id)
+              : undefined;
+
+            dispatch(
+              createEmailThunk({
+                subject: data.subject,
+                body: data.body || "",
+                userId: Number(currentUserId),
+                recipients: recipients,
+                cc: cc,
+                bcc: bcc,
+                linkedTo: { type: "deal", id: Number(deal.id) },
+                attachmentIds: attachmentIds,
+              })
+            )
+              .unwrap()
+              .then(() => {
+                notify("Email sent successfully", "success");
+                dispatch(
+                  fetchEmails({
+                    type: "deal",
+                    linkedTo: Number(deal.id),
+                    page: 1,
+                    size: 50,
+                  })
+                );
+              })
+              .catch((error: any) => {
+                console.error("Error creating email:", error);
+                notify(error?.message || "Failed to send email", "error");
+              });
+          }
+        } catch (error: any) {
+          console.error("Error creating email:", error);
+          notify(error?.message || "Failed to send email", "error");
+          return false;
+        }
         break;
+
       case "call":
         title = `Call from ${currentUserName}`;
         content = data?.note || data?.summary;
-        extra = {
-          duration: data?.duration || "",
-          outcome: data?.outcome || "",
-        };
         break;
-      case "task":
-        title = `Task assigned to ${currentUserName}`;
-        content = data?.note || "";
-        extra = {
-          priority: data?.priority || "-",
-          taskType: data?.type || "-",
-          status: data?.status || "Not Started",
-        };
-        break;
-      case "meeting":
-        const allParticipants = [currentUserName];
-        const participantNames = currentUserName;
 
-        title = `Meeting by ${currentUserName}`;
-        content = data?.note || `Meeting organized by ${currentUserName}`;
-        extra = {
-          duration:
-            data?.duration || calculateDuration(data.startTime, data.endTime),
-          attendees: getAttendeeCount(allParticipants, allParticipants.length),
-          organizer: currentUserName,
-          location: data?.location || "",
-          attendeesRaw: allParticipants,
-          allParticipants: allParticipants,
-        };
-        break;
+      case "task":
+        try {
+          const authUserRaw = localStorage.getItem("auth_user");
+          const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+          const currentUserId = authUser?.id || authUser?.userId || authUser?.userID;
+
+          let assignedToId: number | null = null;
+
+          if (typeof data?.assignedTo === "string") {
+            const selectedUser = userOptions.find(
+              opt => opt.value === data.assignedTo || opt.label === data.assignedTo
+            );
+            if (selectedUser && selectedUser.id) {
+              assignedToId = Number(selectedUser.id);
+            } else {
+              const parsed = Number(data.assignedTo);
+              if (!isNaN(parsed) && parsed > 0) {
+                assignedToId = parsed;
+              }
+            }
+          } else if (data?.assignedTo && typeof data.assignedTo === "object") {
+            if (data.assignedTo.id) {
+              assignedToId = Number(data.assignedTo.id);
+            } else if (data.assignedTo.value) {
+              const selectedUser = userOptions.find(
+                opt => opt.value === data.assignedTo.value || opt.label === data.assignedTo.value
+              );
+              if (selectedUser && selectedUser.id) {
+                assignedToId = Number(selectedUser.id);
+              } else {
+                const parsed = Number(data.assignedTo.value);
+                if (!isNaN(parsed) && parsed > 0) {
+                  assignedToId = parsed;
+                }
+              }
+            }
+          }
+
+          if (!assignedToId || isNaN(assignedToId)) {
+            assignedToId = currentUserId ? Number(currentUserId) : null;
+          }
+
+          if (!assignedToId || isNaN(assignedToId)) {
+            notify("Please select a valid user", "error");
+            return false;
+          }
+
+          const assignedUser = userOptions.find((u) => u.id === assignedToId);
+
+          if (deal?.id) {
+            const assignedUserName = assignedUser?.label || currentUserName || "Unknown";
+            const dueDate = data?.dueDate ? new Date(data.dueDate) : null;
+            const dueDateTime = formatTaskDueDateTime(data?.dueDate, data?.time);
+
+            const tempActivity: Activity = {
+              id: `temp-task-${Date.now()}`,
+              type: "task" as ActivityType,
+              title: `Task assigned to ${assignedUserName}`,
+              author: assignedUserName,
+              date: formatActivityDate(new Date()),
+              dueDate: dueDateTime,
+              description: data?.note || `Task: ${data?.name || ""}`,
+              content: data?.note || `Task: ${data?.name || ""}`,
+              overdue: dueDate ? dueDate < new Date() : false,
+              extra: {
+                taskName: data?.name || "",
+                taskType: data?.type || "",
+                priority: data?.priority || "",
+                status: "pending",
+                dueDate: data?.dueDate || null,
+                dueTime: data?.time || null,
+              },
+              isTicket: false, // Added missing field
+            };
+
+            setActivities((prev) => {
+              const nonTask = prev.filter((a) => a.type !== "task");
+              return [...nonTask, tempActivity];
+            });
+            setActiveTab("activity");
+            toggleModal(type, false);
+            notify("Task created successfully", "success");
+
+            dispatch(
+              createTaskThunk({
+                taskName: data?.name || "",
+                dueDate: data?.dueDate || null,
+                dueTime: data?.time || null,
+                taskType: data?.type as any,
+                priority: data?.priority as any,
+                assignedToId: Number(assignedToId),
+                note: data?.note || null,
+                linkedModule: "deal",
+                linkedModuleId: String(deal.id),
+              })
+            ).then((result) => {
+              if (createTaskThunk.fulfilled.match(result)) {
+                const createdTask = result.payload;
+                
+                setActivities((prev) => {
+                  return prev.map((activity) => {
+                    if (activity.id === tempActivity.id && activity.type === "task") {
+                      return {
+                        ...activity,
+                        id: `task-${createdTask?.id}` || activity.id,
+                      };
+                    }
+                    return activity;
+                  });
+                });
+              }
+
+              dispatch(
+                fetchTasks({
+                  linkedModule: "deal",
+                  linkedModuleId: String(deal.id),
+                  page: 1,
+                  size: 50,
+                })
+              );
+            });
+            return true;
+          }
+        } catch (error) {
+          console.error("Error creating task:", error);
+          notify("Failed to create task", "error");
+          return false;
+        }
+        return false;
+
+      case "meeting":
+        return handleCreateMeeting(data);
+    }
+
+    if (type === "note" || type === "email") {
+      setActiveTab("activity");
+      toggleModal(type, false);
+      return true;
     }
 
     const newActivity: Activity = {
-      id: Date.now(),
+      id: `temp-${type}-${Date.now()}`,
       type,
       title,
       author: currentUserName,
-      date: formatActivityDateTime(new Date()),
-      dueDate: data?.dueDate
-        ? formatNoteDate(new Date(data.dueDate))
-        : formatNoteDate(new Date()),
+      date: formatActivityDate(new Date()),
+      dueDate: formatActivityDate(new Date()),
       description: content,
       content,
       extra,
+      isTicket: false, // Added missing field
     };
 
-    setActivities((prev) => [newActivity, ...prev]);
+    setActivities((prev) => {
+      const filtered = prev.filter((a) => a.id !== newActivity.id);
+      return [newActivity, ...filtered];
+    });
     setActiveTab("activity");
     toggleModal(type, false);
     notify(
@@ -372,93 +1234,234 @@ export default function DealDetailPage() {
     return true;
   };
 
-  const handleFieldChange = (label: string, value: string | string[]) => {
-    if (!editableDeal) return;
+  // Helper function to map owner names to user IDs
+  const mapOwnerNamesToUserIds = async (ownerNames: string[]): Promise<number[]> => {
+    if (!ownerNames || ownerNames.length === 0) return [];
 
-    const fieldMap: Record<string, keyof Deal> = {
-      "Deal Owner": "owner",
-      Priority: "priority",
-      "Created Date": "createdDate",
-    };
-
-    const key = fieldMap[label];
-    if (!key) return;
-
-    let val: any;
-    if (key === "owner") {
-      val = Array.isArray(value) ? value : [value].filter(Boolean);
-    } else {
-      val = Array.isArray(value) ? value[0] : value;
-    }
-
-    const updated = { ...editableDeal, [key]: val };
-    setEditableDeal(updated);
-  };
-
-  const handleSaveDeal = () => {
-    if (!editableDeal) return;
     try {
-      const updatedDeal = { ...editableDeal, stage: dealStage };
-      setDeal(updatedDeal);
-      setEditableDeal(updatedDeal);
-      updateLocalStorageDeals(updatedDeal);
-      setIsEditing(false);
-      setActivities((prev) => [...prev]);
-      notify("Deal details updated successfully", "success");
-    } catch (error) {
-      console.error("Failed to update deal:", error);
-      notify("Failed to save changes", "error");
-    }
-  };
+      const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+      if (!BASE_URL) return [];
 
-  const handleCancel = () => {
-    setEditableDeal(deal);
-    setIsEditing(false);
-  };
+      const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+      if (!token) return [];
 
-  const handleStageUpdate = (field: "status" | "stage", value: string) => {
-    if (field === "stage") {
-      setDealStage(value);
-      if (deal) {
-        const updatedDeal = { ...deal, stage: value };
-        setDeal(updatedDeal);
-        setEditableDeal(updatedDeal);
-        updateLocalStorageDeals(updatedDeal);
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+      };
+
+      const res = await fetch(`${BASE_URL}/api/auth/users`, { headers });
+
+      if (res.ok) {
+        const data = await res.json();
+        const users = data.data || data || [];
+
+        if (Array.isArray(users) && users.length > 0) {
+          const userIds: number[] = [];
+
+          for (const ownerName of ownerNames) {
+            const nameParts = ownerName.trim().split(/\s+/);
+            const firstName = nameParts[0] || "";
+            const lastName = nameParts.slice(1).join(" ") || "";
+
+            const user = users.find((u: any) => {
+              const userFirstName = (u.firstName || "").trim().toLowerCase();
+              const userLastName = (u.lastName || "").trim().toLowerCase();
+              return (
+                userFirstName === firstName.toLowerCase() &&
+                userLastName === lastName.toLowerCase()
+              );
+            });
+
+            if (user?.id) {
+              userIds.push(user.id);
+            } else {
+              console.warn(`User not found for owner name: "${ownerName}"`);
+            }
+          }
+
+          return userIds;
+        }
       }
+    } catch (error) {
+      console.error("Error mapping owner names to user IDs:", error);
+    }
+
+    return [];
+  };
+
+  const handleSaveDeal = async () => {
+    if (!editableDeal || !id) {
+      notify("No deal data to save", "error");
+      return;
+    }
+
+    try {
+      const ownerNames = Array.isArray(editableDeal.owner)
+        ? editableDeal.owner
+        : editableDeal.owner
+        ? [editableDeal.owner]
+        : [];
+
+      const ownerIds = ownerNames.length > 0
+        ? await mapOwnerNamesToUserIds(ownerNames)
+        : [];
+
+      const updateData: any = {
+        description: editableDeal.description || "",
+        priority: editableDeal.priority || "",
+        stage: editableDeal.stage || "",
+        amount: editableDeal.amount || 0,
+      };
+
+      if (ownerIds.length > 0) {
+        updateData.userIds = ownerIds;
+      }
+
+      const result = await dispatch(
+        updateDeal({
+          id: String(id),
+          dealData: updateData,
+        })
+      );
+
+      if (updateDeal.fulfilled.match(result)) {
+        const updatedDealData = result.payload;
+        setDeal(updatedDealData);
+        setEditableDeal(updatedDealData);
+
+        await dispatch(fetchDeals({}));
+
+        setIsEditing(false);
+        notify("Deal details updated successfully", "success");
+      } else {
+        const errorMsg = result.payload || "Failed to update deal";
+        notify(typeof errorMsg === "string" ? errorMsg : "Failed to update deal", "error");
+      }
+    } catch (error: any) {
+      console.error("Failed to update deal:", error);
+      notify("Failed to save changes: " + (error.message || "Unknown error"), "error");
     }
   };
 
-  const aboutFields = [
-    {
-      label: "Deal Owner",
-      value: editableDeal?.owner || [],
-      isEditable: true,
-      options: ownerOptions,
-      variant: "multiselect" as const,
-      onChange: (val: string | string[]) => {
-        const selectedOwners = Array.isArray(val) ? val : [val].filter(Boolean);
-        handleFieldChange("Deal Owner", selectedOwners);
-      },
-    },
-    {
-      label: "Priority",
-      value: editableDeal?.priority || "",
-      isEditable: true,
-      options: ["Low", "Medium", "High", "Urgent"],
-      onChange: (val: string | string[]) => handleFieldChange("Priority", val),
-    },
-    {
-      label: "Created Date",
-      value: editableDeal?.createdDate
-        ? formatDisplayDate(editableDeal.createdDate)
-        : "",
-      isEditable: false,
-    },
-  ];
+  // Map backend attachments to frontend format
+  const mappedAttachments = useMemo(() => {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    
+    return attachmentsFromStore.map((attachment) => {
+      let fileUrl = attachment.frontendUrl || attachment.fileUrl;
+      
+      if (!fileUrl) {
+        return {
+          id: attachment.id,
+          name: attachment.filename,
+          uploadedAt: attachment.createdAt
+            ? formatDisplayDateTime(attachment.createdAt)
+            : new Date().toLocaleString(),
+          previewUrl: "",
+          type: attachment.filename.split(".").pop() || "",
+        };
+      }
+      
+      const isAbsoluteUrl = fileUrl.startsWith("http://") || fileUrl.startsWith("https://");
+      
+      if (isAbsoluteUrl) {
+        fileUrl = fileUrl;
+      } else if (fileUrl.startsWith("/") && BASE_URL) {
+        const cleanPath = fileUrl.substring(1);
+        const baseUrl = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
+        fileUrl = `${baseUrl}/${cleanPath}`;
+      } else if (BASE_URL) {
+        const baseUrl = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
+        fileUrl = `${baseUrl}/${fileUrl}`;
+      } else {
+        console.warn("NEXT_PUBLIC_API_BASE_URL is not set. Cannot construct file URL for:", fileUrl);
+        fileUrl = "";
+      }
+      
+      return {
+        id: attachment.id,
+        name: attachment.filename,
+        uploadedAt: attachment.createdAt
+          ? formatDisplayDateTime(attachment.createdAt)
+          : new Date().toLocaleString(),
+        previewUrl: fileUrl,
+        type: attachment.filename.split(".").pop() || "",
+      };
+    });
+  }, [attachmentsFromStore]);
 
-  const getFilteredActivities = (type: ActivityType) =>
-    activities.filter((a) => a.type === type);
+  const getFilteredActivities = (type: ActivityType) => {
+    const filtered = deduplicatedActivities.filter((a) => a.type === type);
+    return filtered;
+  };
 
+  // Handle file upload
+  const handleAddAttachment = async (file: File, previewUrl?: string) => {
+    if (!deal?.id) {
+      notify("Deal not loaded", "error");
+      return;
+    }
+
+    if (attachmentsFromStore.some((a) => a.filename === file.name)) {
+      notify(`${file.name} already exists in attachments`, "info");
+      return;
+    }
+
+    try {
+      const authUserRaw = localStorage.getItem("auth_user");
+      const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+      const uploadedById = authUser?.id || authUser?.userId || authUser?.userID;
+
+      if (!uploadedById) {
+        notify("User not found. Please log in again.", "error");
+        return;
+      }
+
+      const result = await dispatch(
+        createAttachments({
+          files: [file],
+          uploadedById: Number(uploadedById),
+          linkedType: "deal",
+          linkedId: String(deal.id),
+        })
+      ).unwrap();
+
+      if (result && result.length > 0) {
+        notify("File uploaded successfully", "success");
+        dispatch(
+          fetchAttachments({
+            linkedType: "deal",
+            linkedId: String(deal.id),
+          })
+        );
+      }
+    } catch (error: any) {
+      console.error("Error uploading file:", error);
+      notify(error || "Failed to upload file", "error");
+    }
+  };
+
+  // Handle file deletion
+  const handleRemoveAttachment = async (id: number) => {
+    try {
+      await dispatch(deleteAttachment(id)).unwrap();
+      notify("Attachment deleted successfully", "success");
+      if (deal?.id) {
+        dispatch(
+          fetchAttachments({
+            linkedType: "deal",
+            linkedId: String(deal.id),
+          })
+        );
+      }
+    } catch (error: any) {
+      console.error("Error deleting attachment:", error);
+      notify(error || "Failed to delete attachment", "error");
+    }
+  };
+
+  // Early return
   if (!deal)
     return (
       <div className="p-8 text-center text-gray-600">
@@ -466,16 +1469,75 @@ export default function DealDetailPage() {
       </div>
     );
 
+  const aboutFields = [
+    {
+      label: "Deal Owner",
+      value: editableDeal?.owner,
+      isEditable: true,
+      options: ownerOptions,
+      variant: "multiselect" as const,
+      onChange: (val: string | string[]) =>
+        setEditableDeal((p: any) => ({ ...p, owner: val })),
+    },
+    {
+      label: "Priority",
+      value: editableDeal?.priority,
+      isEditable: true,
+      options: priorityOptions,
+      onChange: (val: string | string[]) =>
+        setEditableDeal((p: any) => ({ ...p, priority: val })),
+    },
+    {
+      label: "Created Date",
+      value: editableDeal?.createdDate
+        ? formatDisplayDate(editableDeal.createdDate)
+        : "-",
+      isEditable: false,
+    },
+  ];
+
   return (
-    <div className="p-0 bg-white rounded-md h-full overflow-scroll flex gap-6">
-      <div className="w-[320px] space-y-4 ml-0 mt-2">
+    <div className="p-0 bg-white rounded-md min-h-screen overflow-y-auto flex gap-6">
+      <div className="w-[280px] space-y-4 ml-0 mt-2">
         <InfoCard
+          key={`deal-card-${deal.id}-${cardKey}`}
           module="deals"
           title={deal.name}
-          subtitle={deal.stage}
-          amount={deal.amount}
-          stage={dealStage}
-          onUpdate={handleStageUpdate}
+          subtitle={`${deal.description} • Created: ${formatDisplayDateTime(
+            deal.createdDate
+          )}`}
+          status={deal.status}
+          id={deal.id}
+          onUpdate={async (field, value) => {
+            if (field === "status") {
+              try {
+                const result = await dispatch(
+                  updateDeal({
+                    id: String(id),
+                    dealData: {
+                      DealStatus: value as string,
+                    },
+                  })
+                );
+
+                if (updateDeal.fulfilled.match(result)) {
+                  const updatedDealData = result.payload;
+                  setDeal(updatedDealData);
+                  setEditableDeal(updatedDealData);
+
+                  await dispatch(fetchDeals({}));
+
+                  notify("Deal status updated successfully", "success");
+                } else {
+                  const errorMsg = result.payload || "Failed to update deal status";
+                  notify(typeof errorMsg === "string" ? errorMsg : "Failed to update deal status", "error");
+                }
+              } catch (error: any) {
+                console.error("Failed to update deal status:", error);
+                notify("Failed to update status: " + (error.message || "Unknown error"), "error");
+              }
+            }
+          }}
           onNoteClick={() => toggleModal("note", true)}
           onEmailClick={() => toggleModal("email", true)}
           onCallClick={() => toggleModal("call", true)}
@@ -489,14 +1551,17 @@ export default function DealDetailPage() {
           isEditing={isEditing}
           onEdit={() => setIsEditing(true)}
           onSave={handleSaveDeal}
-          onCancel={handleCancel}
+          onCancel={() => {
+            setEditableDeal(deal);
+            setIsEditing(false);
+          }}
         />
       </div>
 
-      <div className="flex-1 bg-white p-4 mt-2">
+      <div className="flex-1 bg-white">
         <DetailHeader
           searchValue={searchValue}
-          onSearchChange={handleSearchChange}
+          onSearchChange={(e) => setSearchValue(e.target.value)}
         />
         <CRMTabHeader
           value={activeTab}
@@ -510,36 +1575,86 @@ export default function DealDetailPage() {
                 />
               );
             }
+
+            const buttonLabel =
+              tab === "call"
+                ? "Make a Phone Call"
+                : `Create ${label.slice(0, -1)}`;
+            const handleCreate = () => {
+              if (tab === "call") {
+                setShowCallPopup(true);
+              } else {
+                toggleModal(tab as ActivityType, true);
+              }
+            };
+
             return (
               <ActivityDetailView
                 sectionTitle={label}
-                buttonLabel={`Create ${label.slice(0, -1)}`}
+                buttonLabel={buttonLabel}
                 activities={getFilteredActivities(tab as ActivityType)}
-                onCreate={() => toggleModal(tab as ActivityType, true)}
+                onCreate={handleCreate}
+                onDelete={tab === "meeting" ? handleDeleteMeeting : undefined}
+                loading={
+                  tab === "note" ? notesLoading :
+                  tab === "call" ? callsLoading :
+                  tab === "email" ? emailsLoading :
+                  tab === "meeting" ? meetingsLoading :
+                  false
+                }
               />
             );
           }}
         />
+        {showCallPopup && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white shadow-lg rounded-lg p-6 w-[320px] text-center">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Connecting to Agent
+              </h3>
+              <p className="text-sm text-gray-500 mt-2">
+                {isInitiatingCall || callsLoading
+                  ? "Initiating call..."
+                  : "Click Connect to start the call"}
+              </p>
+
+              <div className="flex justify-center gap-3 mt-5">
+                <button
+                  onClick={() => {
+                    if (!isInitiatingCall && !callsLoading) {
+                      setShowCallPopup(false);
+                      notify("Call cancelled", "info");
+                    }
+                  }}
+                  disabled={isInitiatingCall || callsLoading}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleInitiateCall}
+                  disabled={isInitiatingCall || callsLoading}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isInitiatingCall || callsLoading ? "Connecting..." : "Connect"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="w-[280px] space-y-4 mt-5 mr-4">
-        <AISummaryCard type="deal" className="border border-indigo-700" />
+      <div className="w-[280px] space-y-3 mt-5 mr-4">
+        <AISummaryCard
+          type="deal"
+          message={"There are no activities associated with this lead and further details are needed to provide a comprehensive summary. "}
+          className="border border-indigo-700"
+        />
 
         <AttachmentView
-          attachments={attachments}
-          onAdd={(file, previewUrl) => {
-            const newAttachment = {
-              id: Date.now(),
-              name: file.name,
-              uploadedAt: new Date().toLocaleString(),
-              previewUrl,
-              type: file.type,
-            };
-            setAttachments((prev) => [...prev, newAttachment]);
-          }}
-          onRemove={(id) =>
-            setAttachments((prev) => prev.filter((a) => a.id !== id))
-          }
+          attachments={mappedAttachments}
+          onAdd={handleAddAttachment}
+          onRemove={handleRemoveAttachment}
         />
       </div>
 
@@ -555,22 +1670,35 @@ export default function DealDetailPage() {
           handleSaveActivity("email", data);
           return true;
         }}
+        connectedPerson={getConnectedPersonForEmail() || undefined}
+        recordAttachments={mappedAttachments.map((a) => ({
+          id: a.id,
+          name: a.name,
+          url: a.previewUrl,
+        }))}
+        onAttachToRecord={async (file) => {
+          notify(`${file.name} attached to email`, "info");
+        }}
       />
       <CallModal
         isOpen={showModal.call}
         onClose={() => toggleModal("call", false)}
         onSave={(data) => handleSaveActivity("call", data)}
-        connectedPerson={deal.name}
+        connectedPerson={getConnectedPerson() || undefined}
       />
       <TaskModal
         isOpen={showModal.task}
         onClose={() => toggleModal("task", false)}
-        onSave={(data) => handleSaveActivity("task", data)}
+        userOptions={userOptions}
+        onSave={(data: any): boolean => handleSaveActivity("task", data)}
       />
       <MeetingModal
         isOpen={showModal.meeting}
         onClose={() => toggleModal("meeting", false)}
-        onSave={(data) => handleSaveActivity("meeting", data)}
+        onSave={handleCreateMeeting}
+        userOptions={userOptions}
+        linkedModule="deal"
+        linkedModuleId={deal.id}
       />
     </div>
   );

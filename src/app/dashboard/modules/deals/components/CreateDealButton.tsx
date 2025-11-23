@@ -14,6 +14,7 @@ interface DealData {
   priority: string;
   createdDate: string;
   associatedLead?: string;
+  ownerIds?: number[]; 
 }
 
 interface CreateDealProps {
@@ -22,6 +23,8 @@ interface CreateDealProps {
   onSave: (deal: DealData) => void;
   mode?: "create" | "edit";
   initialData?: DealData;
+
+  // Data passed from parent
   associatedLead?: string;
   users?: { id: number; name: string }[];
   leads?: {
@@ -59,40 +62,47 @@ const CreateDeal: React.FC<CreateDealProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-   if (mode === "edit" && initialData) {
+    if (mode === "edit" && initialData) {
   setFormData({
     ...initialData,
+
     associatedLead: String(initialData.associatedLead ?? ""),
-    owner: initialData.owner?.map((id) => String(id)) ?? [],
+
+    // Owner IDs mapped to strings
+    owner: initialData.ownerIds
+      ? initialData.ownerIds.map((id: number) => String(id))
+      : [],
+
+    // Convert amount safely
     amount: String(initialData.amount ?? ""),
   });
+} else {
+  setFormData({
+    name: "",
+    stage: "",
+    closeDate: "",
+    owner: [],
+    amount: "",
+    priority: "",
+    createdDate: getCurrentDate(),
+    associatedLead: associatedLead || "",
+  });
 }
- else {
-      setFormData({
-        name: "",
-        stage: "",
-        closeDate: "",
-        owner: [],
-        amount: "",
-        priority: "",
-        createdDate: getCurrentDate(),
-        associatedLead: associatedLead || "",
-      });
-    }
+
   }, [isOpen, mode, initialData, associatedLead]);
 
   const handleChange = (field: keyof DealData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  
+  // Show only qualified leads (normal CRM behavior)
   const qualifiedLeads = leads.filter(
     (lead) =>
       (lead.status || lead.leadStatus || "").toUpperCase() === "QUALIFIED"
   );
 
   const leadOptions = qualifiedLeads.map((lead) => ({
-    label: `${lead.firstName} ${lead.lastName}`,
+    label:` ${lead.firstName} ${lead.lastName}`,
     value: String(lead.id),
   }));
 
@@ -101,7 +111,6 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     value: String(user.id),
   }));
 
-  
   const handleAmountChange = (e: any) => {
     const val = e.target.value;
     if (/^\d*$/.test(val)) {
@@ -109,7 +118,6 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     }
   };
 
-  
   const validate = () => {
     if (!formData.associatedLead) {
       notify("Associated Lead is required", "error");
@@ -132,6 +140,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
       ...formData,
       associatedLead: String(formData.associatedLead),
     });
+
     return true;
   };
 
@@ -144,6 +153,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     >
       <div className="flex flex-col gap-6">
         
+        {/* ASSOCIATED LEAD */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Associated Lead *
@@ -155,9 +165,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
               placeholder="Choose"
               options={leadOptions}
               value={formData.associatedLead}
-              onChange={(e) =>
-                handleChange("associatedLead", e.target.value)
-              }
+              onChange={(e) => handleChange("associatedLead", e.target.value)}
             />
           ) : (
             <div className="text-sm text-gray-500 p-2 border rounded">
@@ -166,7 +174,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           )}
         </div>
 
-      
+        {/* DEAL NAME */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Deal Name *
@@ -179,7 +187,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           />
         </div>
 
-        
+        {/* DEAL STAGE */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Deal Stage *
@@ -202,7 +210,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           />
         </div>
 
-        
+        {/* DEAL OWNER */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Deal Owner *
@@ -223,7 +231,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           )}
         </div>
 
-        
+        {/* AMOUNT */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Amount *
@@ -236,8 +244,8 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           />
         </div>
 
+        {/* CLOSE DATE + PRIORITY */}
         <div className="grid grid-cols-2 gap-4">
-          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Close Date *
@@ -250,7 +258,6 @@ const CreateDeal: React.FC<CreateDealProps> = ({
             />
           </div>
 
-         
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Priority *

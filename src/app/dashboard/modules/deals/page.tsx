@@ -28,29 +28,53 @@ export default function DealsPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [leadsLoading, setLeadsLoading] = useState(false);
+  const [associatedLead, setAssociatedLead] = useState<string>("");
 
-  
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const openModal = params.get("openModal");
+
+    if (openModal === "true") {
+      setShowModal(true);
+
+      const leadData = JSON.parse(localStorage.getItem("convertLead") || "{}");
+      if (leadData?.id) {
+        setAssociatedLead(String(leadData.id));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     dispatch(fetchDeals());
   }, [dispatch]);
 
-
+  /* --------------------------
+      FETCH USERS
+  --------------------------- */
   useEffect(() => {
     if (!token) return;
 
     const fetchUsers = async () => {
       setUsersLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/users`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
         const data = await res.json();
-        const formatted = Array.isArray(data.data ? data.data : data)
-          ? (data.data ? data.data : data).map((u: any) => ({
-              id: u.id,
-              name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
-            }))
+        const arr = Array.isArray(data.data ? data.data : data)
+          ? (data.data ? data.data : data)
           : [];
+
+        const formatted = arr.map((u: any) => ({
+          id: u.id,
+          name:
+            `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
+        }));
+
         setUsers(formatted);
       } catch {
         notify("Failed to fetch users", "error");
@@ -58,39 +82,55 @@ export default function DealsPage() {
         setUsersLoading(false);
       }
     };
+
     fetchUsers();
   }, [token]);
 
-  
+  /* --------------------------
+      FETCH LEADS
+  --------------------------- */
   useEffect(() => {
     if (!token) return;
 
     const fetchLeads = async () => {
       setLeadsLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/lead`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/lead`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         const data = await res.json();
-        setLeads(Array.isArray(data.data ? data.data : data) ? (data.data ? data.data : data) : []);
+        setLeads(
+          Array.isArray(data.data ? data.data : data)
+            ? data.data || data
+            : []
+        );
       } catch {
         notify("Failed to fetch leads", "error");
       } finally {
         setLeadsLoading(false);
       }
     };
+
     fetchLeads();
   }, [token]);
 
-  
+  /* --------------------------
+      FILTERS
+  --------------------------- */
   const handleFilterChange = (name: string, value: string) => {
     setActiveFilters((prev) => ({ ...prev, [name]: value }));
     setCurrentPage(1);
   };
 
-  
+  /* --------------------------
+      SEARCH + FILTER LOGIC
+  --------------------------- */
   const filteredDeals = deals.filter((deal: any) => {
     const search = searchTerm.toLowerCase();
+
     const matchesSearch =
       (deal.name || "").toLowerCase().includes(search) ||
       (deal.owner || []).some((o: string) => o.toLowerCase().includes(search)) ||
@@ -115,66 +155,93 @@ export default function DealsPage() {
     return matchesSearch && matchesOwner && matchesStage && matchesCloseDate && matchesCreatedDate;
   });
 
-  
   const totalPages = Math.max(1, Math.ceil(filteredDeals.length / ITEMS_PER_PAGE));
-  const currentPageDeals = filteredDeals.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const currentPageDeals = filteredDeals.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
-  
-  const ownerFilterOptions = Array.from(new Set(deals.flatMap((d) => d.owner || []).concat(users.map((u) => u.name)))).filter(Boolean).sort();
-  const stageFilterOptions = ["Presentation Scheduled","Qualified to Buy","Contract Sent","Closed Won","Appointment Scheduled","Decision Maker Bought In","Closed Lost","Negotiation"];
+  const ownerFilterOptions = Array.from(
+    new Set(deals.flatMap((d) => d.owner || []).concat(users.map((u) => u.name)))
+  )
+    .filter(Boolean)
+    .sort();
+
+  const stageFilterOptions = [
+    "Presentation Scheduled",
+    "Qualified to Buy",
+    "Contract Sent",
+    "Closed Won",
+    "Appointment Scheduled",
+    "Decision Maker Bought In",
+    "Closed Lost",
+    "Negotiation",
+  ];
+
   const dealFilters = [
     { label: "Deal Owner", options: ownerFilterOptions },
     { label: "Deal Stage", options: stageFilterOptions },
   ];
 
-  
- 
-const handleSaveDeal = async (form: any) => {
-  const payload = {
-    name: form.name,
-    stage: form.stage,
-    amount: form.amount,
-    priority: form.priority,
-    closeDate: form.closeDate,
+  /* --------------------------
+      CREATE DEAL
+  --------------------------- */
+  const handleSaveDeal = async (form: any) => {
+    const payload = {
+      name: form.name,
+      stage: form.stage,
+      amount: form.amount,
+      priority: form.priority,
+      closeDate: form.closeDate,
+      ownerIds: Array.isArray(form.owner) ? form.owner : [form.owner],
+      leadId: form.associatedLead,
+    };
 
-    
-    ownerIds: Array.isArray(form.owner) ? form.owner : [form.owner], 
-    leadId: form.associatedLead, 
+    const res: any = await dispatch(createDeal(payload));
+
+    if (res.meta.requestStatus === "fulfilled") {
+      notify("Deal created successfully", "success");
+      dispatch(fetchDeals());
+      return true;
+    }
+    notify("Failed to create deal", "error");
+    return false;
   };
 
-  const res: any = await dispatch(createDeal(payload));
+  /* --------------------------
+      UPDATE DEAL
+  --------------------------- */
+  const handleUpdateDeal = async (form: any) => {
+    const dealData = {
+      dealName: form.name,
+      dealStage: form.stage,
+      amount: form.amount,
+      priority: form.priority,
+      closeDate: form.closeDate,
+      leadId: form.associatedLead,
+      ownerIds: Array.isArray(form.owner) ? form.owner : [form.owner],
+    };
 
-  if (res.meta.requestStatus === "fulfilled") {
-    notify("Deal created successfully", "success");
-    dispatch(fetchDeals());
-    return true;
-  }
-  notify("Failed to create deal", "error");
-  return false;
-};
+    const res: any = await dispatch(
+      updateDeal({
+        id: editData.id,
+        dealData,
+      })
+    );
 
-const handleUpdateDeal = async (form: any) => {
-  const payload = {
-    id: editData.id,
-    name: form.name,
-    stage: form.stage,
-    amount: form.amount,
-    priority: form.priority,
-    closeDate: form.closeDate,
-    ownerIds: Array.isArray(form.owner) ? form.owner : [form.owner],
-    leadId: form.associatedLead,
+    if (res.meta.requestStatus === "fulfilled") {
+      notify("Deal updated successfully", "success");
+      dispatch(fetchDeals());
+      return true;
+    }
+
+    notify("Failed to update deal", "error");
+    return false;
   };
 
-  const res: any = await dispatch(updateDeal(payload));
-
-  if (res.meta.requestStatus === "fulfilled") {
-    notify("Deal updated successfully", "success");
-    dispatch(fetchDeals());
-    return true;
-  }
-  notify("Failed to update deal", "error");
-  return false;
-};
+  /* --------------------------
+      DELETE DEAL
+  --------------------------- */
   const handleDelete = async (deal: any) => {
     const res: any = await dispatch(deleteDeal(deal.id));
     if (res.meta.requestStatus === "fulfilled") {
@@ -190,15 +257,21 @@ const handleUpdateDeal = async (form: any) => {
       <HeaderBar
         title="Deals"
         searchPlaceholder="Search deals, owners, leads, stages..."
-        onSearch={(v) => { setSearchTerm(v); setCurrentPage(1); }}
+        onSearch={(v) => {
+          setSearchTerm(v);
+          setCurrentPage(1);
+        }}
         filters={dealFilters}
         onFilterChange={handleFilterChange}
-        onDateChange={handleFilterChange} 
+        onDateChange={(date) => handleFilterChange("Date", date)}
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
         activeFilters={activeFilters}
-        onCreate={() => { setEditData(null); setShowModal(true); }}
+        onCreate={() => {
+          setEditData(null);
+          setShowModal(true);
+        }}
         isDealPage={true}
       />
 
@@ -225,17 +298,34 @@ const handleUpdateDeal = async (form: any) => {
         >
           {currentPageDeals.map((deal: any) => (
             <TableRow key={deal.id}>
-              <TableCell isCheckbox><input type="checkbox" className="h-4 w-4" /></TableCell>
-              <TableCell>
-                <Link href={`/dashboard/modules/deals/${deal.id}`} className="hover:underline">{deal.name}</Link>
+              <TableCell isCheckbox>
+                <input type="checkbox" className="h-4 w-4" />
               </TableCell>
+
+              <TableCell>
+                <Link
+                  href={`/dashboard/modules/deals/${deal.id}`}
+                  className="hover:underline"
+                >
+                  {deal.name}
+                </Link>
+              </TableCell>
+
               <TableCell>{deal.stage}</TableCell>
               <TableCell>{formatDisplayDateOnly(deal.closeDate)}</TableCell>
               <TableCell>{(deal.owner || []).join(", ")}</TableCell>
               <TableCell>{deal.amount}</TableCell>
-              <TableCell>{deal.associatedLead || "-"}</TableCell>
+              <TableCell>{deal.leadName || deal.associatedLeadName || "-"}</TableCell>
+
               <TableCell>
-                <ActionButtons item={deal} onEdit={() => { setEditData(deal); setShowModal(true); }} onDelete={() => handleDelete(deal)} />
+                <ActionButtons
+                  item={deal}
+                  onEdit={() => {
+                    setEditData(deal);
+                    setShowModal(true);
+                  }}
+                  onDelete={() => handleDelete(deal)}
+                />
               </TableCell>
             </TableRow>
           ))}
@@ -244,15 +334,17 @@ const handleUpdateDeal = async (form: any) => {
 
       <CreateDeal
         isOpen={showModal}
-        onClose={() => { setShowModal(false); setEditData(null); }}
+        onClose={() => {
+          setShowModal(false);
+          setEditData(null);
+        }}
         onSave={editData ? handleUpdateDeal : handleSaveDeal}
         initialData={editData}
         mode={editData ? "edit" : "create"}
         leads={leads}
         users={users}
+        associatedLead={associatedLead}
       />
     </div>
   );
 }
-
-
