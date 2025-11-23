@@ -19,6 +19,8 @@ import {
   deleteTicket,
   type Ticket,
 } from "@/store/slices/ticketsSlice";
+import CSVImportModal from "@/app/dashboard/components/CsvImportButton";
+import { Button } from "@mui/material";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -53,8 +55,8 @@ export default function TicketsPage() {
   const [ownerOptions, setOwnerOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [companyOptions, setCompanyOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [dealOptions, setDealOptions] = useState<Array<{ label: string; value: string }>>([]);
-
-  
+ const [openImport, setOpenImport] = useState(false);
+  useEffect(() => {}, [openImport]);
   useEffect(() => {
     const run = async () => {
       const filters: any = {
@@ -812,6 +814,24 @@ export default function TicketsPage() {
         onPageChange={setCurrentPage}
         activeFilters={activeFilters}
         searchPlaceholder="Search phone, name, city"
+        extraButtons={
+     <Button
+       variant="outlined"
+       onClick={() => setOpenImport(true)}
+       sx={{
+         borderColor: "#4f46e5",
+         color: "#4338ca",
+         textTransform: "none",
+         "&:hover": {
+           borderColor: "#3730a3",
+           color: "#3730a3",
+           backgroundColor: "rgba(67, 56, 202, 0.04)",
+         },
+       }}
+     >
+       Import
+     </Button>
+   }
       />
       <div className="px-4  pb-4">
         <TableLayout columns={columns}>
@@ -878,8 +898,17 @@ export default function TicketsPage() {
             </TableRow>
           )}
         </TableLayout>
-      </div>
 
+      </div>
+      
+     <CSVImportModal
+  open={openImport}
+  setOpen={setOpenImport}
+  module="ticket"
+  onImportComplete={() => {
+    dispatch(fetchTickets({ page: 1, size: ITEMS_PER_PAGE }));
+  }}
+/>
       <TicketCreateButton
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
