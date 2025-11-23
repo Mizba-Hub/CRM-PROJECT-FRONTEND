@@ -36,6 +36,7 @@ interface Props {
   buttonLabel?: string;
   activities: Activity[];
   onCreate?: () => void;
+  onDelete?: (id: number) => void;
 }
 
 const ActivityDetailView: React.FC<Props> = ({
@@ -240,9 +241,9 @@ const ActivityDetailView: React.FC<Props> = ({
                 </span>
               </div>
             ) : a.type === "meeting" ? (
-              <div className="px-3">
-                {a.extra?.meetingTitle || "Untitled Meeting"}
-              </div>
+              <span className="px-3">
+                {a.extra?.originalTitle || "Meeting scheduled"}
+              </span>
             ) : (
               previewText
             )}
