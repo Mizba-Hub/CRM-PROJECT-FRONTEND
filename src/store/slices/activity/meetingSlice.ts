@@ -1,5 +1,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+export type LinkedModule = "lead" | "deal" | "ticket" | "company";
+
 export interface MeetingUser {
   id: number;
   firstName: string;
@@ -16,7 +20,7 @@ export interface Meeting {
   location: string;
   reminder: string;
   note: string;
-  linkedModule: "lead" | "deal" | "ticket" | "company";
+  linkedModule: LinkedModule;
   linkedModuleId: number;
   totalcount: number;
   timezone: string;
@@ -27,7 +31,15 @@ export interface Meeting {
   updatedAt: string;
 }
 
-export interface CreateMeetingData {
+export interface MeetingsQuery {
+  page?: number;
+  size?: number;
+  linkedModule?: LinkedModule;
+  linkedModuleId?: string | number;
+  search?: string;
+}
+
+export interface CreateMeetingPayload {
   title: string;
   startDate: string;
   startTime: string;
@@ -37,17 +49,27 @@ export interface CreateMeetingData {
   note: string;
   organizerIds: number[];
   attendeeIds: number[];
-  linkedModule: "lead" | "deal" | "ticket" | "company";
+  linkedModule: LinkedModule;
   linkedModuleId: number;
 }
 
-export interface UpdateMeetingData extends Partial<CreateMeetingData> {
-  id: number;
+export interface UpdateMeetingPayload {
+  title?: string;
+  startDate?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  reminder?: string;
+  note?: string;
+  organizerIds?: number[];
+  attendeeIds?: number[];
+  linkedModule?: LinkedModule;
+  linkedModuleId?: number;
 }
 
-interface MeetingsState {
-  meetings: Meeting[];
-  currentMeeting: Meeting | null;
+type MeetingState = {
+  items: Meeting[];
+  current: Meeting | null;
   loading: boolean;
   error: string | null;
   pagination: {
@@ -55,11 +77,11 @@ interface MeetingsState {
     totalPages: number;
     totalCount: number;
   };
-}
+};
 
-const initialState: MeetingsState = {
-  meetings: [],
-  currentMeeting: null,
+const initialState: MeetingState = {
+  items: [],
+  current: null,
   loading: false,
   error: null,
   pagination: {
@@ -69,54 +91,53 @@ const initialState: MeetingsState = {
   },
 };
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("No token found. Please log in.");
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
+const getAuthToken = (): string | null => {
+  if (typeof window === "undefined") return null;
+  const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+  return token || null;
 };
 
-export const fetchCompanyMeetings = createAsyncThunk<
-  { meetings: Meeting[]; pagination: MeetingsState["pagination"] },
-  { companyId: number; page?: number; search?: string },
-  { rejectValue: string }
->(
-  "meetings/fetchCompanyMeetings",
-  async ({ companyId, page = 1, search = "" }, { rejectWithValue }) => {
+const getAuthHeaders = (): HeadersInit => {
+  const token = getAuthToken();
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+  return headers;
+};
+
+
+export const fetchMeetings = createAsyncThunk(
+  "meetings/fetchMeetings",
+  async (query: MeetingsQuery = {}, { rejectWithValue }) => {
     try {
-      const headers = getAuthHeaders();
+      if (!BASE_URL) return rejectWithValue("API base URL is not configured");
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("No authentication token found");
 
-      const queryParams = new URLSearchParams({
-        linkedModule: "company",
-        linkedModuleId: companyId.toString(),
-        page: page.toString(),
-        size: "10",
-        ...(search && { search }),
+      const params = new URLSearchParams();
+      if (query.page) params.append("page", String(query.page));
+      if (query.size) params.append("size", String(query.size));
+      if (query.linkedModule) params.append("linkedModule", query.linkedModule);
+      if (query.linkedModuleId) params.append("linkedModuleId", String(query.linkedModuleId));
+      if (query.search) params.append("search", query.search);
+
+      const res = await fetch(`${BASE_URL}/api/v1/meetings${params.toString() ? `?${params.toString()}` : ""}`, {
+        headers: getAuthHeaders(),
       });
-
-      const url = `http://localhost:5000/api/v1/meetings?${queryParams.toString()}`;
-    
-
-      const res = await fetch(url, { headers });
-
+      
       if (!res.ok) {
         const errorText = await res.text();
-        return rejectWithValue(
-          `Failed to fetch meetings: ${res.status} ${errorText}`
-        );
+        return rejectWithValue(`Failed to fetch meetings: ${res.status} ${errorText}`);
       }
 
-      const json = await res.json();
-
+      const data = await res.json();
+      
       return {
-        meetings: json.data || [],
+        meetings: Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [],
         pagination: {
-          currentPage: json.currentPage || 1,
-          totalPages: json.totalPages || 1,
-          totalCount: json.total || 0,
-        },
+          currentPage: data?.currentPage || 1,
+          totalPages: data?.totalPages || 1,
+          totalCount: data?.total || data?.totalCount || 0,
+        }
       };
     } catch (err: any) {
       return rejectWithValue(err.message || "Failed to fetch meetings");
@@ -124,138 +145,137 @@ export const fetchCompanyMeetings = createAsyncThunk<
   }
 );
 
-export const createMeeting = createAsyncThunk<
-  Meeting,
-  CreateMeetingData,
-  { rejectValue: string }
->("meetings/createMeeting", async (meetingData, { rejectWithValue }) => {
-  try {
-    const headers = getAuthHeaders();
-  
+export const fetchMeetingById = createAsyncThunk(
+  "meetings/fetchMeetingById",
+  async (meetingId: number | string, { rejectWithValue }) => {
+    try {
+      if (!BASE_URL) return rejectWithValue("API base URL is not configured");
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("No authentication token found");
 
-    const BASE_URL =
-      process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-    const url = `${BASE_URL}/api/v1/meetings`;
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(meetingData),
-    });
-
-    
-
-    const responseText = await res.text();
-  
-
-    if (!res.ok) {
-    }
-
-    if (
-      responseText &&
-      responseText.trim() !== "" &&
-      responseText.trim() !== "{}"
-    ) {
-      try {
-        const responseData = JSON.parse(responseText);
-
-        if (responseData.id) {
-          return responseData;
-        }
-      } catch (parseError) {
+      const res = await fetch(`${BASE_URL}/api/v1/meetings/${meetingId}`, {
+        headers: getAuthHeaders(),
+      });
       
+      if (!res.ok) {
+        const errorText = await res.text();
+        return rejectWithValue(`Failed to fetch meeting: ${res.status} ${errorText}`);
       }
+
+      const data = await res.json();
+      return data?.data || data;
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to fetch meeting");
     }
-
-    return rejectWithValue(
-      "Backend created meeting but returned empty response"
-    );
-  } catch (err: any) {
-    return rejectWithValue(err.message || "Network error occurred");
   }
-});
+);
 
-export const updateMeeting = createAsyncThunk<
-  Meeting,
-  UpdateMeetingData,
-  { rejectValue: string }
->("meetings/updateMeeting", async (meetingData, { rejectWithValue }) => {
-  try {
-    const headers = getAuthHeaders();
+export const createMeeting = createAsyncThunk(
+  "meetings/createMeeting",
+  async (payload: CreateMeetingPayload, { rejectWithValue }) => {
+    try {
+      if (!BASE_URL) return rejectWithValue("API base URL is not configured");
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("No authentication token found");
 
-    const { id, ...updateData } = meetingData;
+      const res = await fetch(`${BASE_URL}/api/v1/meetings`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
 
-   
+      const responseText = await res.text();
 
-    const res = await fetch(`http://localhost:5000/api/v1/meetings/${id}`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify(updateData),
-    });
+      if (!res.ok) {
+        return rejectWithValue(`Failed to create meeting: ${res.status} ${responseText}`);
+      }
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
+      if (responseText && responseText.trim() !== "" && responseText.trim() !== "{}") {
+        try {
+          const responseData = JSON.parse(responseText);
+          if (responseData.id) {
+            return responseData;
+          }
+        } catch (parseError) {
+         
+        }
+      }
+
+      return rejectWithValue("Backend created meeting but returned empty response");
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to create meeting");
     }
-
-    const json = await res.json();
-   
-
-    return json.data;
-  } catch (err: any) {
-   
-    return rejectWithValue(err.message || "Failed to update meeting");
   }
-});
+);
 
-export const deleteMeeting = createAsyncThunk<
-  number,
-  number,
-  { rejectValue: string }
->("meetings/deleteMeeting", async (meetingId, { rejectWithValue }) => {
-  try {
-    const headers = getAuthHeaders();
+export const updateMeeting = createAsyncThunk(
+  "meetings/updateMeeting",
+  async (
+    { meetingId, payload }: { meetingId: number | string; payload: UpdateMeetingPayload },
+    { rejectWithValue }
+  ) => {
+    try {
+      if (!BASE_URL) return rejectWithValue("API base URL is not configured");
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("No authentication token found");
 
-    console.log("🔍 [MEETINGS] Deleting meeting:", meetingId);
+      const res = await fetch(`${BASE_URL}/api/v1/meetings/${meetingId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
 
-    const res = await fetch(
-      `http://localhost:5000/api/v1/meetings/${meetingId}`,
-      {
+      if (!res.ok) {
+        const errorText = await res.text();
+        return rejectWithValue(`Failed to update meeting: ${res.status} ${errorText}`);
+      }
+
+      const data = await res.json();
+      return data?.data || data;
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to update meeting");
+    }
+  }
+);
+
+export const deleteMeeting = createAsyncThunk(
+  "meetings/deleteMeeting",
+  async (meetingId: number | string, { rejectWithValue }) => {
+    try {
+      if (!BASE_URL) return rejectWithValue("API base URL is not configured");
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("No authentication token found");
+
+      const res = await fetch(`${BASE_URL}/api/v1/meetings/${meetingId}`, {
         method: "DELETE",
-        headers,
+        headers: getAuthHeaders(),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        return rejectWithValue(`Failed to delete meeting: ${res.status} ${errorText}`);
       }
-    );
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
+      const data = await res.json();
+      return meetingId;
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to delete meeting");
     }
-
-    const json = await res.json();
-    
-
-    return meetingId;
-  } catch (err: any) {
-
-    return rejectWithValue(err.message || "Failed to delete meeting");
   }
-});
+);
 
 const meetingSlice = createSlice({
   name: "meetings",
   initialState,
   reducers: {
-    setCurrentMeeting(state, action: PayloadAction<Meeting | null>) {
-      state.currentMeeting = action.payload;
-    },
-    clearCurrentMeeting(state) {
-      state.currentMeeting = null;
-    },
-    clearError(state) {
+    clearError: (state) => {
       state.error = null;
     },
-    clearMeetings(state) {
-      state.meetings = [];
+    clearCurrent: (state) => {
+      state.current = null;
+    },
+    clearMeetings: (state) => {
+      state.items = [];
       state.pagination = {
         currentPage: 1,
         totalPages: 1,
@@ -264,79 +284,102 @@ const meetingSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+   
     builder
-
-      .addCase(fetchCompanyMeetings.pending, (state) => {
+      .addCase(fetchMeetings.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchCompanyMeetings.fulfilled, (state, action) => {
+      .addCase(fetchMeetings.fulfilled, (state, action: PayloadAction<{ meetings: Meeting[]; pagination: any }>) => {
         state.loading = false;
-        state.meetings = action.payload.meetings;
+        state.items = action.payload.meetings;
         state.pagination = action.payload.pagination;
+        state.error = null;
       })
-      .addCase(fetchCompanyMeetings.rejected, (state, action) => {
+      .addCase(fetchMeetings.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to fetch meetings";
-      })
+        state.error = typeof action.payload === "string" ? action.payload : "Failed to fetch meetings";
+      });
 
+    
+    builder
+      .addCase(fetchMeetingById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchMeetingById.fulfilled, (state, action: PayloadAction<Meeting>) => {
+        state.loading = false;
+        state.current = action.payload;
+        
+        const index = state.items.findIndex((m) => m.id === action.payload.id);
+        if (index >= 0) {
+          state.items[index] = action.payload;
+        }
+        state.error = null;
+      })
+      .addCase(fetchMeetingById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = typeof action.payload === "string" ? action.payload : "Failed to fetch meeting";
+      });
+
+    
+    builder
       .addCase(createMeeting.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(createMeeting.fulfilled, (state, action) => {
+      .addCase(createMeeting.fulfilled, (state, action: PayloadAction<Meeting>) => {
         state.loading = false;
-        state.meetings.unshift(action.payload);
+        state.items.unshift(action.payload);
         state.error = null;
       })
       .addCase(createMeeting.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to create meeting";
-      })
+        state.error = typeof action.payload === "string" ? action.payload : "Failed to create meeting";
+      });
 
+   
+    builder
       .addCase(updateMeeting.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
-      .addCase(updateMeeting.fulfilled, (state, action) => {
+      .addCase(updateMeeting.fulfilled, (state, action: PayloadAction<Meeting>) => {
         state.loading = false;
-        const index = state.meetings.findIndex(
-          (m) => m.id === action.payload.id
-        );
+        const index = state.items.findIndex((m) => m.id === action.payload.id);
         if (index >= 0) {
-          state.meetings[index] = action.payload;
+          state.items[index] = action.payload;
         }
-        if (state.currentMeeting?.id === action.payload.id) {
-          state.currentMeeting = action.payload;
+        if (state.current?.id === action.payload.id) {
+          state.current = action.payload;
         }
         state.error = null;
       })
       .addCase(updateMeeting.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to update meeting";
-      })
+        state.error = typeof action.payload === "string" ? action.payload : "Failed to update meeting";
+      });
 
+   
+    builder
       .addCase(deleteMeeting.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
-      .addCase(deleteMeeting.fulfilled, (state, action) => {
+      .addCase(deleteMeeting.fulfilled, (state, action: PayloadAction<number | string>) => {
         state.loading = false;
-        state.meetings = state.meetings.filter((m) => m.id !== action.payload);
-        if (state.currentMeeting?.id === action.payload) {
-          state.currentMeeting = null;
+        state.items = state.items.filter((m) => String(m.id) !== String(action.payload));
+        if (state.current && String(state.current.id) === String(action.payload)) {
+          state.current = null;
         }
         state.error = null;
       })
       .addCase(deleteMeeting.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to delete meeting";
+        state.error = typeof action.payload === "string" ? action.payload : "Failed to delete meeting";
       });
   },
 });
 
-export const {
-  setCurrentMeeting,
-  clearCurrentMeeting,
-  clearError,
-  clearMeetings,
-} = meetingSlice.actions;
+export const { clearError, clearCurrent, clearMeetings } = meetingSlice.actions;
 export default meetingSlice.reducer;
