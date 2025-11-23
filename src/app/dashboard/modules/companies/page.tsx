@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store/store";
 import Link from "next/link";
+import CSVImportModal from "@/app/dashboard/components/CsvImportButton";
+import { Button } from "@mui/material";
 
 import {
   fetchCompanies,
@@ -33,6 +35,37 @@ interface LeadDropdownOption {
   phoneNumber: string;
 }
 
+interface FilterOptions {
+  cities: string[];
+  countries: string[];
+  industries: string[];
+}
+
+interface DateRange {
+  start: Date | null;
+  end: Date | null;
+}
+
+const parseDate = (dateString: string): Date | null => {
+  if (!dateString) return null;
+
+  try {
+    const date = new Date(dateString);
+
+    if (isNaN(date.getTime())) {
+      const isoDate = new Date(dateString.replace(" ", "T"));
+      if (!isNaN(isoDate.getTime())) {
+        return isoDate;
+      }
+      return null;
+    }
+
+    return date;
+  } catch {
+    return null;
+  }
+};
+
 export default function CompaniesPage() {
   const dispatch = useDispatch<AppDispatch>();
   const {
@@ -57,31 +90,140 @@ export default function CompaniesPage() {
     phoneNumber: "",
     leadId: undefined,
   });
-
+  const [openImport, setOpenImport] = useState(false);
   const [ownersList, setOwnersList] = useState<
     { id: number; label: string; value: string }[]
   >([]);
   const [leadsList, setLeadsList] = useState<LeadDropdownOption[]>([]);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    cities: [],
+    countries: [],
+    industries: [],
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>(
     {}
   );
+  const [dateRange, setDateRange] = useState<DateRange>({
+    start: null,
+    end: null,
+  });
 
   const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {}, [openImport]);
+
+  const extractUniqueValues = (
+    companies: Company[],
+    key: keyof Company
+  ): string[] => {
+    const values = companies
+      .map((company) => company[key])
+      .filter(
+        (value): value is string =>
+          typeof value === "string" && value.trim() !== ""
+      );
+
+    return Array.from(new Set(values)).sort();
+  };
+
+  const isDateInRange = (
+    dateString: string,
+    start: Date | null,
+    end: Date | null
+  ): boolean => {
+    if (!start && !end) return true;
+
+    const date = parseDate(dateString);
+    if (!date) return false;
+
+    const compareDate = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+    const compareStart = start
+      ? new Date(start.getFullYear(), start.getMonth(), start.getDate())
+      : null;
+    const compareEnd = end
+      ? new Date(end.getFullYear(), end.getMonth(), end.getDate())
+      : null;
+
+    if (compareStart && compareEnd) {
+      return compareDate >= compareStart && compareDate <= compareEnd;
+    } else if (compareStart) {
+      return compareDate >= compareStart;
+    } else if (compareEnd) {
+      return compareDate <= compareEnd;
+    }
+
+    return true;
+  };
+
+  const fetchFilterOptions = async () => {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("auth_token");
+
+    if (!BASE_URL || !token) return;
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/v1/companies`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token.startsWith("Bearer ")
+            ? token
+            : `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const companies = Array.isArray(data) ? data : data.data || [];
+
+        const cities = extractUniqueValues(companies, "city");
+        const countries = extractUniqueValues(companies, "country");
+        const industries = extractUniqueValues(companies, "industryType");
+
+        setFilterOptions({
+          cities,
+          countries,
+          industries,
+        });
+
+        console.log("🔍 [FILTER OPTIONS] Loaded:", {
+          cities: cities.length,
+          countries: countries.length,
+          industries: industries.length,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch filter options:", err);
+    }
+  };
 
   const companyFilters = [
     {
       label: "Industry Type",
-      options: ["Technology", "Education", "Finance", "Healthcare", "Retail"],
+      options:
+        filterOptions.industries.length > 0
+          ? filterOptions.industries
+          : ["Technology", "Education", "Finance", "Healthcare", "Retail"],
     },
     {
       label: "City",
-      options: ["Delhi", "Al Ain", "Sharjah", "Ajman", "Oman", "Baku"],
+      options:
+        filterOptions.cities.length > 0
+          ? filterOptions.cities
+          : ["Delhi", "Al Ain", "Sharjah", "Ajman", "Oman", "Baku"],
     },
     {
       label: "Country/Region",
-      options: ["India", "UAE", "UK", "USA", "Canada"],
+      options:
+        filterOptions.countries.length > 0
+          ? filterOptions.countries
+          : ["India", "UAE", "UK", "USA", "Canada"],
     },
     {
       label: "Lead Status",
@@ -93,7 +235,6 @@ export default function CompaniesPage() {
     const testApiDirectly = async () => {
       try {
         const token = localStorage.getItem("token");
-        console.log("🔍 [DIRECT API TEST] Token exists:", !!token);
 
         const response = await fetch("http://localhost:5000/api/v1/companies", {
           headers: {
@@ -101,9 +242,6 @@ export default function CompaniesPage() {
             Authorization: `Bearer ${token}`,
           },
         });
-
-        console.log("🔍 [DIRECT API TEST] Response status:", response.status);
-        console.log("🔍 [DIRECT API TEST] Response ok:", response.ok);
 
         const data = await response.json();
         console.log("🔍 [DIRECT API TEST] Direct API response:", data);
@@ -121,7 +259,12 @@ export default function CompaniesPage() {
 
   useEffect(() => {
     setMounted(true);
-    dispatch(fetchCompanies()).unwrap().catch(console.error);
+    dispatch(fetchCompanies())
+      .unwrap()
+      .then(() => {
+        fetchFilterOptions();
+      })
+      .catch(console.error);
   }, [dispatch]);
 
   useEffect(() => {
@@ -185,6 +328,20 @@ export default function CompaniesPage() {
     fetchOwnersAndLeads();
   }, []);
 
+  useEffect(() => {
+    if (list.length > 0) {
+      const cities = extractUniqueValues(list, "city");
+      const countries = extractUniqueValues(list, "country");
+      const industries = extractUniqueValues(list, "industryType");
+
+      setFilterOptions({
+        cities,
+        countries,
+        industries,
+      });
+    }
+  }, [list]);
+
   const filteredCompanies = useMemo(() => {
     return list.filter((company) => {
       const search = searchTerm.toLowerCase();
@@ -212,9 +369,13 @@ export default function CompaniesPage() {
         }
       );
 
-      return matchesSearch && matchesFilters;
+      const matchesDateRange = company.createdDate
+        ? isDateInRange(company.createdDate, dateRange.start, dateRange.end)
+        : true;
+
+      return matchesSearch && matchesFilters && matchesDateRange;
     });
-  }, [list, searchTerm, activeFilters]);
+  }, [list, searchTerm, activeFilters, dateRange]);
 
   const paginatedCompanies = useMemo(() => {
     console.log("🔍 [PAGINATION] Total filtered:", filteredCompanies.length);
@@ -223,9 +384,6 @@ export default function CompaniesPage() {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const result = filteredCompanies.slice(startIndex, endIndex);
-
-    console.log("🔍 [PAGINATION] Showing items:", startIndex, "to", endIndex);
-    console.log("🔍 [PAGINATION] Result count:", result.length);
 
     return result;
   }, [filteredCompanies, currentPage]);
@@ -237,7 +395,7 @@ export default function CompaniesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, activeFilters]);
+  }, [searchTerm, activeFilters, dateRange]);
 
   const handleSearch = (term: string) => {
     console.log("🔍 [SEARCH] Setting search term:", term);
@@ -252,6 +410,20 @@ export default function CompaniesPage() {
   const handleFilterChange = (filterName: string, value: string) => {
     console.log("🔍 [FILTER] Changing filter:", filterName, "to:", value);
     setActiveFilters((prev) => ({ ...prev, [filterName]: value }));
+  };
+
+  const handleDateChange = (dateString: string) => {
+    console.log("📅 [DATE FILTER] Date changed:", dateString);
+
+    if (!dateString) {
+      setDateRange({ start: null, end: null });
+      return;
+    }
+
+    const date = parseDate(dateString);
+    if (date) {
+      setDateRange({ start: date, end: date });
+    }
   };
 
   const handleCreate = () => {
@@ -274,6 +446,9 @@ export default function CompaniesPage() {
 
   const handleEdit = (company: Company) => {
     if (!company) return;
+
+    dispatch(setCurrent(company));
+
     const ownerIds = company.companyOwner.map((o) => o.id);
     setFormData({
       domainName: company.domainName || "",
@@ -288,6 +463,7 @@ export default function CompaniesPage() {
       phoneNumber: company.phoneNumber || "",
       leadId: company.leadId || undefined,
     });
+
     setIsModalOpen(true);
   };
 
@@ -303,41 +479,101 @@ export default function CompaniesPage() {
 
   const handleSave = async (data: CompanyFormData) => {
     try {
-      const submissionData: Omit<Company, "id" | "createdDate"> = {
-        domainName: data.domainName,
-        companyName: data.companyName,
-        industryType: data.industryType,
-        type: data.type,
-        city: data.city,
-        country: data.country,
-        noOfEmployees:
-          typeof data.noOfEmployees === "number" ? data.noOfEmployees : 0,
-        annualRevenue:
-          typeof data.annualRevenue === "number" ? data.annualRevenue : 0,
-        phoneNumber: data.phoneNumber,
-        companyOwner: data.companyOwner.map((id) => ({
-          id,
-          firstName: "",
-          lastName: "",
-        })),
-        leadId: data.leadId,
-      };
+      const isEditMode = currentCompany && currentCompany.id;
 
-      if (currentCompany) {
-        await dispatch(
-          updateCompany({ id: currentCompany.id, ...submissionData } as any)
-        ).unwrap();
-        notify("Company updated successfully!", "success");
-      } else {
-        await dispatch(createCompany(submissionData as any)).unwrap();
+      if (!isEditMode) {
+        console.log("🔍 [COMPANY CREATE] Creating new company...");
+
+        const authUserRaw = localStorage.getItem("auth_user");
+        const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+        const currentUserId =
+          authUser?.id || authUser?.userId || authUser?.userID;
+
+        if (!currentUserId) {
+          notify("User not found. Please log in again.", "error");
+          return;
+        }
+
+        const ownerObjects = (data.companyOwner as number[]).map((ownerId) => {
+          const owner = ownersList.find((o) => o.id === ownerId);
+          return {
+            id: ownerId,
+            firstName: owner?.label.split(" ")[0] ?? "",
+            lastName: owner?.label.split(" ").slice(1).join(" ") ?? "",
+          };
+        });
+
+        const createData = {
+          domainName: data.domainName,
+          companyName: data.companyName,
+          companyOwner: ownerObjects,
+          industryType: data.industryType,
+          type: data.type,
+          city: data.city,
+          country: data.country,
+          noOfEmployees: Number(data.noOfEmployees),
+          annualRevenue: Number(data.annualRevenue),
+          phoneNumber: data.phoneNumber,
+          leadId: data.leadId,
+        };
+
+        await dispatch(createCompany(createData as Company)).unwrap();
         notify("Company created successfully!", "success");
+      } else {
+        if (!currentCompany || !currentCompany.id) {
+          notify("Cannot update: no company selected", "error");
+          console.error(
+            "Update failed: currentCompany or company id invalid:",
+            currentCompany
+          );
+          return;
+        }
+
+        const ownerObjects = (data.companyOwner as number[]).map((ownerId) => {
+          const owner = ownersList.find((o) => o.id === ownerId);
+          return {
+            id: ownerId,
+            firstName: owner?.label.split(" ")[0] ?? "",
+            lastName: owner?.label.split(" ").slice(1).join(" ") ?? "",
+          };
+        });
+
+        const updateData = {
+          id: currentCompany.id,
+          domainName: data.domainName,
+          companyName: data.companyName,
+          companyOwner: ownerObjects,
+          industryType: data.industryType,
+          type: data.type,
+          city: data.city,
+          country: data.country,
+          noOfEmployees: Number(data.noOfEmployees),
+          annualRevenue: Number(data.annualRevenue),
+          phoneNumber: data.phoneNumber,
+          leadId: data.leadId,
+          createdDate: currentCompany.createdDate,
+        };
+
+        await dispatch(updateCompany(updateData as Company)).unwrap();
+        notify("Company updated successfully!", "success");
       }
 
       await dispatch(fetchCompanies()).unwrap();
+      fetchFilterOptions();
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Save failed:", err);
-      notify(err.message || "Failed to save company", "error");
+      let message = "Failed to save company";
+      if (typeof err === "string") message = err;
+      else if (err instanceof Error) message = err.message;
+
+      try {
+        const jsonPart = message.substring(message.indexOf("{"));
+        const parsed = JSON.parse(jsonPart);
+        if (parsed?.error?.message) message = parsed.error.message;
+      } catch {}
+
+      notify(message, "error");
     }
   };
 
@@ -345,8 +581,27 @@ export default function CompaniesPage() {
     if (!company?.id) return;
     dispatch(deleteCompany(company.id))
       .unwrap()
-      .then(() => notify("Company deleted successfully", "success"))
+      .then(() => {
+        notify("Company deleted successfully", "success");
+
+        fetchFilterOptions();
+      })
       .catch((err) => notify("Failed to delete company: " + err, "error"));
+  };
+
+  const handleImportComplete = () => {
+    console.log("🔄 [IMPORT] Refreshing companies data...");
+
+    dispatch(fetchCompanies())
+      .unwrap()
+      .then(() => {
+        notify("Companies imported successfully!", "success");
+        fetchFilterOptions();
+      })
+      .catch((error) => {
+        console.error("Failed to refresh after import:", error);
+        notify("Import completed but failed to refresh data", "error");
+      });
   };
 
   const columns = [
@@ -382,11 +637,29 @@ export default function CompaniesPage() {
         filters={companyFilters}
         activeFilters={activeFilters}
         onFilterChange={handleFilterChange}
-        onDateChange={() => {}}
+        onDateChange={handleDateChange}
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}
         onCreate={handleCreate}
+        extraButtons={
+          <Button
+            variant="outlined"
+            onClick={() => setOpenImport(true)}
+            sx={{
+              borderColor: "#4f46e5",
+              color: "#4338ca",
+              textTransform: "none",
+              "&:hover": {
+                borderColor: "#3730a3",
+                color: "#3730a3",
+                backgroundColor: "rgba(67, 56, 202, 0.04)",
+              },
+            }}
+          >
+            Import
+          </Button>
+        }
       />
 
       {loading && (
@@ -405,14 +678,6 @@ export default function CompaniesPage() {
           >
             Retry
           </button>
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div className="mb-4 text-sm text-gray-600">
-          {searchTerm && ` for "${searchTerm}"`}
-          {filteredCompanies.length !== list.length &&
-            ` (${list.length} total companies)`}
         </div>
       )}
 
@@ -483,6 +748,48 @@ export default function CompaniesPage() {
           </TableRow>
         )}
       </TableLayout>
+
+      <CSVImportModal
+        open={openImport}
+        setOpen={setOpenImport}
+        module="company"
+        onImportComplete={() => {
+          console.log("🔄 [IMPORT COMPLETE] Modal reported completion");
+
+          setTimeout(() => {
+            console.log("🔍 [POST-IMPORT CHECK] Current companies:", {
+              count: list.length,
+              companies: list.map((c) => ({ id: c.id, name: c.companyName })),
+            });
+
+            dispatch(fetchCompanies())
+              .unwrap()
+              .then((companies) => {
+                console.log(
+                  "🔍 [POST-IMPORT REFRESH] Refreshed companies:",
+                  companies.length
+                );
+
+                if (companies.length === list.length) {
+                  notify(
+                    "CSV import failed - no new companies were created. Check console for details.",
+                    "error"
+                  );
+                } else {
+                  notify(
+                    `Import successful! Added ${
+                      companies.length - list.length
+                    } new companies.`,
+                    "success"
+                  );
+                }
+              })
+              .catch((error) => {
+                console.error("❌ Refresh failed:", error);
+              });
+          }, 1000);
+        }}
+      />
 
       <CompanyFormModal
         isOpen={isModalOpen}
