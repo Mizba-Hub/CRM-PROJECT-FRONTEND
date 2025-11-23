@@ -117,6 +117,21 @@ export default function LeadDetailPage() {
   });
 
   const [searchValue, setSearchValue] = useState("");
+  const filteredActivities: Activity[] = useMemo(() => {
+  if (!searchValue.trim()) return activities;
+
+  const term = searchValue.toLowerCase();
+
+  return activities.filter((a: Activity) => {
+    const text =
+      `${a.title} ${a.content ?? ""} ${a.author ?? ""} ${
+        JSON.stringify(a.extra ?? {})
+      }`.toLowerCase();
+
+    return text.includes(term);
+  });
+}, [activities, searchValue]);
+
 
   const toggleModal = (type: ActivityType, open: boolean) => {
     setShowModal((prev) => ({ ...prev, [type]: open }));
@@ -361,6 +376,11 @@ export default function LeadDetailPage() {
             : e.owner
             ? `${e.owner.firstName} ${e.owner.lastName}`
             : "Unknown";
+
+
+
+
+
 
         return {
           id: e.id,
@@ -663,41 +683,48 @@ export default function LeadDetailPage() {
         />
 
         <CRMTabHeader
-          value={activeTab}
-          onChange={(tab) => setActiveTab(tab)}
-          renderPanel={(tab, label) => {
-            if (tab === "activity") {
-              return (
-                <ActivityDetailView
-                  sectionTitle="Upcoming"
-                  activities={activities as any}
-                  onCreate={() => toggleModal("note", true)}
-                />
-              );
-            }
+  value={activeTab}
+  onChange={(tab) => setActiveTab(tab)}
+  renderPanel={(tab, label) => {
+    const tabActivities: Activity[] =
+  tab === "activity"
+    ? filteredActivities
+    : filteredActivities.filter((a: Activity) => a.type === tab);
 
-            const buttonLabel =
-              tab === "call"
-                ? "Make a Phone Call"
-                : `Create ${label.slice(0, -1)}`;
-            const handleCreate = () => {
-              if (tab === "call") {
-                setShowCallPopup(true);
-              } else {
-                toggleModal(tab as ActivityType, true);
-              }
-            };
 
-            return (
-              <ActivityDetailView
-                sectionTitle={label}
-                buttonLabel={buttonLabel}
-                activities={activities.filter((a) => a.type === tab) as any}
-                onCreate={handleCreate}
-              />
-            );
-          }}
+
+
+
+    if (tab === "activity") {
+      return (
+        <ActivityDetailView
+          sectionTitle="Upcoming"
+          activities={tabActivities as any}
+          onCreate={() => toggleModal("note", true)}
         />
+      );
+    }
+
+    const buttonLabel =
+      tab === "call"
+        ? "Make a Phone Call"
+        : `Create ${label.slice(0, -1)}`;
+
+    return (
+      <ActivityDetailView
+        sectionTitle={label}
+        buttonLabel={buttonLabel}
+        activities={tabActivities as any}
+        onCreate={() =>
+          tab === "call"
+            ? setShowCallPopup(true)
+            : toggleModal(tab as ActivityType, true)
+        }
+      />
+    );
+  }}
+/>
+
 
         {showCallPopup && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
