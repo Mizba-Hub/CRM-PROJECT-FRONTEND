@@ -1672,6 +1672,7 @@ export default function TicketDetailPage() {
               tab === "call"
                 ? "Make a Phone Call"
                 : `Create ${label.slice(0, -1)}`;
+
             const handleCreate = () => {
               if (tab === "call") {
                 setShowCallPopup(true);
@@ -1690,6 +1691,7 @@ export default function TicketDetailPage() {
             );
           }}
         />
+
         {showCallPopup && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
             <div className="bg-white shadow-lg rounded-lg p-6 w-[320px] text-center">
@@ -1698,7 +1700,7 @@ export default function TicketDetailPage() {
               </h3>
               <p className="text-sm text-gray-500 mt-2">
                 {isInitiatingCall || callsLoading
-                  ? "Initiating call..."
+                  ? "Connecting to Agent..."
                   : "Click Connect to start the call"}
               </p>
 
@@ -1716,7 +1718,15 @@ export default function TicketDetailPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleInitiateCall}
+                  onClick={() => {
+                    setIsInitiatingCall(true);
+
+                    setTimeout(() => {
+                      setShowCallPopup(false);
+                      setIsInitiatingCall(false);
+                      toggleModal("call", true);
+                    }, 1500);
+                  }}
                   disabled={isInitiatingCall || callsLoading}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1762,6 +1772,7 @@ export default function TicketDetailPage() {
           notify(`${file.name} attached to email`, "info");
         }}
       />
+
       <CallModal
         isOpen={showModal.call}
         onClose={() => toggleModal("call", false)}
