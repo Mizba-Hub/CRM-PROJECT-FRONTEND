@@ -28,7 +28,6 @@ import { fetchNotes, createNote as createNoteThunk } from "@/store/slices/activi
 import { initiateCall, fetchCallsByUser } from "@/store/slices/activity/callSlice";
 import { fetchTasks, createTask as createTaskThunk, completeTask } from "@/store/slices/activity/taskSlice";
 import { fetchEmails, createEmail as createEmailThunk } from "@/store/slices/activity/emailSlice";
-import { fetchDealById, updateDeal, fetchDeals, type Deal as ReduxDeal } from "@/store/slices/dealSlice";
 import { 
   fetchAttachments, 
   createAttachments, 
@@ -56,7 +55,162 @@ type Activity = {
   content?: string;
   overdue?: boolean;
   extra?: Record<string, any>;
-  isTicket?: boolean; // Added missing field
+  isTicket?: boolean;
+};
+
+ 
+const fetchDealByIdAPI = async (id: string) => {
+  try {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+    
+    if (!BASE_URL || !token) throw new Error("Missing API configuration");
+
+    const response = await fetch(`${BASE_URL}/api/v1/deal/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error("Failed to fetch deal");
+
+    const data = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error("Error fetching deal:", error);
+    throw error;
+  }
+};
+
+const updateDealAPI = async (id: string, dealData: any) => {
+  try {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+    
+    if (!BASE_URL || !token) throw new Error("Missing API configuration");
+
+    console.log("🔄 Updating deal with data:", dealData);
+
+    const response = await fetch(`${BASE_URL}/api/v1/deal/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+      },
+      body: JSON.stringify(dealData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || "Failed to update deal");
+    }
+
+    const updateResult = await response.json();
+    console.log("✅ Update response:", updateResult); 
+
+    const dealResponse = await fetch(`${BASE_URL}/api/v1/deal/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+      },
+    });
+
+    if (!dealResponse.ok) {
+      throw new Error("Failed to fetch updated deal");
+    }
+
+    const dealDataResult = await dealResponse.json();
+    console.log("✅ Full updated deal data:", dealDataResult); 
+    
+    return dealDataResult.data;
+  } catch (error) {
+    console.error("❌ Error updating deal:", error);
+    throw error;
+  }
+};
+
+const fetchDealsAPI = async () => {
+  try {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+    
+    if (!BASE_URL || !token) throw new Error("Missing API configuration");
+
+    const response = await fetch(`${BASE_URL}/api/v1/deal`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) throw new Error("Failed to fetch deals");
+
+    const data = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error("Error fetching deals:", error);
+    throw error;
+  }
+};
+
+
+const transformDeal = (deal: any) => {
+  let leadName = "";
+  let associatedLeadId = "";
+
+  if (deal.lead) {
+    leadName =
+      deal.lead.name ||
+      `${deal.lead.firstName || ""} ${deal.lead.lastName || ""}`.trim() ||
+      deal.lead.leadName ||
+      "";
+    associatedLeadId = String(deal.lead.id);
+  } else if (deal.associatedLead) {
+    leadName =
+      deal.associatedLead.name ||
+      `${deal.associatedLead.firstName || ""} ${deal.associatedLead.lastName || ""}`.trim() ||
+      deal.associatedLead.leadName ||
+      "";
+    associatedLeadId = String(deal.associatedLead.id);
+  } else if (deal.leadName) {
+    leadName = deal.leadName;
+    associatedLeadId = deal.leadId ? String(deal.leadId) : "";
+  }
+
+  return {
+    id: deal.id,
+    name: deal.dealName || deal.name || "",
+    stage: deal.dealStage || deal.stage || "",
+    closeDate: deal.closeDate || "",
+    amount: deal.amount || "",
+    priority: deal.priority || "",
+    createdDate: deal.createdAt || deal.createdDate || new Date().toISOString(),
+    description: deal.description || "",
+    accountName: deal.accountName || "",
+    owner: deal.dealOwner
+      ? Array.isArray(deal.dealOwner)
+        ? deal.dealOwner.map((u: any) =>
+            u
+              ? `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+                u.name ||
+                u.email ||
+                `User ${u.id}`
+              : "Unknown"
+          )
+        : []
+      : deal.owner || [],
+    ownerIds: Array.isArray(deal.dealOwner)
+      ? deal.dealOwner.map((u: any) => u.id)
+      : deal.ownerIds || [],
+    associatedLead: associatedLeadId,
+    lead: deal.lead || deal.associatedLead || null,
+    leadName: leadName,
+    associatedLeadName: leadName,
+  };
 };
 
 export default function DealDetailPage() {
@@ -64,7 +218,7 @@ export default function DealDetailPage() {
   const dispatch = useAppDispatch();
   const { items: notes, loading: notesLoading } = useAppSelector((s) => s.notes);
   const { items: calls, loading: callsLoading } = useAppSelector((s) => s.calls);
-  const { items: tasks } = useAppSelector((s) => s.tasks);
+  const { items: tasks, loading: tasksLoading } = useAppSelector((s) => s.tasks);
   const { items: emails, loading: emailsLoading } = useAppSelector((s) => s.emails);
   const { items: attachmentsFromStore, loading: attachmentsLoading } = useAppSelector((s) => s.attachments);
   const { items: meetings, loading: meetingsLoading, error: meetingsError } = useAppSelector((s) => s.meetings);
@@ -87,100 +241,56 @@ export default function DealDetailPage() {
   const [showCallPopup, setShowCallPopup] = useState(false);
   const [isInitiatingCall, setIsInitiatingCall] = useState(false);
 
-  // Get connected person name for CallModal display:
-  // 1. If deal has Lead → Return lead name
-  // 2. Otherwise → Return deal name
+  
   const getConnectedPerson = (): string | null => {
     if (!deal) return null;
-
-    // Priority: If deal has lead → return lead name
-    if (deal.lead?.name) {
-      return deal.lead.name;
-    }
-    if (deal.leadName && deal.leadName.trim()) {
-      return deal.leadName.trim();
-    }
-
-    // Fallback: return deal name
+    if (deal.lead?.name) return deal.lead.name;
+    if (deal.leadName && deal.leadName.trim()) return deal.leadName.trim();
     return deal.name || deal.dealName || null;
   };
 
-  // Get connected person for EmailModal (returns "type:id" format for email lookup):
-  // 1. If deal has Lead → Return "lead:id"
-  // 2. Otherwise → Return "deal:id"
+  
   const getConnectedPersonForEmail = (): string | null => {
     if (!deal) return null;
-
-    // Prefer direct email if backend provided it
-    if (deal.lead?.email) {
-      return `email:${deal.lead.email}`;
-    }
-
-    // Priority: If deal has lead → return "lead:id"
-    if (deal.lead?.id) {
-      return `lead:${deal.lead.id}`;
-    }
+    if (deal.lead?.email) return `email:${deal.lead.email}`;
+    if (deal.lead?.id) return `lead:${deal.lead.id}`;
     if (deal.leadName && deal.leadName.trim()) {
-      // Try to find lead ID from localStorage
       try {
         const leads = JSON.parse(localStorage.getItem("leads") || "[]");
         const lead = leads.find((l: any) => 
           (l.leadName || l.name) && (l.leadName || l.name).trim() === deal.leadName.trim()
         );
-        if (lead?.id) {
-          return `lead:${lead.id}`;
-        }
+        if (lead?.id) return `lead:${lead.id}`;
       } catch (error) {
         console.error("Error finding lead:", error);
       }
-      // If ID not found, return lead name (EmailModal will handle it)
       return deal.leadName.trim();
     }
-
-    // Fallback: return deal ID
     return deal.id ? `deal:${deal.id}` : null;
   };
 
-  // Get the display name for call title based on deal's association
   const getCallTargetName = (backendTargetName?: string | null): string => {
     if (!deal) return backendTargetName || "Deal";
-
-    // If deal has a lead, prioritize lead name over deal name
-    if (deal.lead?.name) {
-      return deal.lead.name;
-    }
-    if (deal.leadName && deal.leadName.trim()) {
-      return deal.leadName.trim();
-    }
-
-    // If backend target name is available and it's not the deal name, use it
+    if (deal.lead?.name) return deal.lead.name;
+    if (deal.leadName && deal.leadName.trim()) return deal.leadName.trim();
     if (backendTargetName) {
       const dealName = deal.name || deal.dealName || "";
-      if (backendTargetName !== dealName) {
-        return backendTargetName;
-      }
+      if (backendTargetName !== dealName) return backendTargetName;
     }
-
-    // Final fallback to deal name
     return deal.name || deal.dealName || "Deal";
   };
 
   const currentUserName = getCurrentUserName();
 
-  // Helper function to format task due date/time
   const formatTaskDueDateTime = (dueDate: string | null | undefined, dueTime: string | null | undefined): string => {
     const date = dueDate ? new Date(dueDate) : null;
     const time = dueTime || "";
-    if (date && time) {
-      return `${formatActivityDate(date)} ${time}`;
-    }
-    if (date) {
-      return formatActivityDate(date);
-    }
+    if (date && time) return `${formatActivityDate(date)} ${time}`;
+    if (date) return formatActivityDate(date);
     return "No due date";
   };
 
-  // Fetch notes for this deal
+ 
   useEffect(() => {
     if (!id) return;
     dispatch(
@@ -193,7 +303,7 @@ export default function DealDetailPage() {
     );
   }, [dispatch, id]);
 
-  // Fetch emails for this deal
+
   useEffect(() => {
     if (!id) return;
     dispatch(
@@ -206,7 +316,6 @@ export default function DealDetailPage() {
     );
   }, [dispatch, id]);
 
-  // Fetch tasks for this deal
   useEffect(() => {
     if (!id) return;
     dispatch(
@@ -219,7 +328,6 @@ export default function DealDetailPage() {
     );
   }, [dispatch, id]);
 
-  // Fetch attachments for this deal
   useEffect(() => {
     if (!id) return;
     dispatch(
@@ -230,7 +338,7 @@ export default function DealDetailPage() {
     );
   }, [dispatch, id]);
 
-  // Fetch meetings for this deal
+ 
   useEffect(() => {
     if (!id) return;
     
@@ -244,7 +352,7 @@ export default function DealDetailPage() {
     );
   }, [dispatch, id]);
 
-  // Fetch users for dropdown
+
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -280,7 +388,7 @@ export default function DealDetailPage() {
     fetchUsers();
   }, []);
 
-  // Fetch calls for current user (then filter for this deal)
+
   useEffect(() => {
     try {
       const authUserRaw = localStorage.getItem("auth_user");
@@ -294,14 +402,13 @@ export default function DealDetailPage() {
     }
   }, [dispatch]);
 
-  // Handle meeting errors
   useEffect(() => {
     if (meetingsError) {
       notify(meetingsError, "error");
     }
   }, [meetingsError]);
 
-  // Map notes into activity list (note entries) - UPDATED with isTicket field
+
   useEffect(() => {
     if (!notes) return;
     const uniqueNotes = Array.from(
@@ -316,7 +423,7 @@ export default function DealDetailPage() {
       description: n.content,
       content: n.content,
       extra: {},
-      isTicket: false, // Added missing field
+      isTicket: false,
     }));
     setActivities((prev) => {
       const nonNote = prev.filter((a) => a.type !== "note");
@@ -334,7 +441,7 @@ export default function DealDetailPage() {
     });
   }, [notes, currentUserName]);
 
-  // Map calls into activity list (call entries) - UPDATED with isTicket field
+ 
   useEffect(() => {
     if (!calls || !id) return;
     
@@ -362,7 +469,7 @@ export default function DealDetailPage() {
           duration: call.durationSeconds,
           phoneNumber: call.target?.phoneNumber,
         },
-        isTicket: false, // Added missing field
+        isTicket: false,
       };
     });
 
@@ -390,22 +497,27 @@ export default function DealDetailPage() {
     });
   }, [calls, id, deal, currentUserName]);
 
-  // Map tasks into activity list (task entries) - UPDATED with isTicket field and improved error handling
   useEffect(() => {
     if (!tasks || !id) return;
 
+    console.log("📝 Mapping tasks to activities:", tasks); 
+
     const dealTasks = tasks.filter((task) => {
-      return task.linkedModule === "deal" && String(task.linkedModuleId) === String(id);
+      const matches = task.linkedModule === "deal" && String(task.linkedModuleId) === String(id);
+      console.log(`Task ${task.id} linked to deal ${id}:`, matches); 
+      return matches;
     });
+
+    console.log("📝 Deal tasks after filtering:", dealTasks); 
 
     const mapped = dealTasks.map((task) => {
       const dueDate = task.dueDate ? new Date(task.dueDate) : null;
       const dueDateTime = formatTaskDueDateTime(task.dueDate, task.dueTime);
 
-      return {
+      const taskActivity: Activity = {
         id: `task-${task.id}`,
         type: "task" as ActivityType,
-        title: `Task assigned to ${task.assignedTo?.name || currentUserName || "Unknown"}`,
+        title: task.taskName || `Task assigned to ${task.assignedTo?.name || currentUserName || "Unknown"}`,
         author: task.assignedTo?.name || currentUserName,
         date: formatActivityDate(task.createdAt ? new Date(task.createdAt) : new Date()),
         dueDate: dueDateTime,
@@ -463,9 +575,14 @@ export default function DealDetailPage() {
             }
           },
         },
-        isTicket: false, // Added missing field
+        isTicket: false,
       };
+
+      console.log("📝 Mapped task activity:", taskActivity);
+      return taskActivity;
     });
+
+    console.log("📝 All mapped task activities:", mapped); 
 
     setActivities((prev) => {
       const nonTask = prev.filter((a) => a.type !== "task");
@@ -496,11 +613,13 @@ export default function DealDetailPage() {
         return newTask;
       });
       
-      return [...nonTask, ...preservedTasks, ...unmatchedOptimistic];
+      const result = [...nonTask, ...preservedTasks, ...unmatchedOptimistic];
+      console.log("📝 Final activities after task update:", result.filter(a => a.type === "task")); 
+      return result;
     });
   }, [tasks, id, currentUserName, dispatch]);
 
-  // Map emails into activity list (email entries) - UPDATED with isTicket field
+ 
   useEffect(() => {
     if (!emails || !id) return;
 
@@ -541,7 +660,7 @@ export default function DealDetailPage() {
           bcc: email.bcc,
           attachments: email.attachments,
         },
-        isTicket: false, // Added missing field
+        isTicket: false,
       };
     });
 
@@ -561,7 +680,6 @@ export default function DealDetailPage() {
     });
   }, [emails, id, currentUserName]);
 
-  // Map meetings into activity list (meeting entries) - UPDATED with isTicket field
   useEffect(() => {
     if (!meetings || !id) return;
 
@@ -596,7 +714,7 @@ export default function DealDetailPage() {
           originalTitle: meeting.title,
           attendeeNames: attendeeNames,
         },
-        isTicket: false, // Added missing field
+        isTicket: false,
       };
     });
 
@@ -624,7 +742,66 @@ export default function DealDetailPage() {
     });
   }, [meetings, id, deal, currentUserName]);
 
-  // Deduplicated activities to prevent duplicate date separators
+  
+  useEffect(() => {
+    const loadDeal = async () => {
+      if (!id) return;
+      
+      try {
+        
+        const storedDeals = localStorage.getItem("deals");
+        if (storedDeals) {
+          const deals = JSON.parse(storedDeals);
+          const found = deals.find((d: any) => String(d.id) === String(id));
+          if (found) {
+            const editableData = {
+              ...found,
+              owner: Array.isArray(found.owner) ? found.owner : [found.owner].filter(Boolean),
+            };
+            setDeal(found);
+            setEditableDeal(editableData);
+            return;
+          }
+        }
+
+       
+        const dealData = await fetchDealByIdAPI(String(id));
+        const transformedDeal = transformDeal(dealData);
+        const normalized = {
+          ...transformedDeal,
+          owner: Array.isArray(transformedDeal.owner) ? transformedDeal.owner : [],
+          leadName: transformedDeal.lead?.name || transformedDeal.leadName || "",
+          lead: transformedDeal.lead ? { ...transformedDeal.lead } : null,
+        };
+        
+        setDeal(normalized);
+        setEditableDeal(normalized);
+      } catch (error) {
+        console.error("Error loading deal:", error);
+        notify("Failed to load deal", "error");
+      }
+    };
+
+    loadDeal();
+  }, [id]);
+
+ 
+  useEffect(() => {
+    if (deal?.stage) {
+      setCardKey((prev) => prev + 1);
+      try {
+        const key = `crm_deals_${deal.id}`;
+        const existing = localStorage.getItem(key);
+        const data = existing ? JSON.parse(existing) : {};
+        if (data.stage !== deal.stage) {
+          data.stage = deal.stage;
+          localStorage.setItem(key, JSON.stringify(data));
+        }
+      } catch {}
+    }
+  }, [deal?.stage]);
+
+ 
   const deduplicatedActivities = useMemo(() => {
     const seen = new Set<string>();
     const result: Activity[] = [];
@@ -641,15 +818,13 @@ export default function DealDetailPage() {
     return result;
   }, [activities]);
 
-  // Handle meeting creation like CompanyDetailPage - UPDATED error handling
+  
   const handleCreateMeeting = async (meetingData: any): Promise<boolean> => {
     try {
       if (!deal?.id) {
         notify("No deal selected", "error");
         return false;
       }
-
-      console.log("📤 [MEETING CREATE] Starting meeting creation...");
 
       const authUserRaw = localStorage.getItem("auth_user");
       const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
@@ -659,8 +834,6 @@ export default function DealDetailPage() {
         notify("User not found. Please log in again.", "error");
         return false;
       }
-
-      console.log("📤 [MEETING CREATE] Current user ID:", currentUserId);
 
       const attendeeIds: number[] = [];
       if (meetingData.attendees && Array.isArray(meetingData.attendees)) {
@@ -678,8 +851,6 @@ export default function DealDetailPage() {
         }
       }
 
-      console.log("📤 [MEETING CREATE] Extracted attendee IDs:", attendeeIds);
-
       const createData: CreateMeetingPayload = {
         title: meetingData.title,
         startDate: meetingData.startDate,
@@ -694,11 +865,8 @@ export default function DealDetailPage() {
         linkedModuleId: deal.id,
       };
 
-      console.log("📤 [MEETING CREATE] Final create data:", createData);
-
       const result = await dispatch(createMeeting(createData)).unwrap();
 
-      console.log("✅ [MEETING CREATE] Success! Result:", result);
       notify("Meeting created successfully", "success");
       toggleModal("meeting", false);
 
@@ -712,12 +880,12 @@ export default function DealDetailPage() {
       return true;
     } catch (error: any) {
       console.error("❌ [MEETING CREATE] Error details:", error);
-      notify("Failed to create meeting", "error"); // Simplified error message
+      notify("Failed to create meeting", "error");
       return false;
     }
   };
 
-  // Handle meeting deletion like CompanyDetailPage
+  
   const handleDeleteMeeting = async (meetingId: number) => {
     try {
       await dispatch(deleteMeeting(meetingId)).unwrap();
@@ -735,143 +903,75 @@ export default function DealDetailPage() {
     }
   };
 
-  useEffect(() => {
-    const load = async () => {
-      const storedDeals = localStorage.getItem("deals");
-      if (storedDeals) {
-        const deals = JSON.parse(storedDeals);
-        const found = deals.find((d: any) => String(d.id) === String(id));
-        if (found) {
-          const editableData = {
-            ...found,
-            owner: Array.isArray(found.owner)
-              ? found.owner
-              : [found.owner].filter(Boolean),
-          };
-          setDeal(found);
-          setEditableDeal(editableData);
-  
-          try {
-            const key = `crm_deals_${found.id}`;
-            const existing = localStorage.getItem(key);
-            const data = existing ? JSON.parse(existing) : {};
-            if (data.status !== found.status) {
-              data.status = found.status;
-              localStorage.setItem(key, JSON.stringify(data));
-            }
-          } catch {}
-          return;
-        }
-      }
-      // Fallback: fetch from backend via Redux thunk
-      try {
-        const result = await dispatch(fetchDealById(String(id)));
-        if (fetchDealById.fulfilled.match(result)) {
-          const d = result.payload as ReduxDeal;
-          const normalized = {
-            ...d,
-            name: d.name || d.dealName,
-            owner: Array.isArray(d.owner) ? d.owner : d.owners?.map((o) => o.name) || [],
-            leadName: d.lead?.name || d.leadName || "",
-            lead: d.lead
-              ? {
-                  ...d.lead,
-                  email: d.lead.email || null,
-                }
-              : null,
-          } as any;
-          setDeal(normalized);
-          setEditableDeal(normalized);
-        }
-      } catch {}
-    };
-    load();
-  }, [id, dispatch]);
-
-  useEffect(() => {
-    if (deal?.status) {
-      setCardKey((prev) => prev + 1);
-
-      try {
-        const key = `crm_deals_${deal.id}`;
-        const existing = localStorage.getItem(key);
-        const data = existing ? JSON.parse(existing) : {};
-        if (data.status !== deal.status) {
-          data.status = deal.status;
-          localStorage.setItem(key, JSON.stringify(data));
-        }
-      } catch {}
-    }
-  }, [deal?.status]);
-
   const simpleActivities: ActivityItem[] = useMemo(() => {
-    const now = new Date();
-    const dealCreatedDate = deal?.createdDate
-      ? new Date(deal.createdDate)
-      : now;
+  const now = new Date();
+  const dealCreatedDate = deal?.createdDate
+    ? new Date(deal.createdDate)
+    : now;
 
-    const allActivities = [
-      {
-        id: "deal-activity-1",
-        type: "deal" as const,
-        title: "Deal activity",
-        author: currentUserName,
-        date: now.toLocaleString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-        description: `${currentUserName} moved deal to ${deal?.status || "New"} status`,
-      },
-      {
-        id: "deal-creation-2",
-        type: "deal" as const,
-        title: "",
-        author: currentUserName,
-        date: dealCreatedDate.toLocaleString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-        description: `The deal was created by ${currentUserName}`,
-      },
-      ...deduplicatedActivities.map((activity) => ({
-        id: activity.id,
-        type: activity.type,
-        title: activity.title,
-        author: activity.author,
-        date: activity.date,
-        description: activity.description || activity.content || "",
-        dueDate: activity.date,
-        content: activity.content,
-        extra: activity.extra,
-      })),
-    ];
+  const allActivities = [
+    {
+      id: "deal-activity-1",
+      type: "deal" as const,
+      title: "Deal activity",
+      author: currentUserName,
+      date: now.toLocaleString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      description: `${currentUserName} moved deal to ${deal?.stage || "New"} stage`,
+    },
+    {
+      id: "deal-creation-2",
+      type: "deal" as const,
+      title: "",
+      author: currentUserName,
+      date: dealCreatedDate.toLocaleString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      description: `The deal was created by ${currentUserName}`,
+    },
+    ...deduplicatedActivities.map((activity) => ({
+      id: activity.id,
+      type: activity.type,
+      title: activity.title,
+      author: activity.author,
+      date: activity.date,
+      description: activity.description || activity.content || "",
+      dueDate: activity.dueDate,
+      content: activity.content,
+      extra: activity.extra,
+      overdue: activity.overdue,
+    })),
+  ];
 
-    return allActivities.sort((a, b) => {
-      if (a.id === "deal-activity-1" && b.id === "deal-creation-2") return -1;
-      if (a.id === "deal-creation-2" && b.id === "deal-activity-1") return 1;
+  return allActivities.sort((a, b) => {
+    if (a.id === "deal-activity-1" && b.id === "deal-creation-2") return -1;
+    if (a.id === "deal-creation-2" && b.id === "deal-activity-1") return 1;
 
-      const parseDate = (dateStr: string): number => {
-        if (!dateStr || dateStr === "No Date") return 0;
+    const parseDate = (dateStr: string): number => {
+      if (!dateStr || dateStr === "No Date") return 0;
 
-        const parsed = new Date(dateStr);
-        if (!isNaN(parsed.getTime())) {
-          return parsed.getTime();
-        }
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.getTime();
+      }
 
-        return 0;
-      };
+      return 0;
+    };
 
-      return parseDate(b.date || "") - parseDate(a.date || "");
-    });
-  }, [currentUserName, deal?.status, deal?.createdDate, deduplicatedActivities]);
+    return parseDate(b.date || "") - parseDate(a.date || "");
+  });
+}, [currentUserName, deal?.stage, deal?.createdDate, deduplicatedActivities]);
 
   const priorityOptions = ["Low", "Medium", "High", "Critical"];
   const stageOptions = ["Presentation Scheduled", "Qualified to Buy", "Contract Sent", "Closed Won", "Appointment Scheduled", "Decision Maker Bought In", "Closed Lost", "Negotiation"];
@@ -882,7 +982,7 @@ export default function DealDetailPage() {
     setShowModal((prev) => ({ ...prev, [type]: open }));
   };
 
-  // Handle initiating a call when user clicks "Connect" in the popup
+ 
   const handleInitiateCall = async () => {
     if (!deal?.id) {
       notify("Deal not loaded", "error");
@@ -937,7 +1037,7 @@ export default function DealDetailPage() {
           duration: result.durationSeconds || null,
           phoneNumber: result.target?.phoneNumber || null,
         },
-        isTicket: false, // Added missing field
+        isTicket: false,
       };
 
       setActivities((prev) => {
@@ -1125,7 +1225,7 @@ export default function DealDetailPage() {
             const tempActivity: Activity = {
               id: `temp-task-${Date.now()}`,
               type: "task" as ActivityType,
-              title: `Task assigned to ${assignedUserName}`,
+              title: data?.name || `Task assigned to ${assignedUserName}`,
               author: assignedUserName,
               date: formatActivityDate(new Date()),
               dueDate: dueDateTime,
@@ -1140,7 +1240,7 @@ export default function DealDetailPage() {
                 dueDate: data?.dueDate || null,
                 dueTime: data?.time || null,
               },
-              isTicket: false, // Added missing field
+              isTicket: false,
             };
 
             setActivities((prev) => {
@@ -1218,7 +1318,7 @@ export default function DealDetailPage() {
       description: content,
       content,
       extra,
-      isTicket: false, // Added missing field
+      isTicket: false,
     };
 
     setActivities((prev) => {
@@ -1234,7 +1334,7 @@ export default function DealDetailPage() {
     return true;
   };
 
-  // Helper function to map owner names to user IDs
+  
   const mapOwnerNamesToUserIds = async (ownerNames: string[]): Promise<number[]> => {
     if (!ownerNames || ownerNames.length === 0) return [];
 
@@ -1290,61 +1390,84 @@ export default function DealDetailPage() {
     return [];
   };
 
-  const handleSaveDeal = async () => {
-    if (!editableDeal || !id) {
-      notify("No deal data to save", "error");
-      return;
+ 
+const handleSaveDeal = async () => {
+  if (!editableDeal || !id) {
+    notify("No deal data to save", "error");
+    return;
+  }
+
+  try {
+    const ownerNames = Array.isArray(editableDeal.owner)
+      ? editableDeal.owner
+      : editableDeal.owner
+      ? [editableDeal.owner]
+      : [];
+
+    const ownerIds = ownerNames.length > 0
+      ? await mapOwnerNamesToUserIds(ownerNames)
+      : [];
+
+   
+    const updateData: any = {
+      description: editableDeal.description || "",
+      priority: editableDeal.priority || "",
+      dealStage: editableDeal.stage || "",
+      amount: editableDeal.amount || 0,
+    };
+
+    if (ownerIds.length > 0) {
+      updateData.ownerIds = ownerIds;
     }
 
+    console.log("🔄 Saving deal with data:", updateData);
+
+    const updatedDealData = await updateDealAPI(String(id), updateData);
+    const transformedDeal = transformDeal(updatedDealData);
+    
+    setDeal(transformedDeal);
+    setEditableDeal(transformedDeal);
+
+    setIsEditing(false);
+    notify("Deal details updated successfully", "success");
+  } catch (error: any) {
+    console.error("Failed to update deal:", error);
+    notify("Failed to save changes: " + (error.message || "Unknown error"), "error");
+  }
+};
+
+ 
+const handleStatusUpdate = async (field: string, value: string) => {
+  if (field === "status") {
     try {
-      const ownerNames = Array.isArray(editableDeal.owner)
-        ? editableDeal.owner
-        : editableDeal.owner
-        ? [editableDeal.owner]
-        : [];
-
-      const ownerIds = ownerNames.length > 0
-        ? await mapOwnerNamesToUserIds(ownerNames)
-        : [];
-
-      const updateData: any = {
-        description: editableDeal.description || "",
-        priority: editableDeal.priority || "",
-        stage: editableDeal.stage || "",
-        amount: editableDeal.amount || 0,
+      console.log("🔄 handleStatusUpdate called with:", field, value);
+      
+     
+      const updateData = {
+        dealStage: value 
       };
 
-      if (ownerIds.length > 0) {
-        updateData.userIds = ownerIds;
-      }
+      const updatedDealData = await updateDealAPI(String(id), updateData);
+      console.log("✅ Updated deal data received:", updatedDealData);
+      
+      const transformedDeal = transformDeal(updatedDealData);
+      console.log("✅ Transformed deal:", transformedDeal);
+      
+      setDeal(transformedDeal);
+      setEditableDeal(transformedDeal);
 
-      const result = await dispatch(
-        updateDeal({
-          id: String(id),
-          dealData: updateData,
-        })
-      );
-
-      if (updateDeal.fulfilled.match(result)) {
-        const updatedDealData = result.payload;
-        setDeal(updatedDealData);
-        setEditableDeal(updatedDealData);
-
-        await dispatch(fetchDeals({}));
-
-        setIsEditing(false);
-        notify("Deal details updated successfully", "success");
-      } else {
-        const errorMsg = result.payload || "Failed to update deal";
-        notify(typeof errorMsg === "string" ? errorMsg : "Failed to update deal", "error");
-      }
+     
+      setCardKey(prev => prev + 1);
+      
+      notify("Deal stage updated successfully", "success");
     } catch (error: any) {
-      console.error("Failed to update deal:", error);
-      notify("Failed to save changes: " + (error.message || "Unknown error"), "error");
+      console.error("❌ Failed to update deal stage:", error);
+      notify("Failed to update stage: " + (error.message || "Unknown error"), "error");
     }
-  };
+  }
+};
 
-  // Map backend attachments to frontend format
+ 
   const mappedAttachments = useMemo(() => {
     const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
     
@@ -1396,7 +1519,6 @@ export default function DealDetailPage() {
     return filtered;
   };
 
-  // Handle file upload
   const handleAddAttachment = async (file: File, previewUrl?: string) => {
     if (!deal?.id) {
       notify("Deal not loaded", "error");
@@ -1442,7 +1564,7 @@ export default function DealDetailPage() {
     }
   };
 
-  // Handle file deletion
+ 
   const handleRemoveAttachment = async (id: number) => {
     try {
       await dispatch(deleteAttachment(id)).unwrap();
@@ -1461,7 +1583,7 @@ export default function DealDetailPage() {
     }
   };
 
-  // Early return
+ 
   if (!deal)
     return (
       <div className="p-8 text-center text-gray-600">
@@ -1469,6 +1591,7 @@ export default function DealDetailPage() {
       </div>
     );
 
+ 
   const aboutFields = [
     {
       label: "Deal Owner",
@@ -1497,47 +1620,16 @@ export default function DealDetailPage() {
   ];
 
   return (
-    <div className="p-0 bg-white rounded-md min-h-screen overflow-y-auto flex gap-6">
-      <div className="w-[280px] space-y-4 ml-0 mt-2">
+    <div className="bg-white rounded-md min-h-screen flex flex-col xl:flex-row overflow-hidden">
+      <div className="w-full xl:w-[300px] min-w-[300px] flex-shrink-0 space-y-4 mt-1">
         <InfoCard
           key={`deal-card-${deal.id}-${cardKey}`}
           module="deals"
           title={deal.name}
-          subtitle={`${deal.description} • Created: ${formatDisplayDateTime(
-            deal.createdDate
-          )}`}
-          status={deal.status}
+          subtitle={`${deal.description} • Created: ${formatDisplayDateTime(deal.createdDate)}`}
+          status={deal.stage}
           id={deal.id}
-          onUpdate={async (field, value) => {
-            if (field === "status") {
-              try {
-                const result = await dispatch(
-                  updateDeal({
-                    id: String(id),
-                    dealData: {
-                      DealStatus: value as string,
-                    },
-                  })
-                );
-
-                if (updateDeal.fulfilled.match(result)) {
-                  const updatedDealData = result.payload;
-                  setDeal(updatedDealData);
-                  setEditableDeal(updatedDealData);
-
-                  await dispatch(fetchDeals({}));
-
-                  notify("Deal status updated successfully", "success");
-                } else {
-                  const errorMsg = result.payload || "Failed to update deal status";
-                  notify(typeof errorMsg === "string" ? errorMsg : "Failed to update deal status", "error");
-                }
-              } catch (error: any) {
-                console.error("Failed to update deal status:", error);
-                notify("Failed to update status: " + (error.message || "Unknown error"), "error");
-              }
-            }
-          }}
+          onUpdate={handleStatusUpdate} 
           onNoteClick={() => toggleModal("note", true)}
           onEmailClick={() => toggleModal("email", true)}
           onCallClick={() => toggleModal("call", true)}
@@ -1599,6 +1691,7 @@ export default function DealDetailPage() {
                   tab === "note" ? notesLoading :
                   tab === "call" ? callsLoading :
                   tab === "email" ? emailsLoading :
+                  tab === "task" ? tasksLoading : 
                   tab === "meeting" ? meetingsLoading :
                   false
                 }
@@ -1692,14 +1785,13 @@ export default function DealDetailPage() {
         userOptions={userOptions}
         onSave={(data: any): boolean => handleSaveActivity("task", data)}
       />
-      <MeetingModal
-        isOpen={showModal.meeting}
-        onClose={() => toggleModal("meeting", false)}
-        onSave={handleCreateMeeting}
-        userOptions={userOptions}
-        linkedModule="deal"
-        linkedModuleId={deal.id}
-      />
+     <MeetingModal
+             isOpen={showModal.meeting}
+             onClose={() => toggleModal("meeting", false)}
+             onSave={handleCreateMeeting}
+             linkedModule="deal"
+             linkedModuleId={deal.id}
+           />
     </div>
   );
 }

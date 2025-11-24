@@ -24,7 +24,6 @@ interface CreateDealProps {
   mode?: "create" | "edit";
   initialData?: DealData;
 
-  // Data passed from parent
   associatedLead?: string;
   users?: { id: number; name: string }[];
   leads?: {
@@ -68,12 +67,12 @@ const CreateDeal: React.FC<CreateDealProps> = ({
 
     associatedLead: String(initialData.associatedLead ?? ""),
 
-    // Owner IDs mapped to strings
+    
     owner: initialData.ownerIds
       ? initialData.ownerIds.map((id: number) => String(id))
       : [],
 
-    // Convert amount safely
+   
     amount: String(initialData.amount ?? ""),
   });
 } else {
@@ -95,7 +94,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Show only qualified leads (normal CRM behavior)
+
   const qualifiedLeads = leads.filter(
     (lead) =>
       (lead.status || lead.leadStatus || "").toUpperCase() === "QUALIFIED"
@@ -153,7 +152,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
     >
       <div className="flex flex-col gap-6">
         
-        {/* ASSOCIATED LEAD */}
+       
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Associated Lead *
@@ -174,7 +173,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           )}
         </div>
 
-        {/* DEAL NAME */}
+     
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Deal Name *
@@ -187,7 +186,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           />
         </div>
 
-        {/* DEAL STAGE */}
+       
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Deal Stage *
@@ -210,7 +209,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           />
         </div>
 
-        {/* DEAL OWNER */}
+       
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Deal Owner *
@@ -231,7 +230,7 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           )}
         </div>
 
-        {/* AMOUNT */}
+   
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Amount *
@@ -244,7 +243,6 @@ const CreateDeal: React.FC<CreateDealProps> = ({
           />
         </div>
 
-        {/* CLOSE DATE + PRIORITY */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

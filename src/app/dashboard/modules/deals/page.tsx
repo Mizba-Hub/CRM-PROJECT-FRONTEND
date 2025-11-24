@@ -48,9 +48,7 @@ export default function DealsPage() {
     dispatch(fetchDeals());
   }, [dispatch]);
 
-  /* --------------------------
-      FETCH USERS
-  --------------------------- */
+
   useEffect(() => {
     if (!token) return;
 
@@ -86,9 +84,7 @@ export default function DealsPage() {
     fetchUsers();
   }, [token]);
 
-  /* --------------------------
-      FETCH LEADS
-  --------------------------- */
+
   useEffect(() => {
     if (!token) return;
 
@@ -117,17 +113,11 @@ export default function DealsPage() {
     fetchLeads();
   }, [token]);
 
-  /* --------------------------
-      FILTERS
-  --------------------------- */
   const handleFilterChange = (name: string, value: string) => {
     setActiveFilters((prev) => ({ ...prev, [name]: value }));
     setCurrentPage(1);
   };
 
-  /* --------------------------
-      SEARCH + FILTER LOGIC
-  --------------------------- */
   const filteredDeals = deals.filter((deal: any) => {
     const search = searchTerm.toLowerCase();
 
@@ -183,9 +173,7 @@ export default function DealsPage() {
     { label: "Deal Stage", options: stageFilterOptions },
   ];
 
-  /* --------------------------
-      CREATE DEAL
-  --------------------------- */
+ 
   const handleSaveDeal = async (form: any) => {
     const payload = {
       name: form.name,
@@ -208,9 +196,7 @@ export default function DealsPage() {
     return false;
   };
 
-  /* --------------------------
-      UPDATE DEAL
-  --------------------------- */
+ 
   const handleUpdateDeal = async (form: any) => {
     const dealData = {
       dealName: form.name,
@@ -239,9 +225,7 @@ export default function DealsPage() {
     return false;
   };
 
-  /* --------------------------
-      DELETE DEAL
-  --------------------------- */
+
   const handleDelete = async (deal: any) => {
     const res: any = await dispatch(deleteDeal(deal.id));
     if (res.meta.requestStatus === "fulfilled") {
