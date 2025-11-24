@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
@@ -31,10 +31,18 @@ import EmailModal from "@/components/modal/FormModals/EmailModal";
 import CallModal from "@/components/modal/FormModals/CallModal";
 import TaskModal from "@/components/modal/FormModals/TaskModal";
 import MeetingModal from "@/components/modal/FormModals/MeetingModal";
+import {
+  fetchMeetings,
+  createMeeting,
+  deleteMeeting,
+  Meeting as ReduxMeeting,
+  CreateMeetingPayload,
+} from "@/store/slices/activity/meetingSlice";
 
 import { formatActivityDate, formatDisplayDate } from "@/app/lib/date";
 import { AISummaryCard } from "@/components/ai/AISummaryCard";
 import { toUiStatus } from "@/store/slices/leadSlice";
+import { useRouter } from "next/navigation";
 
 type ActivityType = "activity" | "note" | "call" | "task" | "email" | "meeting";
 
@@ -64,7 +72,14 @@ export default function LeadDetailPage() {
   const taskLoading = useAppSelector((s) => s.tasks.loading);
 
   const [emails, setEmails] = useState([]);
-  const [openEmail, setOpenEmail] = useState(false);
+
+  const [callStatus, setCallStatus] = useState("connecting");
+
+  const {
+    items: meetings,
+    loading: meetingsLoading,
+    error: meetingsError,
+  } = useAppSelector((s) => s.meetings);
 
   const [editableLead, setEditableLead] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -102,6 +117,21 @@ export default function LeadDetailPage() {
   });
 
   const [searchValue, setSearchValue] = useState("");
+  const filteredActivities: Activity[] = useMemo(() => {
+  if (!searchValue.trim()) return activities;
+
+  const term = searchValue.toLowerCase();
+
+  return activities.filter((a: Activity) => {
+    const text =
+      `${a.title} ${a.content ?? ""} ${a.author ?? ""} ${
+        JSON.stringify(a.extra ?? {})
+      }`.toLowerCase();
+
+    return text.includes(term);
+  });
+}, [activities, searchValue]);
+
 
   const toggleModal = (type: ActivityType, open: boolean) => {
     setShowModal((prev) => ({ ...prev, [type]: open }));
@@ -182,8 +212,58 @@ export default function LeadDetailPage() {
   }, []);
 
   useEffect(() => {
+    if (lead?.id) {
+      dispatch(
+        fetchMeetings({
+          linkedModule: "lead",
+          linkedModuleId: lead.id,
+        })
+      );
+    }
+  }, [lead?.id, dispatch]);
+
+  useEffect(() => {
     loadEmails();
   }, []);
+
+  const meetingActivities: Activity[] = useMemo(() => {
+    if (!Array.isArray(meetings)) return [];
+
+    return meetings.map((meeting: ReduxMeeting) => {
+      const organizerName =
+        meeting.organizers
+          ?.map((o) => `${o.firstName} ${o.lastName}`)
+          .join(", ") || "Unknown Organizer";
+
+      const currentUser = loggedUserName || "User";
+
+      return {
+        id: 500000 + meeting.id,
+        type: "meeting",
+        title: `Meeting ${currentUser} and ${lead?.firstName ?? ""} ${
+          lead?.lastName ?? ""
+        }`,
+        author: organizerName,
+        date: formatActivityDate(
+          new Date(`${meeting.startDate} ${meeting.startTime}`)
+        ),
+        content:
+          meeting.note ||
+          `Meeting scheduled for ${meeting.startDate} at ${meeting.startTime}`,
+        extra: {
+          subtitle: meeting.note?.trim()
+            ? meeting.note.slice(0, 80)
+            : `Meeting at ${meeting.startTime}`,
+          duration: meeting.duration,
+          location: meeting.location,
+          attendees: meeting.totalcount,
+          organizer: organizerName,
+          originalTitle: meeting.title,
+          meetingId: meeting.id,
+        },
+      };
+    });
+  }, [meetings, lead, loggedUserName]);
 
   useEffect(() => {
     let allActivities: Activity[] = [];
@@ -297,6 +377,11 @@ export default function LeadDetailPage() {
             ? `${e.owner.firstName} ${e.owner.lastName}`
             : "Unknown";
 
+
+
+
+
+
         return {
           id: e.id,
           type: "email" as ActivityType,
@@ -315,9 +400,20 @@ export default function LeadDetailPage() {
 
       allActivities.push(...mappedEmails);
     }
+    allActivities.push(...meetingActivities);
 
     setActivities(allActivities);
-  }, [notes, tasks, emails, notesLoading, taskLoading, dispatch, lead?.id]);
+  }, [
+    notes,
+    tasks,
+    emails,
+    meetings,
+    meetingActivities,
+    notesLoading,
+    taskLoading,
+    dispatch,
+    lead?.id,
+  ]);
 
   const handleCreateNote = async (content: string) => {
     try {
@@ -355,6 +451,51 @@ export default function LeadDetailPage() {
     } catch (err: any) {
       console.error("handleCreateNote error:", err);
       notify(err?.message || "Failed to add note", "error");
+      return false;
+    }
+  };
+
+  const handleCreateMeeting = async (meetingData: any): Promise<boolean> => {
+    try {
+      const authUserRaw =
+        localStorage.getItem("auth_user") || localStorage.getItem("user");
+      const authUser = authUserRaw ? JSON.parse(authUserRaw) : null;
+      const currentUserId =
+        authUser?.id || authUser?.userId || authUser?.userID;
+
+      if (!currentUserId) {
+        notify("User not found. Please log in again.", "error");
+        return false;
+      }
+
+      const attendeeIds = meetingData.attendees.map((a: any) => a.id);
+
+      const payload: CreateMeetingPayload = {
+        title: meetingData.title,
+        startDate: meetingData.startDate,
+        startTime: meetingData.startTime,
+        endTime: meetingData.endTime,
+        location: meetingData.location,
+        reminder: meetingData.reminder,
+        note: meetingData.note,
+        organizerIds: [Number(currentUserId)],
+        attendeeIds,
+        linkedModule: "lead",
+        linkedModuleId: Number(lead.id),
+      };
+
+      await dispatch(createMeeting(payload)).unwrap();
+
+      notify("Meeting created successfully", "success");
+      toggleModal("meeting", false);
+
+      dispatch(
+        fetchMeetings({ linkedModule: "lead", linkedModuleId: lead.id })
+      );
+
+      return true;
+    } catch (error) {
+      notify("Failed to create meeting", "error");
       return false;
     }
   };
@@ -483,19 +624,18 @@ export default function LeadDetailPage() {
           email={lead.email}
           onNoteClick={() => toggleModal("note", true)}
           onEmailClick={() => {
-            if (lead) {
-              localStorage.setItem(
-                "leads",
-                JSON.stringify([
-                  {
-                    id: lead.id,
-                    email: lead.email,
-                    firstName: lead.firstName,
-                    lastName: lead.lastName,
-                  },
-                ])
-              );
-            }
+            localStorage.setItem(
+              "leads",
+              JSON.stringify([
+                {
+                  id: lead.id,
+                  email: lead.email,
+                  firstName: lead.firstName,
+                  lastName: lead.lastName,
+                },
+              ])
+            );
+
             toggleModal("email", true);
           }}
           onCallClick={() => toggleModal("call", true)}
@@ -523,13 +663,19 @@ export default function LeadDetailPage() {
           onSearchChange={(e) => setSearchValue(e.target.value)}
           showConvertButton
           onConvert={() => {
-            if (lead?.status === "Converted") return;
-            const leadName = `${lead.firstName} ${lead.lastName}`;
-            const redirectUrl = `/dashboard/modules/deals?openModal=true&leadId=${
-              lead.id
-            }&leadName=${encodeURIComponent(leadName)}`;
-            localStorage.setItem("pendingConversionId", String(lead.id));
-            window.location.href = redirectUrl;
+            if (!lead) return;
+
+            localStorage.setItem(
+              "convertLead",
+              JSON.stringify({
+                id: lead.id,
+                firstName: lead.firstName,
+                lastName: lead.lastName,
+                email: lead.email,
+              })
+            );
+
+            window.location.href = `/dashboard/modules/deals?openModal=true`;
           }}
           convertLabel={lead?.converted ? "Converted" : "Convert"}
           isConverted={lead?.converted}
@@ -537,41 +683,48 @@ export default function LeadDetailPage() {
         />
 
         <CRMTabHeader
-          value={activeTab}
-          onChange={(tab) => setActiveTab(tab)}
-          renderPanel={(tab, label) => {
-            if (tab === "activity") {
-              return (
-                <ActivityDetailView
-                  sectionTitle="Upcoming"
-                  activities={activities as any}
-                  onCreate={() => toggleModal("note", true)}
-                />
-              );
-            }
+  value={activeTab}
+  onChange={(tab) => setActiveTab(tab)}
+  renderPanel={(tab, label) => {
+    const tabActivities: Activity[] =
+  tab === "activity"
+    ? filteredActivities
+    : filteredActivities.filter((a: Activity) => a.type === tab);
 
-            const buttonLabel =
-              tab === "call"
-                ? "Make a Phone Call"
-                : `Create ${label.slice(0, -1)}`;
-            const handleCreate = () => {
-              if (tab === "call") {
-                setShowCallPopup(true);
-              } else {
-                toggleModal(tab as ActivityType, true);
-              }
-            };
 
-            return (
-              <ActivityDetailView
-                sectionTitle={label}
-                buttonLabel={buttonLabel}
-                activities={activities.filter((a) => a.type === tab) as any}
-                onCreate={handleCreate}
-              />
-            );
-          }}
+
+
+
+    if (tab === "activity") {
+      return (
+        <ActivityDetailView
+          sectionTitle="Upcoming"
+          activities={tabActivities as any}
+          onCreate={() => toggleModal("note", true)}
         />
+      );
+    }
+
+    const buttonLabel =
+      tab === "call"
+        ? "Make a Phone Call"
+        : `Create ${label.slice(0, -1)}`;
+
+    return (
+      <ActivityDetailView
+        sectionTitle={label}
+        buttonLabel={buttonLabel}
+        activities={tabActivities as any}
+        onCreate={() =>
+          tab === "call"
+            ? setShowCallPopup(true)
+            : toggleModal(tab as ActivityType, true)
+        }
+      />
+    );
+  }}
+/>
+
 
         {showCallPopup && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -580,24 +733,30 @@ export default function LeadDetailPage() {
                 Connecting to Agent
               </h3>
               <p className="text-sm text-gray-500 mt-2">
-                Simulating call connection
+                {callStatus === "connecting" && "Connecting to Agent..."}
+                {callStatus === "initiated" && "Call Initiated..."}
               </p>
 
               <div className="flex justify-center gap-3 mt-5">
                 <button
                   onClick={() => {
-                    setShowCallPopup(false);
-                    notify("Call cancelled", "error");
+                    setCallStatus("initiated");
+
+                    setTimeout(() => {
+                      setShowCallPopup(false);
+                      toggleModal("call", true);
+                    }, 1500);
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => setShowCallPopup(false)}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
                   Connect
+                </button>
+
+                <button
+                  onClick={() => setShowCallPopup(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
@@ -755,7 +914,7 @@ export default function LeadDetailPage() {
             userId: Number(user.id),
             targetType: "lead",
             targetId: lead.id,
-            callerPhone: lead.phone || lead.phoneNumber || "",
+            callerPhone: lead.phoneNumber || lead.phone || "",
             outcome: data.outcome,
             note: data.note,
             date: data.date,
@@ -868,23 +1027,9 @@ export default function LeadDetailPage() {
       <MeetingModal
         isOpen={showModal.meeting}
         onClose={() => toggleModal("meeting", false)}
-        onSave={(data) => {
-          setActivities((prev) => [
-            {
-              id: Date.now(),
-              type: "meeting",
-              title: `Meeting: ${data?.title || "No title"}`,
-              author: "You",
-              date: formatActivityDate(new Date(data?.startTime || Date.now())),
-              content: data?.note || "",
-              extra: { duration: data?.duration, attendees: data?.attendees },
-            },
-            ...prev,
-          ]);
-          toggleModal("meeting", false);
-          notify("Meeting created", "success");
-          return true;
-        }}
+        onSave={handleCreateMeeting}
+        linkedModule="lead"
+        linkedModuleId={lead.id}
       />
     </div>
   );

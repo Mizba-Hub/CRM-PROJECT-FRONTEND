@@ -115,8 +115,8 @@ export default function LeadsPage() {
     const dateFilter = activeFilters["Date"] || "";
 
     const matchesStatus = statusFilter
-      ? lead.status.toLowerCase() === statusFilter.toLowerCase()
-      : true;
+  ? (lead.status || "").toLowerCase() === statusFilter.toLowerCase()
+  : true;
 
     const matchesDate = dateFilter
       ? new Date(lead.createdDate).toISOString().slice(0, 10) === dateFilter
