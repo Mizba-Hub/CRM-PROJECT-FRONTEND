@@ -54,6 +54,32 @@ git@github.com:Mizba-Hub/CRM-BACKEND.git
 
 ---
 
+## Screenshots
+
+### Dashboard
+![Dashboard](screenshots/dashboard.jpeg)
+
+### Leads Management
+![Leads](screenshots/Leads.jpeg)
+
+### Create Lead
+![Create Lead](screenshots/Create%20Lead.jpeg)
+
+### Companies
+![Companies](screenshots/Company.jpeg)
+
+### Tickets
+![Tickets](screenshots/Tickets.jpeg)
+
+### Activities
+![Activities](screenshots/Activity.jpeg)
+
+### Deals
+![deals](screenshots/deals.jpeg)
+
+### Call management
+![call](screenshots/call.jpeg)
+
 ##  Project Purpose
 
 This project was developed as part of full stack development practice to build a real-world CRM system with separate frontend and backend architecture.
