@@ -63,7 +63,7 @@ git@github.com:Mizba-Hub/CRM-BACKEND.git
 ![Leads](screenshots/Leads.jpeg)
 
 ### Create Lead
-![Create Lead](screenshots/Create%20Lead.jpeg)
+![Create Lead](screenshots/CreateLead.jpeg)
 
 ### Companies
 ![Companies](screenshots/Company.jpeg)
@@ -72,7 +72,7 @@ git@github.com:Mizba-Hub/CRM-BACKEND.git
 ![Tickets](screenshots/Tickets.jpeg)
 
 ### Activities
-![Activities](screenshots/Activity.jpeg)
+![Activities](screenshots/ActivityPage.jpeg)
 
 ### Deals
 ![deals](screenshots/deals.jpeg)
