@@ -45,7 +45,7 @@ import {
 type ActivityType = "note" | "call" | "task" | "email" | "meeting";
 
 type Activity = {
-  id: string;
+  id: number;
   type: ActivityType;
   title: string;
   author: string;
@@ -57,6 +57,23 @@ type Activity = {
   extra?: Record<string, any>;
   isTicket?: boolean;
 };
+
+const ACTIVITY_ID_OFFSETS = {
+  note: 100000000,
+  call: 200000000,
+  task: 300000000,
+  email: 400000000,
+  meeting: 500000000,
+  deal: 600000000,
+} as const;
+
+const getActivityId = (
+  type: ActivityType | "deal",
+  rawId: number | string
+): number => ACTIVITY_ID_OFFSETS[type] + Number(rawId);
+
+const getTempActivityId = (): number =>
+  -(Date.now() + Math.floor(Math.random() * 1000));
 
  
 const fetchDealByIdAPI = async (id: string) => {
@@ -415,7 +432,7 @@ export default function DealDetailPage() {
       new Map(notes.map((n) => [n.id, n])).values()
     );
     const mapped = uniqueNotes.map((n) => ({
-      id: `note-${n.id}`,
+      id: getActivityId("note", n.id),
       type: "note" as ActivityType,
       title: `Note${n.owner?.name ? ` by ${n.owner.name}` : ""}`,
       author: n.owner?.name || currentUserName,
@@ -427,7 +444,7 @@ export default function DealDetailPage() {
     }));
     setActivities((prev) => {
       const nonNote = prev.filter((a) => a.type !== "note");
-      const noteMap = new Map<string, Activity>();
+      const noteMap = new Map<number, Activity>();
       
       prev.filter((a) => a.type === "note").forEach((note) => {
         noteMap.set(note.id, note);
@@ -457,7 +474,7 @@ export default function DealDetailPage() {
       const callTargetName = getCallTargetName(call.target?.name);
 
       return {
-        id: `call-${call.callId}`,
+        id: getActivityId("call", call.callId),
         type: "call" as ActivityType,
         title: `Call to ${callTargetName}`,
         author: call.user?.name || currentUserName,
@@ -475,14 +492,14 @@ export default function DealDetailPage() {
 
     setActivities((prev) => {
       const nonCall = prev.filter((a) => a.type !== "call");
-      const callMap = new Map<string, Activity>();
+      const callMap = new Map<number, Activity>();
       
       mapped.forEach((m) => {
         callMap.set(m.id, m);
       });
       
       const optimisticCalls = prev.filter(
-        (a) => a.type === "call" && a.id.startsWith("temp-call-")
+        (a) => a.type === "call" && a.id < 0
       );
       const backendCallIds = new Set(mapped.map((c) => c.id));
       const unmatchedOptimistic = optimisticCalls.filter(
@@ -515,7 +532,7 @@ export default function DealDetailPage() {
       const dueDateTime = formatTaskDueDateTime(task.dueDate, task.dueTime);
 
       const taskActivity: Activity = {
-        id: `task-${task.id}`,
+        id: getActivityId("task", task.id),
         type: "task" as ActivityType,
         title: task.taskName || `Task assigned to ${task.assignedTo?.name || currentUserName || "Unknown"}`,
         author: task.assignedTo?.name || currentUserName,
@@ -545,7 +562,7 @@ export default function DealDetailPage() {
                 
                 setActivities(prev => 
                   prev.map(activity => 
-                    activity.id === `task-${task.id}` && activity.type === "task"
+                    activity.id === getActivityId("task", task.id) && activity.type === "task"
                       ? {
                           ...activity,
                           extra: {
@@ -587,7 +604,7 @@ export default function DealDetailPage() {
     setActivities((prev) => {
       const nonTask = prev.filter((a) => a.type !== "task");
       const optimisticTasks = prev.filter(
-        (a) => a.type === "task" && a.id.startsWith("temp-task-")
+        (a) => a.type === "task" && a.id < 0
       );
       const backendTaskIds = new Set(mapped.map((t) => t.id));
       const unmatchedOptimistic = optimisticTasks.filter(
@@ -641,7 +658,7 @@ export default function DealDetailPage() {
       const subject = (email.subject || "No Subject").trim();
 
       return {
-        id: `email-${email.id}`,
+        id: getActivityId("email", email.id),
         type: "email" as ActivityType,
         title: `Logged Email – ${subject} by ${authorName}`,
         author: authorName,
@@ -666,7 +683,7 @@ export default function DealDetailPage() {
 
     setActivities((prev) => {
       const nonEmail = prev.filter((a) => a.type !== "email");
-      const emailMap = new Map<string, Activity>();
+      const emailMap = new Map<number, Activity>();
       
       prev.filter((a) => a.type === "email").forEach((email) => {
         emailMap.set(email.id, email);
@@ -697,7 +714,7 @@ export default function DealDetailPage() {
         .join(", ") || "";
 
       return {
-        id: `meeting-${meeting.id}`,
+        id: getActivityId("meeting", meeting.id),
         type: "meeting" as ActivityType,
         title: customTitle,
         author: organizerName,
@@ -720,14 +737,14 @@ export default function DealDetailPage() {
 
     setActivities((prev) => {
       const nonMeeting = prev.filter((a) => a.type !== "meeting");
-      const meetingMap = new Map<string, Activity>();
+      const meetingMap = new Map<number, Activity>();
       
       mapped.forEach((m) => {
         meetingMap.set(m.id, m);
       });
       
       const optimisticMeetings = prev.filter(
-        (a) => a.type === "meeting" && a.id.startsWith("temp-meeting-")
+        (a) => a.type === "meeting" && a.id < 0
       );
       const backendMeetingIds = new Set(mapped.map((m) => m.id));
       const unmatchedOptimistic = optimisticMeetings.filter(
@@ -911,7 +928,7 @@ export default function DealDetailPage() {
 
   const allActivities = [
     {
-      id: "deal-activity-1",
+      id: getActivityId("deal", 1),
       type: "deal" as const,
       title: "Deal activity",
       author: currentUserName,
@@ -926,7 +943,7 @@ export default function DealDetailPage() {
       description: `${currentUserName} moved deal to ${deal?.stage || "New"} stage`,
     },
     {
-      id: "deal-creation-2",
+      id: getActivityId("deal", 2),
       type: "deal" as const,
       title: "",
       author: currentUserName,
@@ -955,8 +972,8 @@ export default function DealDetailPage() {
   ];
 
   return allActivities.sort((a, b) => {
-    if (a.id === "deal-activity-1" && b.id === "deal-creation-2") return -1;
-    if (a.id === "deal-creation-2" && b.id === "deal-activity-1") return 1;
+    if (a.id === getActivityId("deal", 1) && b.id === getActivityId("deal", 2)) return -1;
+    if (a.id === getActivityId("deal", 2) && b.id === getActivityId("deal", 1)) return 1;
 
     const parseDate = (dateStr: string): number => {
       if (!dateStr || dateStr === "No Date") return 0;
@@ -1025,7 +1042,7 @@ export default function DealDetailPage() {
       const callTargetName = getCallTargetName(result.target?.name);
 
       const newCallActivity: Activity = {
-        id: `temp-call-${Date.now()}`,
+        id: getTempActivityId(),
         type: "call" as ActivityType,
         title: `Call to ${callTargetName}`,
         author: result.user?.name || currentUserName,
@@ -1223,7 +1240,7 @@ export default function DealDetailPage() {
             const dueDateTime = formatTaskDueDateTime(data?.dueDate, data?.time);
 
             const tempActivity: Activity = {
-              id: `temp-task-${Date.now()}`,
+              id: getTempActivityId(),
               type: "task" as ActivityType,
               title: data?.name || `Task assigned to ${assignedUserName}`,
               author: assignedUserName,
@@ -1272,7 +1289,9 @@ export default function DealDetailPage() {
                     if (activity.id === tempActivity.id && activity.type === "task") {
                       return {
                         ...activity,
-                        id: `task-${createdTask?.id}` || activity.id,
+                        id: createdTask?.id
+                          ? getActivityId("task", createdTask.id)
+                          : activity.id,
                       };
                     }
                     return activity;
@@ -1299,7 +1318,7 @@ export default function DealDetailPage() {
         return false;
 
       case "meeting":
-        return handleCreateMeeting(data);
+        return false;
     }
 
     if (type === "note" || type === "email") {
@@ -1309,7 +1328,7 @@ export default function DealDetailPage() {
     }
 
     const newActivity: Activity = {
-      id: `temp-${type}-${Date.now()}`,
+      id: getTempActivityId(),
       type,
       title,
       author: currentUserName,
@@ -1687,14 +1706,6 @@ const handleStatusUpdate = async (field: string, value: string) => {
                 activities={getFilteredActivities(tab as ActivityType)}
                 onCreate={handleCreate}
                 onDelete={tab === "meeting" ? handleDeleteMeeting : undefined}
-                loading={
-                  tab === "note" ? notesLoading :
-                  tab === "call" ? callsLoading :
-                  tab === "email" ? emailsLoading :
-                  tab === "task" ? tasksLoading : 
-                  tab === "meeting" ? meetingsLoading :
-                  false
-                }
               />
             );
           }}
