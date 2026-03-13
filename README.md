@@ -1,3 +1,22 @@
+## Live Demo
+
+Frontend (Live Application)  
+https://crm-project-frontend-z8uw.vercel.app
+
+Backend API  
+https://crm-backend-pswf.onrender.com
+
+Demo Login
+
+Admin Access
+Email: Admin2@test.com
+Password: 12345
+
+User Access
+Email: admin@test.com
+Password: 123456
+
+
 # CRM Frontend Application
 
 This is the frontend of a full stack CRM (Customer Relationship Management) system built using Next.js.  
@@ -22,13 +41,27 @@ The application communicates with backend REST APIs for data handling and busine
 
 ## Tech Stack
 
+Frontend
 - Next.js
 - React
 - TypeScript
-- Tailwind 
-- REST API integration
+- Tailwind CSS
+- Redux Toolkit
+
+Backend
+- Node.js
+- Express.js
+- PostgreSQL
+- Sequelize ORM
+- JWT Authentication
 
 ---
+
+## Deployment
+
+Frontend deployed on Vercel  
+Backend deployed on Render  
+Database hosted on Neon PostgreSQL
 
 ## Getting Started
 
@@ -53,6 +86,12 @@ Open http://localhost:3000 in your browser.
 git@github.com:Mizba-Hub/CRM-BACKEND.git
 
 ---
+
+## Environment Variables
+
+Create a `.env.local` file:
+
+NEXT_PUBLIC_API_BASE_URL=https://crm-backend-pswf.onrender.com
 
 ## Screenshots
 
