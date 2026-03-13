@@ -83,7 +83,7 @@ const getAuthHeaders = () => {
 
 const formatTaskDueDateTime = (
   dueDate: string | null | undefined,
-  dueTime: string | null | undefined
+  dueTime: string | null | undefined,
 ): string => {
   const date = dueDate ? new Date(dueDate) : null;
   const time = dueTime || "";
@@ -131,16 +131,16 @@ export default function CompanyDetailPage() {
   const [showCallPopup, setShowCallPopup] = useState(false);
   const [isInitiatingCall, setIsInitiatingCall] = useState(false);
   const { items: notes, loading: notesLoading } = useSelector(
-    (state: RootState) => state.notes
+    (state: RootState) => state.notes,
   );
   const { items: calls, loading: callsLoading } = useSelector(
-    (state: RootState) => state.calls
+    (state: RootState) => state.calls,
   );
   const { items: emails, loading: emailsLoading } = useSelector(
-    (state: RootState) => state.emails
+    (state: RootState) => state.emails,
   );
   const { items: tasks, loading: tasksLoading } = useSelector(
-    (state: RootState) => state.tasks
+    (state: RootState) => state.tasks,
   );
   const reduxAttachments = useAppSelector((s) => s.attachments.items);
   const attachmentsLoading = useAppSelector((s) => s.attachments.loading);
@@ -154,7 +154,7 @@ export default function CompanyDetailPage() {
         linkedModuleId: Number(id),
         page: 1,
         size: 50,
-      })
+      }),
     );
   }, [dispatch, id]);
 
@@ -166,7 +166,7 @@ export default function CompanyDetailPage() {
         linkedTo: Number(id),
         page: 1,
         size: 50,
-      })
+      }),
     );
   }, [dispatch, id]);
 
@@ -191,7 +191,7 @@ export default function CompanyDetailPage() {
         linkedTo: Number(id),
         page: 1,
         size: 50,
-      })
+      }),
     );
   }, [dispatch, id]);
 
@@ -201,7 +201,7 @@ export default function CompanyDetailPage() {
         fetchAttachments({
           linkedType: "company",
           linkedId: company.id,
-        })
+        }),
       );
     }
   }, [company?.id, dispatch]);
@@ -217,7 +217,7 @@ export default function CompanyDetailPage() {
       const headers = getAuthHeaders();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/tickets?companyId=${companyId}`,
-        { headers }
+        { headers },
       );
 
       if (response.ok) {
@@ -235,7 +235,7 @@ export default function CompanyDetailPage() {
               title: "Ticket Activity",
               author: `${currentUser} created ${ticketTitle}`,
               date: formatActivityDate(
-                ticket.createdAt ? new Date(ticket.createdAt) : new Date()
+                ticket.createdAt ? new Date(ticket.createdAt) : new Date(),
               ),
               description: ticket.description || "No description",
               content: "",
@@ -315,10 +315,10 @@ export default function CompanyDetailPage() {
 
         const headers = getAuthHeaders();
         const response = await fetch(
-          `http://localhost:5000/api/v1/companies/${companyId}`,
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/companies/${companyId}`,
           {
             headers,
-          }
+          },
         );
 
         if (!response.ok) {
@@ -338,7 +338,7 @@ export default function CompanyDetailPage() {
             phone: companyData.phoneNumber || "",
             companyOwner: companyData.Owners
               ? companyData.Owners.map((owner: any) =>
-                  `${owner.firstName || ""} ${owner.lastName || ""}`.trim()
+                  `${owner.firstName || ""} ${owner.lastName || ""}`.trim(),
                 )
               : [],
             domain: companyData.domainName || "",
@@ -354,7 +354,7 @@ export default function CompanyDetailPage() {
 
           console.log(
             "🔍 [COMPANY DETAIL] Transformed company:",
-            transformedCompany
+            transformedCompany,
           );
 
           setCompany(transformedCompany);
@@ -366,7 +366,7 @@ export default function CompanyDetailPage() {
               linkedModuleId: companyData.id,
               page: 1,
               size: 50,
-            })
+            }),
           );
         } else {
           throw new Error("Invalid response format");
@@ -387,7 +387,7 @@ export default function CompanyDetailPage() {
                 linkedModuleId: parsed.id,
                 page: 1,
                 size: 50,
-              })
+              }),
             );
           }
         }
@@ -405,7 +405,7 @@ export default function CompanyDetailPage() {
     if (!notes) return [];
 
     const uniqueNotes = Array.from(
-      new Map(notes.map((n) => [n.id, n])).values()
+      new Map(notes.map((n) => [n.id, n])).values(),
     );
 
     return uniqueNotes.map((n) => ({
@@ -414,7 +414,7 @@ export default function CompanyDetailPage() {
       title: `Note${n.owner?.name ? ` by ${n.owner.name}` : ""}`,
       author: n.owner?.name || currentUserName,
       date: formatActivityDate(
-        n.createdAt ? new Date(n.createdAt) : new Date()
+        n.createdAt ? new Date(n.createdAt) : new Date(),
       ),
       description: n.content,
       content: n.content,
@@ -433,7 +433,7 @@ export default function CompanyDetailPage() {
     });
 
     const uniqueCalls = Array.from(
-      new Map(companyCalls.map((call) => [call.callId, call])).values()
+      new Map(companyCalls.map((call) => [call.callId, call])).values(),
     );
 
     return uniqueCalls.map((call) => {
@@ -445,7 +445,7 @@ export default function CompanyDetailPage() {
         title: `Call to ${callTargetName}`,
         author: call.user?.name || currentUserName,
         date: formatActivityDate(
-          call.startedAt ? new Date(call.startedAt) : new Date()
+          call.startedAt ? new Date(call.startedAt) : new Date(),
         ),
         description: `Call ${
           call.result === "successful" ? "successful" : "unsuccessful"
@@ -476,7 +476,7 @@ export default function CompanyDetailPage() {
     });
 
     const uniqueEmails = Array.from(
-      new Map(companyEmails.map((e) => [e.id, e])).values()
+      new Map(companyEmails.map((e) => [e.id, e])).values(),
     );
 
     return uniqueEmails.map((email) => {
@@ -498,7 +498,7 @@ export default function CompanyDetailPage() {
         date: formatActivityDate(
           email.sentAt
             ? new Date(email.sentAt)
-            : new Date(email.createdAt || new Date())
+            : new Date(email.createdAt || new Date()),
         ),
         description: email.body || "",
         content: email.body || "",
@@ -537,7 +537,7 @@ export default function CompanyDetailPage() {
         }`,
         author: task.assignedTo?.name || currentUserName,
         date: formatActivityDate(
-          task.createdAt ? new Date(task.createdAt) : new Date()
+          task.createdAt ? new Date(task.createdAt) : new Date(),
         ),
         dueDate: dueDateTime,
         description: task.note || `Task: ${task.taskName}`,
@@ -560,7 +560,7 @@ export default function CompanyDetailPage() {
               const result: any = await dispatch(
                 completeTask({
                   taskId: task.id,
-                })
+                }),
               );
 
               if (result?.meta?.requestStatus === "fulfilled") {
@@ -576,8 +576,8 @@ export default function CompanyDetailPage() {
                             status: "completed",
                           },
                         }
-                      : activity
-                  )
+                      : activity,
+                  ),
                 );
 
                 setTimeout(() => {
@@ -587,7 +587,7 @@ export default function CompanyDetailPage() {
                       linkedModuleId: String(id),
                       page: 1,
                       size: 50,
-                    })
+                    }),
                   );
                 }, 1000);
               } else {
@@ -623,7 +623,7 @@ export default function CompanyDetailPage() {
         title: customTitle,
         author: organizerName,
         date: formatActivityDate(
-          new Date(`${meeting.startDate} ${meeting.startTime}`)
+          new Date(`${meeting.startDate} ${meeting.startTime}`),
         ),
         description:
           meeting.note ||
@@ -744,7 +744,7 @@ export default function CompanyDetailPage() {
       console.log("📤 [MEETING CREATE] Current user ID:", currentUserId);
 
       const attendeeIds = meetingData.attendees.map(
-        (attendee: any) => attendee.id
+        (attendee: any) => attendee.id,
       );
 
       console.log("📤 [MEETING CREATE] Extracted attendee IDs:", attendeeIds);
@@ -777,7 +777,7 @@ export default function CompanyDetailPage() {
           linkedModuleId: company.id,
           page: 1,
           size: 50,
-        })
+        }),
       );
 
       return true;
@@ -799,7 +799,7 @@ export default function CompanyDetailPage() {
           linkedModuleId: Number(id),
           page: 1,
           size: 50,
-        })
+        }),
       );
     } catch (error) {
       console.error("Failed to delete meeting:", error);
@@ -828,7 +828,7 @@ export default function CompanyDetailPage() {
 
   const toggleModal = (
     type: Exclude<ActivityType, "activity">,
-    open: boolean
+    open: boolean,
   ) => {
     setShowModal((prev) => ({ ...prev, [type]: open }));
   };
@@ -872,7 +872,7 @@ export default function CompanyDetailPage() {
         ownerIds = companyData.companyOwner
           .map((ownerName: string) => {
             const user = userOptions.find(
-              (opt) => opt.label === ownerName || opt.value === ownerName
+              (opt) => opt.label === ownerName || opt.value === ownerName,
             );
             return user?.id;
           })
@@ -893,12 +893,12 @@ export default function CompanyDetailPage() {
       };
 
       const response = await fetch(
-        `http://localhost:5000/api/v1/companies/${companyId}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/companies/${companyId}`,
         {
           method: "PUT",
           headers,
           body: JSON.stringify(updateData),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -924,8 +924,8 @@ export default function CompanyDetailPage() {
           try {
             const headers = getAuthHeaders();
             const response = await fetch(
-              `http://localhost:5000/api/v1/companies/${id}`,
-              { headers }
+              `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/companies/${id}`,
+              { headers },
             );
 
             if (response.ok) {
@@ -941,7 +941,7 @@ export default function CompanyDetailPage() {
                     ? companyData.Owners.map((owner: any) =>
                         `${owner.firstName || ""} ${
                           owner.lastName || ""
-                        }`.trim()
+                        }`.trim(),
                       )
                     : [],
                   domain: companyData.domainName || "",
@@ -968,7 +968,7 @@ export default function CompanyDetailPage() {
         setIsEditing(false);
         localStorage.setItem(
           "selectedCompany",
-          JSON.stringify(editableCompany)
+          JSON.stringify(editableCompany),
         );
         notify("Company details updated successfully", "success");
       } else {
@@ -1011,7 +1011,7 @@ export default function CompanyDetailPage() {
                 content: String(data),
                 userId: currentUserId,
                 linkedTo: { type: "company", id: Number(company.id) },
-              })
+              }),
             ).then(() =>
               dispatch(
                 fetchNotes({
@@ -1019,8 +1019,8 @@ export default function CompanyDetailPage() {
                   linkedTo: Number(company.id),
                   page: 1,
                   size: 50,
-                })
-              )
+                }),
+              ),
             );
           }
         } catch (error) {
@@ -1092,7 +1092,7 @@ export default function CompanyDetailPage() {
                 bcc: bcc,
                 linkedTo: { type: "company", id: Number(company.id) },
                 attachmentIds: attachmentIds,
-              })
+              }),
             )
               .unwrap()
               .then(() => {
@@ -1103,7 +1103,7 @@ export default function CompanyDetailPage() {
                     linkedTo: Number(company.id),
                     page: 1,
                     size: 50,
-                  })
+                  }),
                 );
               })
               .catch((error: any) => {
@@ -1154,7 +1154,7 @@ export default function CompanyDetailPage() {
           if (typeof data?.assignedTo === "string") {
             const selectedUser = userOptions.find(
               (opt: { label: string; value: string; id?: number }) =>
-                opt.value === data.assignedTo || opt.label === data.assignedTo
+                opt.value === data.assignedTo || opt.label === data.assignedTo,
             );
             if (selectedUser && selectedUser.id) {
               assignedToId = Number(selectedUser.id);
@@ -1171,7 +1171,7 @@ export default function CompanyDetailPage() {
               const selectedUser = userOptions.find(
                 (opt: { label: string; value: string; id?: number }) =>
                   opt.value === data.assignedTo.value ||
-                  opt.label === data.assignedTo.value
+                  opt.label === data.assignedTo.value,
               );
               if (selectedUser && selectedUser.id) {
                 assignedToId = Number(selectedUser.id);
@@ -1195,7 +1195,7 @@ export default function CompanyDetailPage() {
 
           const assignedUser = userOptions.find(
             (u: { label: string; value: string; id?: number }) =>
-              u.id === assignedToId
+              u.id === assignedToId,
           );
 
           if (company?.id) {
@@ -1204,7 +1204,7 @@ export default function CompanyDetailPage() {
             const dueDate = data?.dueDate ? new Date(data.dueDate) : null;
             const dueDateTime = formatTaskDueDateTime(
               data?.dueDate,
-              data?.time
+              data?.time,
             );
 
             const tempActivity: Activity = {
@@ -1247,7 +1247,7 @@ export default function CompanyDetailPage() {
                 note: data?.note || null,
                 linkedModule: "company",
                 linkedModuleId: String(company.id),
-              })
+              }),
             ).then((result) => {
               if (createTaskThunk.fulfilled.match(result)) {
                 const createdTask = result.payload;
@@ -1274,7 +1274,7 @@ export default function CompanyDetailPage() {
                   linkedModuleId: String(company.id),
                   page: 1,
                   size: 50,
-                })
+                }),
               );
             });
             return true;
@@ -1308,7 +1308,7 @@ export default function CompanyDetailPage() {
       toggleModal(type, false);
       notify(
         `${type.charAt(0).toUpperCase() + type.slice(1)} added successfully`,
-        "success"
+        "success",
       );
       return true;
     }
@@ -1352,7 +1352,7 @@ export default function CompanyDetailPage() {
           targetType: "company",
           targetId: String(company.id),
           callerPhone: String(callerPhone),
-        })
+        }),
       ).unwrap();
 
       notify("Call initiated successfully", "success");
@@ -1364,7 +1364,7 @@ export default function CompanyDetailPage() {
         title: `Call to ${company.companyName}`,
         author: result.user?.name || currentUserName,
         date: formatActivityDate(
-          result.startedAt ? new Date(result.startedAt) : new Date()
+          result.startedAt ? new Date(result.startedAt) : new Date(),
         ),
         description: `Call ${
           result.result === "successful" ? "successful" : "unsuccessful"
@@ -1384,7 +1384,7 @@ export default function CompanyDetailPage() {
 
       setActivities((prev) => {
         const nonCall = prev.filter(
-          (a) => a.type !== "call" || a.id !== newCallActivity.id
+          (a) => a.type !== "call" || a.id !== newCallActivity.id,
         );
         return [...nonCall, newCallActivity];
       });
@@ -1418,7 +1418,7 @@ export default function CompanyDetailPage() {
 
       if (company?.rawData?.leadId) {
         const targetLead = leads.find(
-          (l: any) => l.id === company.rawData.leadId
+          (l: any) => l.id === company.rawData.leadId,
         );
         console.log("🔍 [LEADS DEBUG] Target lead (ID: 8):", targetLead);
         console.log("🔍 [LEADS DEBUG] Target lead email:", targetLead?.email);
@@ -1465,17 +1465,17 @@ export default function CompanyDetailPage() {
   };
 
   const fetchLeadEmailFromBackend = async (
-    leadId: number
+    leadId: number,
   ): Promise<string | null> => {
     try {
       console.log("🔍 [BACKEND] Fetching lead from backend, ID:", leadId);
 
       const headers = getAuthHeaders();
       const response = await fetch(
-        `http://localhost:5000/api/v1/leads/${leadId}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/leads/${leadId}`,
         {
           headers,
-        }
+        },
       );
 
       if (!response.ok) {
@@ -1754,7 +1754,7 @@ export default function CompanyDetailPage() {
                   uploadedById: Number(user.id),
                   linkedType: "company",
                   linkedId: company.id,
-                })
+                }),
               );
 
               console.log("📦 Upload dispatch result:", result);
@@ -1768,7 +1768,7 @@ export default function CompanyDetailPage() {
                     fetchAttachments({
                       linkedType: "company",
                       linkedId: company.id,
-                    })
+                    }),
                   );
                   console.log("📥 Fetch attachments result:", fetchResult);
                   console.log("📥 Fetched attachments:", fetchResult?.payload);
@@ -1776,7 +1776,7 @@ export default function CompanyDetailPage() {
               } else {
                 console.error(
                   "❌ Upload failed:",
-                  result?.error || result?.payload
+                  result?.error || result?.payload,
                 );
                 const errorMsg =
                   result?.payload?.message ||

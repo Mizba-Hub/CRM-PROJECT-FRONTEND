@@ -103,7 +103,7 @@ export default function CompaniesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>(
-    {}
+    {},
   );
   const [dateRange, setDateRange] = useState<DateRange>({
     start: null,
@@ -116,13 +116,13 @@ export default function CompaniesPage() {
 
   const extractUniqueValues = (
     companies: Company[],
-    key: keyof Company
+    key: keyof Company,
   ): string[] => {
     const values = companies
       .map((company) => company[key])
       .filter(
         (value): value is string =>
-          typeof value === "string" && value.trim() !== ""
+          typeof value === "string" && value.trim() !== "",
       );
 
     return Array.from(new Set(values)).sort();
@@ -131,7 +131,7 @@ export default function CompaniesPage() {
   const isDateInRange = (
     dateString: string,
     start: Date | null,
-    end: Date | null
+    end: Date | null,
   ): boolean => {
     if (!start && !end) return true;
 
@@ -141,7 +141,7 @@ export default function CompaniesPage() {
     const compareDate = new Date(
       date.getFullYear(),
       date.getMonth(),
-      date.getDate()
+      date.getDate(),
     );
     const compareStart = start
       ? new Date(start.getFullYear(), start.getMonth(), start.getDate())
@@ -236,18 +236,21 @@ export default function CompaniesPage() {
       try {
         const token = localStorage.getItem("token");
 
-        const response = await fetch("http://localhost:5000/api/v1/companies", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/companies`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
 
         const data = await response.json();
         console.log("🔍 [DIRECT API TEST] Direct API response:", data);
         console.log(
           "🔍 [DIRECT API TEST] Data length:",
-          data.data?.length || data.length
+          data.data?.length || data.length,
         );
       } catch (error) {
         console.error(" [DIRECT API TEST] Error:", error);
@@ -294,7 +297,7 @@ export default function CompaniesPage() {
               label:
                 `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
               value: String(u.id),
-            }))
+            })),
           );
         }
 
@@ -317,7 +320,7 @@ export default function CompaniesPage() {
               name:
                 `${l.firstName || ""} ${l.lastName || ""}`.trim() || l.email,
               phoneNumber: l.phoneNumber || "",
-            }))
+            })),
           );
         }
       } catch (err) {
@@ -366,7 +369,7 @@ export default function CompaniesPage() {
             default:
               return true;
           }
-        }
+        },
       );
 
       const matchesDateRange = company.createdDate
@@ -390,7 +393,7 @@ export default function CompaniesPage() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredCompanies.length / ITEMS_PER_PAGE)
+    Math.ceil(filteredCompanies.length / ITEMS_PER_PAGE),
   );
 
   useEffect(() => {
@@ -524,7 +527,7 @@ export default function CompaniesPage() {
           notify("Cannot update: no company selected", "error");
           console.error(
             "Update failed: currentCompany or company id invalid:",
-            currentCompany
+            currentCompany,
           );
           return;
         }
@@ -699,7 +702,7 @@ export default function CompaniesPage() {
                   onClick={() =>
                     localStorage.setItem(
                       "selectedCompany",
-                      JSON.stringify(company)
+                      JSON.stringify(company),
                     )
                   }
                   className="hover:underline cursor-pointer"
@@ -767,20 +770,20 @@ export default function CompaniesPage() {
               .then((companies) => {
                 console.log(
                   "🔍 [POST-IMPORT REFRESH] Refreshed companies:",
-                  companies.length
+                  companies.length,
                 );
 
                 if (companies.length === list.length) {
                   notify(
                     "CSV import failed - no new companies were created. Check console for details.",
-                    "error"
+                    "error",
                   );
                 } else {
                   notify(
                     `Import successful! Added ${
                       companies.length - list.length
                     } new companies.`,
-                    "success"
+                    "success",
                   );
                 }
               })

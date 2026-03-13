@@ -1,5 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+
 export interface Owner {
   id: number;
   firstName: string;
@@ -52,7 +55,7 @@ export const fetchCompanies = createAsyncThunk<
 >("companies/fetchCompanies", async (_, { rejectWithValue }) => {
   try {
     const headers = getAuthHeaders();
-    const res = await fetch("http://localhost:5000/api/v1/companies", {
+    const res = await fetch(`${API_BASE_URL}/api/v1/companies`, {
       headers,
     });
 
@@ -73,7 +76,7 @@ export const fetchCompanies = createAsyncThunk<
 
     return companiesArray.map((c: any) => {
       console.log(
-        `🔍 [FRONTEND] Processing company: ${c.id} - ${c.companyName}`
+        `🔍 [FRONTEND] Processing company: ${c.id} - ${c.companyName}`,
       );
       console.log(`🔍 [FRONTEND] Raw owners data:`, c.Owners);
 
@@ -119,7 +122,7 @@ export const createCompany = createAsyncThunk<
 
     const ownerIds = company.companyOwner.map((o) => o.id);
 
-    const res = await fetch("http://localhost:5000/api/v1/companies", {
+    const res = await fetch(`${API_BASE_URL}/api/v1/companies`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -178,18 +181,15 @@ export const updateCompany = createAsyncThunk<
 
     const ownerIds = company.companyOwner.map((o) => o.id);
 
-    const res = await fetch(
-      `http://localhost:5000/api/v1/companies/${company.id}`,
-      {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({
-          ...company,
-          companyOwner: undefined,
-          ownerIds: ownerIds,
-        }),
-      }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/v1/companies/${company.id}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        ...company,
+        companyOwner: undefined,
+        ownerIds: ownerIds,
+      }),
+    });
 
     if (!res.ok) {
       const text = await res.text();
@@ -234,7 +234,7 @@ export const deleteCompany = createAsyncThunk<
 >("companies/deleteCompany", async (id, { rejectWithValue }) => {
   try {
     const headers = getAuthHeaders();
-    const res = await fetch(`http://localhost:5000/api/v1/companies/${id}`, {
+    const res = await fetch(`${API_BASE_URL}/api/v1/companies/${id}`, {
       method: "DELETE",
       headers,
     });
@@ -269,7 +269,7 @@ const companySlice = createSlice({
         if (action.payload.length > 0) {
           console.log(
             "🔍 [REDUX] First company owners:",
-            action.payload[0].companyOwner
+            action.payload[0].companyOwner,
           );
         }
       })
