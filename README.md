@@ -102,7 +102,7 @@ NEXT_PUBLIC_API_BASE_URL=https://crm-backend-pswf.onrender.com
 ![Leads](screenshots/Leads.jpeg)
 
 ### Create Lead
-![Create Lead](screenshots/CreateLead.jpeg)
+![Create Lead](screenshots/Createlead.jpeg)
 
 ### Companies
 ![Companies](screenshots/Company.jpeg)
@@ -117,7 +117,7 @@ NEXT_PUBLIC_API_BASE_URL=https://crm-backend-pswf.onrender.com
 ![deals](screenshots/deals.jpeg)
 
 ### Call management
-![call](screenshots/call.jpeg)
+![call](screenshots/Call.jpeg)
 
 ##  Project Purpose
 
